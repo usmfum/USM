@@ -19,5 +19,10 @@ contract("USDOracle", accounts => {
             let price = await oracle.latestPrice();
             price.toString().should.equal("20000");
         });
+
+        it("returns the correct decimal shift", async () => {
+            let shift = await oracle.decimalShift()
+            shift.toString().should.equal("2");
+        })
     });
 });
