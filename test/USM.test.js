@@ -3,11 +3,11 @@ const USDOracle = artifacts.require("./USDOracle.sol");
 
 const EVM_REVERT = "VM Exception while processing transaction: revert";
 
-const ether = (n) => {
+const toWei = (n) => {
     return web3.utils.toWei(n.toString(), 'ether');
 }
 
-const usd = (n) => {
+const toEth = (n) => {
     return web3.utils.fromWei(n.toString(), 'ether')
 }
 
@@ -16,61 +16,166 @@ require('chai')
     .should();
 
 contract("USM", accounts => {
-    let deployer = accounts[0];
 
+    let deployer = accounts[0];
+    
     describe("mints and burns a static amount", () => {
+        
         let oracle, usm;
         let etherPrice, etherPriceDecimalShift, ethDeposit, expectedMintAmount;
-        let erc20Minted, usmEtherBalance, usmTotalSupply;
 
         before(async () => {
+            // Deploy contracts
             oracle = await USDOracle.new({from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
+
+            // Setup variables
             etherPrice = parseInt(await oracle.latestPrice());
             etherPriceDecimalShift = parseInt(await oracle.decimalShift());
-            ethDeposit = 8;
-            expectedMintAmount = ether(ethDeposit * (etherPrice / (10**etherPriceDecimalShift)));
-            //mint
-            await usm.mint({from: deployer, value: ether(ethDeposit)});
+            ethDeposit = 0.1;
+            expectedMintAmount = toWei(ethDeposit * (etherPrice / (10**etherPriceDecimalShift)));
+
+            // Mint
+            await usm.mint({from: deployer, value: toWei(ethDeposit)});
         });
 
         it("mints the correct amount", async () => {
-            erc20Minted = await usm.balanceOf(deployer);
+            let erc20Minted = await usm.balanceOf(deployer);
             erc20Minted.toString().should.equal(expectedMintAmount.toString());
         });
 
         it("stores correct amount of ether", async () => {
-            usmEtherBalance = await web3.eth.getBalance(usm.address);
-            usmEtherBalance.toString().should.equal(ether(ethDeposit).toString());
+            let usmEtherBalance = await web3.eth.getBalance(usm.address);
+            usmEtherBalance.toString().should.equal(toWei(ethDeposit).toString());
+            let ethPool = await usm.ethPool();
+            toEth(ethPool.toString()).toString().should.equal(ethDeposit.toString());
         });
 
         it("updates the total supply", async () => {
-            usmTotalSupply = await usm.totalSupply();
-            usmTotalSupply.toString().should.equal(erc20Minted.toString());
+            let usmTotalSupply = await usm.totalSupply();
+            usmTotalSupply.toString().should.equal(expectedMintAmount.toString());
         });
 
         after(() => {
             describe("burns the static amount", () => {
                 before(async () => {
-                    //burn
-                    await usm.burn(erc20Minted, {from: deployer});
+                    // Burn
+                    await usm.burn(expectedMintAmount, {from: deployer});
                 });
 
-                it("burns the correct amount of coins", async () => {
-                    erc20Minted = await usm.balanceOf(deployer);
-                    erc20Minted.toString().should.equal("0");
+                it("burns the correct amount of usm", async () => {
+                    let usmBalance = await usm.balanceOf(deployer);
+                    usmBalance.toString().should.equal("0");
                 });
 
                 it("redeems ether back to the owner", async () => {
-                    usmEtherBalance = await web3.eth.getBalance(usm.address);
-                    usmEtherBalance.toString().should.equal("0");
+                    let newUsmEtherBalance = await web3.eth.getBalance(usm.address);
+                    newUsmEtherBalance.toString().should.equal("0");
                 });
 
                 it("updates the total supply", async () => {
-                    usmTotalSupply = await usm.totalSupply();
-                    usmTotalSupply.toString().should.equal("0");
-                })
+                    let newUsmTotalSupply = await usm.totalSupply();
+                    newUsmTotalSupply.toString().should.equal("0");
+                });
             });
+        });
+    });
+
+    describe("mints, then burns half without the price changing", () => {
+
+        let oracle, usm;
+        let halfUsmAmount, halfEtherAmount;
+        let etherPrice, etherPriceDecimalShift, ethDeposit, expectedMintAmount;
+
+        before(async () => {
+            // Deploy contracts
+            oracle = await USDOracle.new({from: deployer});
+            usm = await USM.new(oracle.address, {from: deployer});
+
+            // Setup variables
+            etherPrice = parseInt(await oracle.latestPrice());
+            etherPriceDecimalShift = parseInt(await oracle.decimalShift());
+            ethDeposit = 0.1;
+
+            // Mint
+            await usm.mint({from: deployer, value: toWei(ethDeposit)});
+
+            // Setup half variables
+            let usmMinted = await usm.balanceOf(deployer);
+            halfUsmAmount = parseInt(usmMinted.toString()) / 2;
+            halfEtherAmount = ethDeposit / 2;
+
+            // Burn
+            await usm.burn(halfUsmAmount.toString(), {from: deployer});
+        });
+
+        it("burns half the amount of usm", async () => {
+            let newBalance = await usm.balanceOf(deployer);
+            newBalance.toString().should.equal(halfUsmAmount.toString());
+        });
+
+        it("redeems half the ether back to owner", async () => {
+            let newUsmEthBalance = await web3.eth.getBalance(usm.address);
+            newUsmEthBalance.toString().should.equal(toWei(halfEtherAmount).toString());
+            let newEthPool = await usm.ethPool();
+            newEthPool.toString().should.equal(toWei(halfEtherAmount).toString());
+        });
+
+        it("halves to total supply", async () => {
+            let newUsmTotalSupply = await usm.totalSupply();
+            newUsmTotalSupply.toString().should.equal(halfUsmAmount.toString());
+        });
+    });
+
+    describe("mints, then burns half with the price doubling", () => {
+
+        let oracle, usm;
+        let halfUsmAmount, halfEtherAmount;
+        let etherPrice, etherPriceDecimalShift, ethDeposit, expectedMintAmount;
+
+        before(async () => {
+            // Deploy contracts
+            oracle = await USDOracle.new({from: deployer});
+            usm = await USM.new(oracle.address, {from: deployer});
+
+            // Setup variables
+            etherPrice = parseInt(await oracle.latestPrice());
+            let doublePrice = etherPrice * 2;
+            etherPriceDecimalShift = parseInt(await oracle.decimalShift());
+            ethDeposit = 0.1;
+
+            // Mint
+            await usm.mint({from: deployer, value: toWei(ethDeposit)});
+
+            // Double the price
+            await oracle.setPrice(doublePrice.toString(), {from: deployer});
+
+            // Setup quarter variables
+            let usmMinted = await usm.balanceOf(deployer);
+            halfUsmAmount = parseInt(usmMinted.toString()) / 2;
+            quarterEthAmount = ethDeposit / 4;
+
+            // Burn
+            await usm.burn(halfUsmAmount.toString(), {from: deployer});
+        });
+
+        it("burns the same amount of usm", async () => {
+            let newBalance = await usm.balanceOf(deployer);
+            newBalance.toString().should.equal(halfUsmAmount.toString());
+        });
+
+        it("redeems the ether back to owner", async () => {
+            // Calculate remaining ether
+            let etherLeftInUsm = toWei(ethDeposit) - toWei(quarterEthAmount);
+            let newUsmEthBalance = await web3.eth.getBalance(usm.address);
+            newUsmEthBalance.toString().should.equal(etherLeftInUsm.toString());
+            let newEthPool = await usm.ethPool();
+            newEthPool.toString().should.equal(etherLeftInUsm.toString());
+        });
+
+        it("halves to total supply", async () => {
+            let newUsmTotalSupply = await usm.totalSupply();
+            newUsmTotalSupply.toString().should.equal(halfUsmAmount.toString());
         });
     });
 });
