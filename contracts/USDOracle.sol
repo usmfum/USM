@@ -2,8 +2,9 @@ pragma solidity ^0.6.7;
 
 import "./IOracle.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract USDOracle is IOracle{
+contract USDOracle is IOracle, Ownable{
     using SafeMath for uint;
 
     uint price;
@@ -21,5 +22,9 @@ contract USDOracle is IOracle{
 
     function decimalShift() external override view returns (uint) {
         return decShift;
+    }
+
+    function setPrice(uint _newPrice) external onlyOwner {
+        price = _newPrice;
     }
 }

@@ -17,40 +17,60 @@ require('chai')
 
 contract("USM", accounts => {
     let deployer = accounts[0];
-    let minter1 = accounts[1];
-    let oracle, usm;
 
-    beforeEach(async () => {
-        oracle = await USDOracle.new({from: deployer});
-        usm = await USM.new(oracle.address, {from: deployer});
-    });
+    describe("mints and burns a static amount", () => {
+        let oracle, usm;
+        let etherPrice, etherPriceDecimalShift, ethDeposit, expectedMintAmount;
+        let erc20Minted, usmEtherBalance, usmTotalSupply;
 
-    describe("deployment", async () => {
-        it("mints and burns a static amount", async () => {
-            let etherPrice = parseInt(await oracle.latestPrice());
-            let etherPriceDecimalShift = parseInt(await oracle.decimalShift());
-            
-            let ethDeposit = 12;
-            let expectedMintAmount = ether(ethDeposit * (etherPrice / (10**etherPriceDecimalShift)));
-
+        before(async () => {
+            oracle = await USDOracle.new({from: deployer});
+            usm = await USM.new(oracle.address, {from: deployer});
+            etherPrice = parseInt(await oracle.latestPrice());
+            etherPriceDecimalShift = parseInt(await oracle.decimalShift());
+            ethDeposit = 8;
+            expectedMintAmount = ether(ethDeposit * (etherPrice / (10**etherPriceDecimalShift)));
             //mint
-            await usm.mint({from: minter1, value: ether(ethDeposit)});
-            let erc20Minted = await usm.balanceOf(minter1);
+            await usm.mint({from: deployer, value: ether(ethDeposit)});
+        });
+
+        it("mints the correct amount", async () => {
+            erc20Minted = await usm.balanceOf(deployer);
             erc20Minted.toString().should.equal(expectedMintAmount.toString());
-            let usmEtherBalance = await web3.eth.getBalance(usm.address);
-            usmEtherBalance.toString().should.equal(ether(ethDeposit).toString());
-            let usmTotalSupply = await usm.totalSupply();
-            usmTotalSupply.toString().should.equal(erc20Minted.toString());
+        });
 
-            //burn
-            await usm.burn(erc20Minted, {from: minter1});
-            erc20Minted = await usm.balanceOf(minter1);
-            erc20Minted.toString().should.equal("0");
+        it("stores correct amount of ether", async () => {
             usmEtherBalance = await web3.eth.getBalance(usm.address);
-            usmEtherBalance.toString().should.equal("0");
-            usmTotalSupply = await usm.totalSupply();
-            usmTotalSupply.toString().should.equal("0");
+            usmEtherBalance.toString().should.equal(ether(ethDeposit).toString());
+        });
 
+        it("updates the total supply", async () => {
+            usmTotalSupply = await usm.totalSupply();
+            usmTotalSupply.toString().should.equal(erc20Minted.toString());
+        });
+
+        after(() => {
+            describe("burns the static amount", () => {
+                before(async () => {
+                    //burn
+                    await usm.burn(erc20Minted, {from: deployer});
+                });
+
+                it("burns the correct amount of coins", async () => {
+                    erc20Minted = await usm.balanceOf(deployer);
+                    erc20Minted.toString().should.equal("0");
+                });
+
+                it("redeems ether back to the owner", async () => {
+                    usmEtherBalance = await web3.eth.getBalance(usm.address);
+                    usmEtherBalance.toString().should.equal("0");
+                });
+
+                it("updates the total supply", async () => {
+                    usmTotalSupply = await usm.totalSupply();
+                    usmTotalSupply.toString().should.equal("0");
+                })
+            });
         });
     });
 });
