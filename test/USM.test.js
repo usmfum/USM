@@ -26,7 +26,7 @@ contract("USM", accounts => {
     });
 
     describe("deployment", async () => {
-        it("mints and burns the correct amount", async () => {
+        it("mints and burns a static amount", async () => {
             let etherPrice = parseInt(await oracle.latestPrice());
             let etherPriceDecimalShift = parseInt(await oracle.decimalShift());
             
@@ -39,6 +39,8 @@ contract("USM", accounts => {
             erc20Minted.toString().should.equal(expectedMintAmount.toString());
             let usmEtherBalance = await web3.eth.getBalance(usm.address);
             usmEtherBalance.toString().should.equal(ether(ethDeposit).toString());
+            let usmTotalSupply = await usm.totalSupply();
+            usmTotalSupply.toString().should.equal(erc20Minted.toString());
 
             //burn
             await usm.burn(erc20Minted, {from: minter1});
@@ -46,7 +48,9 @@ contract("USM", accounts => {
             erc20Minted.toString().should.equal("0");
             usmEtherBalance = await web3.eth.getBalance(usm.address);
             usmEtherBalance.toString().should.equal("0");
-            
+            usmTotalSupply = await usm.totalSupply();
+            usmTotalSupply.toString().should.equal("0");
+
         });
     });
 });
