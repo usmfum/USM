@@ -11,8 +11,8 @@ contract USDOracle is IOracle{
 
     constructor() public {
         decShift = 2;
-        uint testPrice = 200;
-        price = testPrice.mul(10**decShift);
+        // $250.00
+        price = 25000;
     }
 
     function latestPrice() external override view returns (uint) {

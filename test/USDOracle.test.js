@@ -14,10 +14,10 @@ contract("USDOracle", accounts => {
         oracle = await USDOracle.new({from: deployer});
     });
 
-    describe("Deployment", async () => {
+    describe("deployment", async () => {
         it("retruns the correct price", async () => {
             let price = await oracle.latestPrice();
-            price.toString().should.equal("20000");
+            price.toString().should.equal("25000");
         });
 
         it("returns the correct decimal shift", async () => {
