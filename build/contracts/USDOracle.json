@@ -20,22 +20,22 @@
       "type": "function"
     }
   ],
-  "metadata": "{\"compiler\":{\"version\":\"0.6.7+commit.b8d736ae\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"latestPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"methods\":{}},\"userdoc\":{\"methods\":{}}},\"settings\":{\"compilationTarget\":{\"/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/USDOracle.sol\":\"USDOracle\"},\"evmVersion\":\"petersburg\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/USDOracle.sol\":{\"keccak256\":\"0x7339bf7ef5576f20786e5df100d7214fffb2481fde052d732a46002af9032e2a\",\"urls\":[\"bzz-raw://32c2570ad2316dff13615b501015f03f998b29cc848ad99ae54ff8c8302c6031\",\"dweb:/ipfs/QmdcUZmUx9TphZkw7sLsMx2gCAm9y6X77V25Lri3cXaL2K\"]}},\"version\":1}",
-  "bytecode": "0x6080604052348015600f57600080fd5b50614e206000819055506084806100276000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063a3e6ba9414602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b60009056fea26469706673582212208e4165ebe15b1232538983080fff895a91caaba92e3359e116a3cc186a207b1e64736f6c63430006070033",
-  "deployedBytecode": "0x6080604052348015600f57600080fd5b506004361060285760003560e01c8063a3e6ba9414602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b60009056fea26469706673582212208e4165ebe15b1232538983080fff895a91caaba92e3359e116a3cc186a207b1e64736f6c63430006070033",
+  "metadata": "{\"compiler\":{\"version\":\"0.6.7+commit.b8d736ae\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"latestPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"methods\":{}},\"userdoc\":{\"methods\":{}}},\"settings\":{\"compilationTarget\":{\"/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/USDOracle.sol\":\"USDOracle\"},\"evmVersion\":\"petersburg\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/USDOracle.sol\":{\"keccak256\":\"0xad4ae5c09e7e4e9f3cec0be56a4038c9d1b5a15eea08bfcaf614f5514961a4aa\",\"urls\":[\"bzz-raw://38ea86d2a4a43f2d34894486e4fa9c630c02193e8f22db01feae4de4846ba29f\",\"dweb:/ipfs/QmVGdhSadtRrw3hDawQPa7xgSRCZGksfXaYrd7nQdZB2JF\"]}},\"version\":1}",
+  "bytecode": "0x6080604052348015600f57600080fd5b50614e206000819055506088806100276000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063a3e6ba9414602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b6000805490509056fea264697066735822122059bd54e41e4f48444b45dc00243fc11a48194cdd64b6b95e3136a3c185c4f48064736f6c63430006070033",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b506004361060285760003560e01c8063a3e6ba9414602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b6000805490509056fea264697066735822122059bd54e41e4f48444b45dc00243fc11a48194cdd64b6b95e3136a3c185c4f48064736f6c63430006070033",
   "immutableReferences": {},
-  "sourceMap": "25:175:1:-:0;;;68:66;5:9:-1;2:2;;;27:1;24;17:12;2:2;68:66:1;116:11;108:5;:19;;;;25:175;;;;;;",
-  "deployedSourceMap": "25:175:1:-:0;;;;5:9:-1;2:2;;;27:1;24;17:12;2:2;25:175:1;;;;;;;;;;;;;;;;12:1:-1;9;2:12;140:58:1;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;184:4;140:58;:::o",
-  "source": "pragma solidity ^0.6.7;\n\ncontract USDOracle {\n\n    uint price;\n\n    constructor() public {\n        \n        price = 200 * 10**2;\n    }\n\n    function latestPrice() public view returns (uint) {\n\n    }\n}",
+  "sourceMap": "25:185:1:-:0;;;68:55;5:9:-1;2:2;;;27:1;24;17:12;2:2;68:55:1;107:9;99:5;:17;;;;25:185;;;;;;",
+  "deployedSourceMap": "25:185:1:-:0;;;;5:9:-1;2:2;;;27:1;24;17:12;2:2;25:185:1;;;;;;;;;;;;;;;;12:1:-1;9;2:12;129:79:1;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;173:4;196:5;;189:12;;129:79;:::o",
+  "source": "pragma solidity ^0.6.7;\n\ncontract USDOracle {\n\n    uint price;\n\n    constructor() public {\n        price = 200*10**2;\n    }\n\n    function latestPrice() public view returns (uint) {\n        return price;\n    }\n}",
   "sourcePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/USDOracle.sol",
   "ast": {
     "absolutePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/USDOracle.sol",
     "exportedSymbols": {
       "USDOracle": [
-        59
+        61
       ]
     },
-    "id": 60,
+    "id": 62,
     "nodeType": "SourceUnit",
     "nodes": [
       {
@@ -56,9 +56,9 @@
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": true,
-        "id": 59,
+        "id": 61,
         "linearizedBaseContracts": [
-          59
+          61
         ],
         "name": "USDOracle",
         "nodeType": "ContractDefinition",
@@ -70,7 +70,7 @@
             "name": "price",
             "nodeType": "VariableDeclaration",
             "overrides": null,
-            "scope": 59,
+            "scope": 61,
             "src": "51:10:1",
             "stateVariable": true,
             "storageLocation": "default",
@@ -95,7 +95,7 @@
             "body": {
               "id": 51,
               "nodeType": "Block",
-              "src": "89:45:1",
+              "src": "89:34:1",
               "statements": [
                 {
                   "expression": {
@@ -112,7 +112,7 @@
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
                       "referencedDeclaration": 40,
-                      "src": "108:5:1",
+                      "src": "99:5:1",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
@@ -141,7 +141,7 @@
                         "kind": "number",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "116:3:1",
+                        "src": "107:3:1",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_rational_200_by_1",
@@ -172,7 +172,7 @@
                           "kind": "number",
                           "lValueRequested": false,
                           "nodeType": "Literal",
-                          "src": "122:2:1",
+                          "src": "111:2:1",
                           "subdenomination": null,
                           "typeDescriptions": {
                             "typeIdentifier": "t_rational_10_by_1",
@@ -192,7 +192,7 @@
                           "kind": "number",
                           "lValueRequested": false,
                           "nodeType": "Literal",
-                          "src": "126:1:1",
+                          "src": "115:1:1",
                           "subdenomination": null,
                           "typeDescriptions": {
                             "typeIdentifier": "t_rational_2_by_1",
@@ -200,19 +200,19 @@
                           },
                           "value": "2"
                         },
-                        "src": "122:5:1",
+                        "src": "111:5:1",
                         "typeDescriptions": {
                           "typeIdentifier": "t_rational_100_by_1",
                           "typeString": "int_const 100"
                         }
                       },
-                      "src": "116:11:1",
+                      "src": "107:9:1",
                       "typeDescriptions": {
                         "typeIdentifier": "t_rational_20000_by_1",
                         "typeString": "int_const 20000"
                       }
                     },
-                    "src": "108:19:1",
+                    "src": "99:17:1",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -220,7 +220,7 @@
                   },
                   "id": 50,
                   "nodeType": "ExpressionStatement",
-                  "src": "108:19:1"
+                  "src": "99:17:1"
                 }
               ]
             },
@@ -244,22 +244,42 @@
               "parameters": [],
               "src": "89:0:1"
             },
-            "scope": 59,
-            "src": "68:66:1",
+            "scope": 61,
+            "src": "68:55:1",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "public"
           },
           {
             "body": {
-              "id": 57,
+              "id": 59,
               "nodeType": "Block",
-              "src": "190:8:1",
-              "statements": []
+              "src": "179:29:1",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 57,
+                    "name": "price",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 40,
+                    "src": "196:5:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 56,
+                  "id": 58,
+                  "nodeType": "Return",
+                  "src": "189:12:1"
+                }
+              ]
             },
             "documentation": null,
             "functionSelector": "a3e6ba94",
-            "id": 58,
+            "id": 60,
             "implemented": true,
             "kind": "function",
             "modifiers": [],
@@ -270,7 +290,7 @@
               "id": 53,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "160:2:1"
+              "src": "149:2:1"
             },
             "returnParameters": {
               "id": 56,
@@ -283,8 +303,8 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 58,
-                  "src": "184:4:1",
+                  "scope": 60,
+                  "src": "173:4:1",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -295,7 +315,7 @@
                     "id": 54,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "184:4:1",
+                    "src": "173:4:1",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -305,29 +325,29 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "183:6:1"
+              "src": "172:6:1"
             },
-            "scope": 59,
-            "src": "140:58:1",
+            "scope": 61,
+            "src": "129:79:1",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "public"
           }
         ],
-        "scope": 60,
-        "src": "25:175:1"
+        "scope": 62,
+        "src": "25:185:1"
       }
     ],
-    "src": "0:200:1"
+    "src": "0:210:1"
   },
   "legacyAST": {
     "absolutePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/USDOracle.sol",
     "exportedSymbols": {
       "USDOracle": [
-        59
+        61
       ]
     },
-    "id": 60,
+    "id": 62,
     "nodeType": "SourceUnit",
     "nodes": [
       {
@@ -348,9 +368,9 @@
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": true,
-        "id": 59,
+        "id": 61,
         "linearizedBaseContracts": [
-          59
+          61
         ],
         "name": "USDOracle",
         "nodeType": "ContractDefinition",
@@ -362,7 +382,7 @@
             "name": "price",
             "nodeType": "VariableDeclaration",
             "overrides": null,
-            "scope": 59,
+            "scope": 61,
             "src": "51:10:1",
             "stateVariable": true,
             "storageLocation": "default",
@@ -387,7 +407,7 @@
             "body": {
               "id": 51,
               "nodeType": "Block",
-              "src": "89:45:1",
+              "src": "89:34:1",
               "statements": [
                 {
                   "expression": {
@@ -404,7 +424,7 @@
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
                       "referencedDeclaration": 40,
-                      "src": "108:5:1",
+                      "src": "99:5:1",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
@@ -433,7 +453,7 @@
                         "kind": "number",
                         "lValueRequested": false,
                         "nodeType": "Literal",
-                        "src": "116:3:1",
+                        "src": "107:3:1",
                         "subdenomination": null,
                         "typeDescriptions": {
                           "typeIdentifier": "t_rational_200_by_1",
@@ -464,7 +484,7 @@
                           "kind": "number",
                           "lValueRequested": false,
                           "nodeType": "Literal",
-                          "src": "122:2:1",
+                          "src": "111:2:1",
                           "subdenomination": null,
                           "typeDescriptions": {
                             "typeIdentifier": "t_rational_10_by_1",
@@ -484,7 +504,7 @@
                           "kind": "number",
                           "lValueRequested": false,
                           "nodeType": "Literal",
-                          "src": "126:1:1",
+                          "src": "115:1:1",
                           "subdenomination": null,
                           "typeDescriptions": {
                             "typeIdentifier": "t_rational_2_by_1",
@@ -492,19 +512,19 @@
                           },
                           "value": "2"
                         },
-                        "src": "122:5:1",
+                        "src": "111:5:1",
                         "typeDescriptions": {
                           "typeIdentifier": "t_rational_100_by_1",
                           "typeString": "int_const 100"
                         }
                       },
-                      "src": "116:11:1",
+                      "src": "107:9:1",
                       "typeDescriptions": {
                         "typeIdentifier": "t_rational_20000_by_1",
                         "typeString": "int_const 20000"
                       }
                     },
-                    "src": "108:19:1",
+                    "src": "99:17:1",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -512,7 +532,7 @@
                   },
                   "id": 50,
                   "nodeType": "ExpressionStatement",
-                  "src": "108:19:1"
+                  "src": "99:17:1"
                 }
               ]
             },
@@ -536,22 +556,42 @@
               "parameters": [],
               "src": "89:0:1"
             },
-            "scope": 59,
-            "src": "68:66:1",
+            "scope": 61,
+            "src": "68:55:1",
             "stateMutability": "nonpayable",
             "virtual": false,
             "visibility": "public"
           },
           {
             "body": {
-              "id": 57,
+              "id": 59,
               "nodeType": "Block",
-              "src": "190:8:1",
-              "statements": []
+              "src": "179:29:1",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "id": 57,
+                    "name": "price",
+                    "nodeType": "Identifier",
+                    "overloadedDeclarations": [],
+                    "referencedDeclaration": 40,
+                    "src": "196:5:1",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 56,
+                  "id": 58,
+                  "nodeType": "Return",
+                  "src": "189:12:1"
+                }
+              ]
             },
             "documentation": null,
             "functionSelector": "a3e6ba94",
-            "id": 58,
+            "id": 60,
             "implemented": true,
             "kind": "function",
             "modifiers": [],
@@ -562,7 +602,7 @@
               "id": 53,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "160:2:1"
+              "src": "149:2:1"
             },
             "returnParameters": {
               "id": 56,
@@ -575,8 +615,8 @@
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 58,
-                  "src": "184:4:1",
+                  "scope": 60,
+                  "src": "173:4:1",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -587,7 +627,7 @@
                     "id": 54,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "184:4:1",
+                    "src": "173:4:1",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -597,20 +637,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "183:6:1"
+              "src": "172:6:1"
             },
-            "scope": 59,
-            "src": "140:58:1",
+            "scope": 61,
+            "src": "129:79:1",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "public"
           }
         ],
-        "scope": 60,
-        "src": "25:175:1"
+        "scope": 62,
+        "src": "25:185:1"
       }
     ],
-    "src": "0:200:1"
+    "src": "0:210:1"
   },
   "compiler": {
     "name": "solc",
@@ -618,7 +658,7 @@
   },
   "networks": {},
   "schemaVersion": "3.2.3",
-  "updatedAt": "2020-08-01T10:45:07.193Z",
+  "updatedAt": "2020-08-01T11:00:35.736Z",
   "devdoc": {
     "methods": {}
   },
