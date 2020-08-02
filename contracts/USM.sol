@@ -2,10 +2,14 @@ pragma solidity ^0.6.7;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "./IOracle.sol";
 
-contract USM is ERC20, Ownable {
+/**
+ * @title USM Stable Coin
+ * @author Alex Roan (@alexroan)
+ * @notice Concept by Jacob Eliosoff (@jacob-eliosoff)
+ */
+contract USM is ERC20 {
     using SafeMath for uint;
 
     address oracle;
@@ -20,7 +24,7 @@ contract USM is ERC20, Ownable {
     }
 
     /**
-     * @dev Mint ETH for USM. Uses msg.value as the ETH deposit.
+     * @notice Mint ETH for USM. Uses msg.value as the ETH deposit.
      */
     function mint() external payable {
         uint usmAmount = _ethToUsm(msg.value);
@@ -29,7 +33,7 @@ contract USM is ERC20, Ownable {
     }
 
     /**
-     * @dev Burn USM for ETH.
+     * @notice Burn USM for ETH.
      *
      * @param _usmAmount Amount of USM to burn.
      */
@@ -41,7 +45,7 @@ contract USM is ERC20, Ownable {
     }
 
     /**
-     * @dev Calculate debt ratio of the current Eth pool amount and outstanding USM
+     * @notice Calculate debt ratio of the current Eth pool amount and outstanding USM
      * (the amount of USM in total supply).
      *
      * @return Debt ratio decimal percentage *(10**decimals()). For example, 100%
@@ -52,16 +56,7 @@ contract USM is ERC20, Ownable {
     }
 
     /**
-     * @dev Set the price oracle. Only Owner.
-     *
-     * @param _oracle Address of the oracle.
-     */
-    function setOracle(address _oracle) external onlyOwner {
-        oracle = _oracle;
-    }
-
-    /**
-     * @dev Calculate debt ratio of an Eth pool amount and outstanding USM
+     * @notice Calculate debt ratio of an Eth pool amount and outstanding USM
      * (the amount of USM in total supply).
      *
      * @param _ethPool Amount of Eth in the pool.
@@ -73,11 +68,11 @@ contract USM is ERC20, Ownable {
         if (_ethPool == 0) {
             return 0;
         }
-        return _ethToUsm(_ethPool).mul(10**uint(decimals())).div(_usmOutstanding);
+        return _usmOutstanding.mul(10**uint(decimals())).div(_ethToUsm(_ethPool));
     }
 
     /**
-     * @dev Convert ETH amount to USM using the latest price of USM
+     * @notice Convert ETH amount to USM using the latest price of USM
      * in ETH.
      *
      * @param _ethAmount The amount of ETH to convert.
@@ -90,7 +85,7 @@ contract USM is ERC20, Ownable {
     }
 
     /**
-     * @dev Convert USM amount to ETH using the latest price of USM
+     * @notice Convert USM amount to ETH using the latest price of USM
      * in ETH.
      *
      * @param _usmAmount The amount of USM to convert.
@@ -103,7 +98,7 @@ contract USM is ERC20, Ownable {
     }
 
     /**
-     * @dev Retrieve the latest price and decimal shift of the
+     * @notice Retrieve the latest price and decimal shift of the
      * price oracle.
      *
      * @return (latest price, decimal shift)
