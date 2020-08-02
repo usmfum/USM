@@ -160,6 +160,10 @@ contract("USM", accounts => {
             // Double the price
             await oracle.setPrice(doublePrice.toString(), {from: deployer});
 
+            // Check the debt ratio
+            let debtRatio = await usm.debtRatio();
+            toEth(debtRatio).toString().should.equal("0.5");
+
             // Setup quarter variables
             let usmMinted = await usm.balanceOf(deployer);
             halfUsmAmount = parseInt(usmMinted.toString()) / 2;
@@ -172,6 +176,11 @@ contract("USM", accounts => {
         it("burns the same amount of usm", async () => {
             let newBalance = await usm.balanceOf(deployer);
             newBalance.toString().should.equal(halfUsmAmount.toString());
+        });
+
+        it("updates debt ratio", async () => {
+            let debtRatio = await usm.debtRatio();
+            toEth(debtRatio).toString().should.equal("0.333333333333333333");
         });
 
         it("redeems the ether back to owner", async () => {
