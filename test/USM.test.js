@@ -39,6 +39,11 @@ contract("USM", accounts => {
             await usm.mint({from: deployer, value: toWei(ethDeposit)});
         });
 
+        it("sets the correct debt ratio", async () => {
+            let debtRatio = (await usm.debtRatio()).toString();
+            toEth(debtRatio).toString().should.equal("1");
+        });
+
         it("mints the correct amount", async () => {
             let erc20Minted = await usm.balanceOf(deployer);
             erc20Minted.toString().should.equal(expectedMintAmount.toString());
@@ -66,6 +71,11 @@ contract("USM", accounts => {
                 it("burns the correct amount of usm", async () => {
                     let usmBalance = await usm.balanceOf(deployer);
                     usmBalance.toString().should.equal("0");
+                });
+
+                it("sets the correct debt ratio", async () => {
+                    let debtRatio = (await usm.debtRatio()).toString();
+                    debtRatio.toString().should.equal("0");
                 });
 
                 it("redeems ether back to the owner", async () => {

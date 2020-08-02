@@ -41,12 +41,39 @@ contract USM is ERC20, Ownable {
     }
 
     /**
+     * @dev Calculate debt ratio of the current Eth pool amount and outstanding USM
+     * (the amount of USM in total supply).
+     *
+     * @return Debt ratio decimal percentage *(10**decimals()). For example, 100%
+     * is denoted as 1,000,000,000,000,000,000 (1 with 18 zeros).
+     */
+    function debtRatio() external view returns (uint) {
+        return _debtRatio(ethPool, totalSupply());
+    }
+
+    /**
      * @dev Set the price oracle. Only Owner.
      *
      * @param _oracle Address of the oracle.
      */
     function setOracle(address _oracle) external onlyOwner {
         oracle = _oracle;
+    }
+
+    /**
+     * @dev Calculate debt ratio of an Eth pool amount and outstanding USM
+     * (the amount of USM in total supply).
+     *
+     * @param _ethPool Amount of Eth in the pool.
+     * @param _usmOutstanding Amount of USM in total supply.
+     * @return Debt ratio decimal percentage *(10**decimals()). For example, 100%
+     * is denoted as 1,000,000,000,000,000,000 (1 with 18 zeros).
+     */
+    function _debtRatio(uint _ethPool, uint _usmOutstanding) internal view returns (uint) {
+        if (_ethPool == 0) {
+            return 0;
+        }
+        return _ethToUsm(_ethPool).mul(10**uint(decimals())).div(_usmOutstanding);
     }
 
     /**
