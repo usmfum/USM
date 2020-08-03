@@ -13,10 +13,10 @@ contract USM is ERC20 {
     using SafeMath for uint;
 
     // 0.1% (10 parts per 10,000)
-    uint mintFee = 10;
+    uint constant MINT_FEE = 10;
     // 0.5%; (50 parts per 10,000)
-    uint burnFee = 50;
-    uint percentageBase = 10000;
+    uint constant BURN_FEE = 50;
+    uint constant PERCENTAGE_BASE = 10000;
 
     address oracle;
     uint public ethPool;
@@ -33,7 +33,7 @@ contract USM is ERC20 {
      * @notice Mint ETH for USM. Uses msg.value as the ETH deposit.
      */
     function mint() external payable {
-        uint usmAmount = _applyFee(_ethToUsm(msg.value), mintFee);
+        uint usmAmount = _applyFee(_ethToUsm(msg.value), MINT_FEE);
         ethPool = ethPool.add(msg.value);
         _mint(msg.sender, usmAmount);
     }
@@ -44,7 +44,7 @@ contract USM is ERC20 {
      * @param _usmAmount Amount of USM to burn.
      */
     function burn(uint _usmAmount) external {
-        uint ethAmount = _applyFee(_usmToEth(_usmAmount), burnFee);
+        uint ethAmount = _applyFee(_usmToEth(_usmAmount), BURN_FEE);
         ethPool = ethPool.sub(ethAmount);
         _burn(msg.sender, _usmAmount);
         Address.sendValue(msg.sender, ethAmount);
@@ -86,8 +86,8 @@ contract USM is ERC20 {
      * in parts per 10,000.
      * @return The result of the _number minus the percentage fee.
      */
-    function _applyFee(uint _number, uint _feePercentage) internal view returns (uint) {
-        uint result = _number.sub((_number.mul(_feePercentage)).div(percentageBase));
+    function _applyFee(uint _number, uint _feePercentage) internal pure returns (uint) {
+        uint result = _number.sub((_number.mul(_feePercentage)).div(PERCENTAGE_BASE));
         require(result < _number, "Fee must make the result smaller");
         return result;
     }
