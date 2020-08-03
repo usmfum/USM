@@ -10,6 +10,6 @@ If ETH is worth $200, I deposit 1 ETH, I get 200 USM in return (minus a small mi
 
 This is what's known as a **CDP: Collateralised Debt Position.**
 
-The problem with CDPs is that if the asset used as collateral drops in value, which in our case is highly probable at any given time because of the volatility of ETH, the contract could become undercollateralised. This is where the concept of Minimalist Funding Tokens, or FUM, come in.
+The problem with CDPs is that if the asset used as collateral drops in value, which in our case is highly probable at any time due to the volatility of ETH, the contract could become undercollateralised. This is where the concept of Minimalist Funding Tokens, or FUM, come in.
 
 For more information on how FUM de-risks USM, read [Jacob's original article](https://medium.com/@jacob.eliosoff/whats-the-simplest-possible-decentralized-stablecoin-4a25262cf5e8).
