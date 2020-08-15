@@ -74,6 +74,7 @@ contract USM is ERC20 {
         if (ethPool == 0) {
             return 0;
         }
+        // If divFixed is fed two integers, returns their division as a fixed point number
         return divFixed(totalSupply(), _ethToUsm(ethPool));
     }
 
