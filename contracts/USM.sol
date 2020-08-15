@@ -30,14 +30,14 @@ contract USM is ERC20 {
     /**
      * @notice Multiplies x and y, assuming they are both fixed point with 27 digits.
      */
-    function muld(uint256 x, uint256 y) internal pure returns (uint256) {
+    function mulFixed(uint256 x, uint256 y) internal pure returns (uint256) {
         return x.mul(y).div(UNIT);
     }
 
     /**
      * @notice Divides x by y, assuming they are both fixed point with 27 digits.
      */
-    function divd(uint256 x, uint256 y) internal pure returns (uint256) {
+    function divFixed(uint256 x, uint256 y) internal pure returns (uint256) {
         return x.mul(UNIT).div(y);
     }
 
@@ -46,7 +46,7 @@ contract USM is ERC20 {
      */
     function mint() external payable {
         uint usmAmount = _ethToUsm(msg.value);
-        uint usmMinusFee = usmAmount.sub(muld(usmAmount, MINT_FEE));
+        uint usmMinusFee = usmAmount.sub(mulFixed(usmAmount, MINT_FEE));
         ethPool = ethPool.add(msg.value);
         _mint(msg.sender, usmMinusFee);
     }
@@ -58,7 +58,7 @@ contract USM is ERC20 {
      */
     function burn(uint _usmAmount) external {
         uint ethAmount = _usmToEth(_usmAmount);
-        uint ethMinusFee = ethAmount.sub(muld(ethAmount, BURN_FEE));
+        uint ethMinusFee = ethAmount.sub(mulFixed(ethAmount, BURN_FEE));
         ethPool = ethPool.sub(ethMinusFee);
         _burn(msg.sender, _usmAmount);
         Address.sendValue(msg.sender, ethMinusFee);
@@ -74,7 +74,7 @@ contract USM is ERC20 {
         if (ethPool == 0) {
             return 0;
         }
-        return divd(totalSupply(), _ethToUsm(ethPool));
+        return divFixed(totalSupply(), _ethToUsm(ethPool));
     }
 
     /**
@@ -86,7 +86,7 @@ contract USM is ERC20 {
      */
     function _ethToUsm(uint _ethAmount) internal view returns (uint) {
         require(_ethAmount > 0, "Eth Amount must be more than 0");
-        return muld(_oraclePrice(), _ethAmount);
+        return mulFixed(_oraclePrice(), _ethAmount);
     }
 
     /**
@@ -98,7 +98,7 @@ contract USM is ERC20 {
      */
     function _usmToEth(uint _usmAmount) internal view returns (uint) {
         require(_usmAmount > 0, "USM Amount must be more than 0");
-        return divd(_usmAmount, _oraclePrice());
+        return divFixed(_usmAmount, _oraclePrice());
     }
 
     /**
