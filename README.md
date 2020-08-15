@@ -4,7 +4,7 @@ Originally proposed by [@jacob-eliosoff](https://github.com/jacob-eliosoff) in [
 
 ## How It Works
 
-USM is pegged to United States Dollar which maintains its stable value by minting USM in exchange for ETH, using the price of ETH at the time of minting.
+USM is pegged to United States dollar, and maintains its stable value by minting USM in exchange for ETH, using the price of ETH at the time of minting.
 
 If ETH is worth $200, I deposit 1 ETH, I get 200 USM in return (minus a small minting fee). The same goes for burning, but in the opposite direction.
 
