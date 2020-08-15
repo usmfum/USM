@@ -74,7 +74,7 @@ contract USM is ERC20 {
         if (ethPool == 0) {
             return 0;
         }
-        return divd(totalSupply().mul(UNIT), _ethToUsm(ethPool)); // This means a pool upper limit of about 10**50 wei.
+        return divd(totalSupply(), _ethToUsm(ethPool));
     }
 
     /**
@@ -107,6 +107,7 @@ contract USM is ERC20 {
      * @return price in UNIT
      */
     function _oraclePrice() internal view returns (uint) {
-        return IOracle(oracle).latestPrice().mul(UNIT).div(IOracle(oracle).decimalShift());
+        // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
+        return IOracle(oracle).latestPrice().mul(UNIT).div(10 ** IOracle(oracle).decimalShift());
     }
 }

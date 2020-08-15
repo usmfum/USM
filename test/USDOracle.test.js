@@ -15,7 +15,7 @@ contract("USDOracle", accounts => {
     });
 
     describe("deployment", async () => {
-        it("retruns the correct price", async () => {
+        it("returns the correct price", async () => {
             let price = await oracle.latestPrice();
             price.toString().should.equal("25000");
         });
