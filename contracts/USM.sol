@@ -12,7 +12,7 @@ import "./IOracle.sol";
 contract USM is ERC20 {
     using SafeMath for uint;
 
-    uint constant UNIT = 1000000000000000000000000000; // 10**27, MakerDAO's RAY
+    uint constant UNIT = 1e27; // 10**27, MakerDAO's RAY
     uint constant MINT_FEE = UNIT / 1000; // 0.1%
     uint constant BURN_FEE = UNIT / 200; // 0.5%
 
