@@ -41,7 +41,7 @@ contract("USM", accounts => {
 
         it("sets the correct debt ratio", async () => {
             let debtRatio = (await usm.debtRatio()).toString();
-            toEth(debtRatio).toString().should.equal("0.999");
+            debtRatio.toString().should.equal("999000000000000000000000000");
         });
 
         it("mints the correct amount", async () => {
@@ -163,7 +163,7 @@ contract("USM", accounts => {
 
             // Check the debt ratio
             let debtRatio = await usm.debtRatio();
-            toEth(debtRatio).toString().should.equal("0.4995");
+            debtRatio.toString().should.equal("499500000000000000000000000");
 
             // Setup quarter variables
             let usmMinted = await usm.balanceOf(deployer);
@@ -181,7 +181,7 @@ contract("USM", accounts => {
 
         it("updates debt ratio", async () => {
             let debtRatio = await usm.debtRatio();
-            toEth(debtRatio).toString().should.equal("0.332335882128879123");
+            debtRatio.toString().should.equal("332335882128879123218767828");
         });
 
         it("redeems the ether back to owner", async () => {

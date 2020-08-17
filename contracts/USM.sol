@@ -12,11 +12,9 @@ import "./IOracle.sol";
 contract USM is ERC20 {
     using SafeMath for uint;
 
-    // 0.1% (10 parts per 10,000)
-    uint constant MINT_FEE = 10;
-    // 0.5%; (50 parts per 10,000)
-    uint constant BURN_FEE = 50;
-    uint constant PERCENTAGE_BASE = 10000;
+    uint constant UNIT = 1e27; // 10**27, MakerDAO's RAY
+    uint constant MINT_FEE = UNIT / 1000; // 0.1%
+    uint constant BURN_FEE = UNIT / 200; // 0.5%
 
     address oracle;
     uint public ethPool;
@@ -30,12 +28,27 @@ contract USM is ERC20 {
     }
 
     /**
+     * @notice Multiplies x and y, assuming they are both fixed point with 27 digits.
+     */
+    function mulFixed(uint256 x, uint256 y) internal pure returns (uint256) {
+        return x.mul(y).div(UNIT);
+    }
+
+    /**
+     * @notice Divides x by y, assuming they are both fixed point with 27 digits.
+     */
+    function divFixed(uint256 x, uint256 y) internal pure returns (uint256) {
+        return x.mul(UNIT).div(y);
+    }
+
+    /**
      * @notice Mint ETH for USM. Uses msg.value as the ETH deposit.
      */
     function mint() external payable {
-        uint usmAmount = _applyFee(_ethToUsm(msg.value), MINT_FEE);
+        uint usmAmount = _ethToUsm(msg.value);
+        uint usmMinusFee = usmAmount.sub(mulFixed(usmAmount, MINT_FEE));
         ethPool = ethPool.add(msg.value);
-        _mint(msg.sender, usmAmount);
+        _mint(msg.sender, usmMinusFee);
     }
 
     /**
@@ -44,52 +57,25 @@ contract USM is ERC20 {
      * @param _usmAmount Amount of USM to burn.
      */
     function burn(uint _usmAmount) external {
-        uint ethAmount = _applyFee(_usmToEth(_usmAmount), BURN_FEE);
-        ethPool = ethPool.sub(ethAmount);
+        uint ethAmount = _usmToEth(_usmAmount);
+        uint ethMinusFee = ethAmount.sub(mulFixed(ethAmount, BURN_FEE));
+        ethPool = ethPool.sub(ethMinusFee);
         _burn(msg.sender, _usmAmount);
-        Address.sendValue(msg.sender, ethAmount);
+        Address.sendValue(msg.sender, ethMinusFee);
     }
 
     /**
      * @notice Calculate debt ratio of the current Eth pool amount and outstanding USM
      * (the amount of USM in total supply).
      *
-     * @return Debt ratio decimal percentage *(10**decimals()). For example, 100%
-     * is denoted as 1,000,000,000,000,000,000 (1 with 18 zeros).
+     * @return Debt ratio in UNIT.
      */
     function debtRatio() external view returns (uint) {
-        return _debtRatio(ethPool, totalSupply());
-    }
-
-    /**
-     * @notice Calculate debt ratio of an Eth pool amount and outstanding USM
-     * (the amount of USM in total supply).
-     *
-     * @param _ethPool Amount of Eth in the pool.
-     * @param _usmOutstanding Amount of USM in total supply.
-     * @return Debt ratio decimal percentage *(10**decimals()). For example, 100%
-     * is denoted as 1,000,000,000,000,000,000 (1 with 18 zeros).
-     */
-    function _debtRatio(uint _ethPool, uint _usmOutstanding) internal view returns (uint) {
-        if (_ethPool == 0) {
+        if (ethPool == 0) {
             return 0;
         }
-        return _usmOutstanding.mul(10**uint(decimals())).div(_ethToUsm(_ethPool));
-    }
-
-    /**
-     * @notice Apply fees to a number, the result being the number, minus the
-     * percentage fee.
-     *
-     * @param _number The amount that the fee is being applied to
-     * @param _feePercentage Percentage fee to be subtracted from the number
-     * in parts per 10,000.
-     * @return The result of the _number minus the percentage fee.
-     */
-    function _applyFee(uint _number, uint _feePercentage) internal pure returns (uint) {
-        uint result = _number.sub((_number.mul(_feePercentage)).div(PERCENTAGE_BASE));
-        require(result < _number, "Fee must make the result smaller");
-        return result;
+        // If divFixed is fed two integers, returns their division as a fixed point number
+        return divFixed(totalSupply(), _ethToUsm(ethPool));
     }
 
     /**
@@ -101,8 +87,7 @@ contract USM is ERC20 {
      */
     function _ethToUsm(uint _ethAmount) internal view returns (uint) {
         require(_ethAmount > 0, "Eth Amount must be more than 0");
-        (uint usdPrice, uint decimalShift) = _oracleData();
-        return usdPrice.mul(_ethAmount).div(10**decimalShift);
+        return mulFixed(_oraclePrice(), _ethAmount);
     }
 
     /**
@@ -114,20 +99,16 @@ contract USM is ERC20 {
      */
     function _usmToEth(uint _usmAmount) internal view returns (uint) {
         require(_usmAmount > 0, "USM Amount must be more than 0");
-        (uint usdPrice, uint decimalShift) = _oracleData();
-        return (_usmAmount.mul(10**decimalShift)).div(usdPrice);
+        return divFixed(_usmAmount, _oraclePrice());
     }
 
     /**
-     * @notice Retrieve the latest price and decimal shift of the
-     * price oracle.
+     * @notice Retrieve the latest price of the price oracle.
      *
-     * @return (latest price, decimal shift)
+     * @return price in UNIT
      */
-    function _oracleData() internal view returns (uint, uint) {
-        return (
-            IOracle(oracle).latestPrice(),
-            IOracle(oracle).decimalShift()
-        );
+    function _oraclePrice() internal view returns (uint) {
+        // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
+        return IOracle(oracle).latestPrice().mul(UNIT).div(10 ** IOracle(oracle).decimalShift());
     }
 }
