@@ -3,6 +3,7 @@ pragma solidity ^0.6.7;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./IOracle.sol";
+import "@nomiclabs/buidler/console.sol";
 
 /**
  * @title USM Stable Coin
@@ -25,6 +26,8 @@ contract USM is ERC20 {
     constructor(address _oracle) public ERC20("Minimal USD", "USM") {
         oracle = _oracle;
         ethPool = 0;
+        console.log("Hi!");
+        console.log(_oracle);
     }
 
     /**
