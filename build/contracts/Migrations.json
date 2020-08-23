@@ -17,8 +17,7 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function",
-      "constant": true
+      "type": "function"
     },
     {
       "inputs": [],
@@ -31,8 +30,7 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function",
-      "constant": true
+      "type": "function"
     },
     {
       "inputs": [
@@ -910,17 +908,9 @@
     "name": "solc",
     "version": "0.6.7+commit.b8d736ae.Linux.g++"
   },
-  "networks": {
-    "3": {
-      "events": {},
-      "links": {},
-      "address": "0xaA95E82eCd0d08F6F0A38c573fa4aC50EeB35EFa",
-      "transactionHash": "0x1961bf9be6e376de4a4fb570759277acb84446a65a5c320ee316e0e6c9b7a2eb"
-    }
-  },
+  "networks": {},
   "schemaVersion": "3.2.3",
-  "updatedAt": "2020-08-23T17:31:41.575Z",
-  "networkType": "ethereum",
+  "updatedAt": "2020-08-23T22:53:49.009Z",
   "devdoc": {
     "methods": {}
   },
