@@ -28,26 +28,26 @@
       "type": "function"
     }
   ],
-  "metadata": "{\"compiler\":{\"version\":\"0.6.7+commit.b8d736ae\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"decimalShift\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"methods\":{}},\"userdoc\":{\"methods\":{}}},\"settings\":{\"compilationTarget\":{\"/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/IOracle.sol\":\"IOracle\"},\"evmVersion\":\"petersburg\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/IOracle.sol\":{\"keccak256\":\"0x25b08adb2ac55979d739de82ac244d477e31d5f43cd56d7b4c9dc48bbac03e0d\",\"urls\":[\"bzz-raw://b3fad634dd27bb64156e72b7cb7094942a6dc4520df505ea170598f178ef005e\",\"dweb:/ipfs/QmVNo4M34v5J1pHsP6WwtQVbBK8JWg8S4sPVR6BccFAiLQ\"]}},\"version\":1}",
+  "metadata": "{\"compiler\":{\"version\":\"0.6.7+commit.b8d736ae\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"decimalShift\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"methods\":{}},\"userdoc\":{\"methods\":{}}},\"settings\":{\"compilationTarget\":{\"/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/oracles/IOracle.sol\":\"IOracle\"},\"evmVersion\":\"petersburg\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/oracles/IOracle.sol\":{\"keccak256\":\"0x25b08adb2ac55979d739de82ac244d477e31d5f43cd56d7b4c9dc48bbac03e0d\",\"urls\":[\"bzz-raw://b3fad634dd27bb64156e72b7cb7094942a6dc4520df505ea170598f178ef005e\",\"dweb:/ipfs/QmVNo4M34v5J1pHsP6WwtQVbBK8JWg8S4sPVR6BccFAiLQ\"]}},\"version\":1}",
   "bytecode": "0x",
   "deployedBytecode": "0x",
   "immutableReferences": {},
   "sourceMap": "",
   "deployedSourceMap": "",
   "source": "pragma solidity ^0.6.7;\n\ninterface IOracle {\n    function latestPrice() external view returns (uint);\n    function decimalShift() external view returns (uint);\n}",
-  "sourcePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/IOracle.sol",
+  "sourcePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/oracles/IOracle.sol",
   "ast": {
-    "absolutePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/IOracle.sol",
+    "absolutePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/oracles/IOracle.sol",
     "exportedSymbols": {
       "IOracle": [
-        12
+        371
       ]
     },
-    "id": 13,
+    "id": 372,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 1,
+        "id": 360,
         "literals": [
           "solidity",
           "^",
@@ -55,7 +55,7 @@
           ".7"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:23:0"
+        "src": "0:23:3"
       },
       {
         "abstract": false,
@@ -64,9 +64,9 @@
         "contractKind": "interface",
         "documentation": null,
         "fullyImplemented": false,
-        "id": 12,
+        "id": 371,
         "linearizedBaseContracts": [
-          12
+          371
         ],
         "name": "IOracle",
         "nodeType": "ContractDefinition",
@@ -75,7 +75,7 @@
             "body": null,
             "documentation": null,
             "functionSelector": "a3e6ba94",
-            "id": 6,
+            "id": 365,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
@@ -83,24 +83,24 @@
             "nodeType": "FunctionDefinition",
             "overrides": null,
             "parameters": {
-              "id": 2,
+              "id": 361,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "69:2:0"
+              "src": "69:2:3"
             },
             "returnParameters": {
-              "id": 5,
+              "id": 364,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 4,
+                  "id": 363,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 6,
-                  "src": "95:4:0",
+                  "scope": 365,
+                  "src": "95:4:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -108,10 +108,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 3,
+                    "id": 362,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "95:4:0",
+                    "src": "95:4:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -121,10 +121,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "94:6:0"
+              "src": "94:6:3"
             },
-            "scope": 12,
-            "src": "49:52:0",
+            "scope": 371,
+            "src": "49:52:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -133,7 +133,7 @@
             "body": null,
             "documentation": null,
             "functionSelector": "dae5f0fd",
-            "id": 11,
+            "id": 370,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
@@ -141,24 +141,24 @@
             "nodeType": "FunctionDefinition",
             "overrides": null,
             "parameters": {
-              "id": 7,
+              "id": 366,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "127:2:0"
+              "src": "127:2:3"
             },
             "returnParameters": {
-              "id": 10,
+              "id": 369,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 9,
+                  "id": 368,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11,
-                  "src": "153:4:0",
+                  "scope": 370,
+                  "src": "153:4:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -166,10 +166,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 8,
+                    "id": 367,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "153:4:0",
+                    "src": "153:4:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -179,33 +179,33 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "152:6:0"
+              "src": "152:6:3"
             },
-            "scope": 12,
-            "src": "106:53:0",
+            "scope": 371,
+            "src": "106:53:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 13,
-        "src": "25:136:0"
+        "scope": 372,
+        "src": "25:136:3"
       }
     ],
-    "src": "0:161:0"
+    "src": "0:161:3"
   },
   "legacyAST": {
-    "absolutePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/IOracle.sol",
+    "absolutePath": "/Users/alexroan/Documents/Projects/Blockchain/DApps/usm/contracts/oracles/IOracle.sol",
     "exportedSymbols": {
       "IOracle": [
-        12
+        371
       ]
     },
-    "id": 13,
+    "id": 372,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 1,
+        "id": 360,
         "literals": [
           "solidity",
           "^",
@@ -213,7 +213,7 @@
           ".7"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:23:0"
+        "src": "0:23:3"
       },
       {
         "abstract": false,
@@ -222,9 +222,9 @@
         "contractKind": "interface",
         "documentation": null,
         "fullyImplemented": false,
-        "id": 12,
+        "id": 371,
         "linearizedBaseContracts": [
-          12
+          371
         ],
         "name": "IOracle",
         "nodeType": "ContractDefinition",
@@ -233,7 +233,7 @@
             "body": null,
             "documentation": null,
             "functionSelector": "a3e6ba94",
-            "id": 6,
+            "id": 365,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
@@ -241,24 +241,24 @@
             "nodeType": "FunctionDefinition",
             "overrides": null,
             "parameters": {
-              "id": 2,
+              "id": 361,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "69:2:0"
+              "src": "69:2:3"
             },
             "returnParameters": {
-              "id": 5,
+              "id": 364,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 4,
+                  "id": 363,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 6,
-                  "src": "95:4:0",
+                  "scope": 365,
+                  "src": "95:4:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -266,10 +266,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 3,
+                    "id": 362,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "95:4:0",
+                    "src": "95:4:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -279,10 +279,10 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "94:6:0"
+              "src": "94:6:3"
             },
-            "scope": 12,
-            "src": "49:52:0",
+            "scope": 371,
+            "src": "49:52:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
@@ -291,7 +291,7 @@
             "body": null,
             "documentation": null,
             "functionSelector": "dae5f0fd",
-            "id": 11,
+            "id": 370,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
@@ -299,24 +299,24 @@
             "nodeType": "FunctionDefinition",
             "overrides": null,
             "parameters": {
-              "id": 7,
+              "id": 366,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "127:2:0"
+              "src": "127:2:3"
             },
             "returnParameters": {
-              "id": 10,
+              "id": 369,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 9,
+                  "id": 368,
                   "mutability": "mutable",
                   "name": "",
                   "nodeType": "VariableDeclaration",
                   "overrides": null,
-                  "scope": 11,
-                  "src": "153:4:0",
+                  "scope": 370,
+                  "src": "153:4:3",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -324,10 +324,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 8,
+                    "id": 367,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "153:4:0",
+                    "src": "153:4:3",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -337,20 +337,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "152:6:0"
+              "src": "152:6:3"
             },
-            "scope": 12,
-            "src": "106:53:0",
+            "scope": 371,
+            "src": "106:53:3",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 13,
-        "src": "25:136:0"
+        "scope": 372,
+        "src": "25:136:3"
       }
     ],
-    "src": "0:161:0"
+    "src": "0:161:3"
   },
   "compiler": {
     "name": "solc",
@@ -358,7 +358,7 @@
   },
   "networks": {},
   "schemaVersion": "3.2.3",
-  "updatedAt": "2020-08-03T22:32:57.596Z",
+  "updatedAt": "2020-08-23T17:16:38.613Z",
   "devdoc": {
     "methods": {}
   },
