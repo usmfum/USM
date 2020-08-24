@@ -1,4 +1,4 @@
-const USDOracle = artifacts.require("./USDOracle.sol");
+const TestOracle = artifacts.require("./TestOracle.sol");
 
 const EVM_REVERT = "VM Exception while processing transaction: revert";
 
@@ -6,12 +6,12 @@ require('chai')
     .use(require('chai-as-promised'))
     .should();
 
-contract("USDOracle", accounts => {
+contract("TestOracle", accounts => {
     deployer = accounts[0];
     let oracle;
 
     beforeEach(async() => {
-        oracle = await USDOracle.new({from: deployer});
+        oracle = await TestOracle.new({from: deployer});
     });
 
     describe("deployment", async () => {

@@ -4,7 +4,7 @@ import "./IOracle.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract USDOracle is IOracle, Ownable{
+contract TestOracle is IOracle, Ownable{
     using SafeMath for uint;
 
     uint price;

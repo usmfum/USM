@@ -47,6 +47,12 @@ module.exports = {
      port: 7545,            // Standard Ethereum port (default: none)
      network_id: "5777",       // Any network (default: none)
     },
+    // Fork using `ganache-cli --fork <url>@<block_number>`
+    dev_ropsten: {
+      host: "127.0.0.1",
+      port: 8545,
+      network_id: "3"
+    }
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port

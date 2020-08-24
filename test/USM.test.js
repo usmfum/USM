@@ -1,5 +1,5 @@
 const USM = artifacts.require("./USM.sol");
-const USDOracle = artifacts.require("./USDOracle.sol");
+const TestOracle = artifacts.require("./TestOracle.sol");
 
 const EVM_REVERT = "VM Exception while processing transaction: revert";
 
@@ -26,7 +26,7 @@ contract("USM", accounts => {
 
         before(async () => {
             // Deploy contracts
-            oracle = await USDOracle.new({from: deployer});
+            oracle = await TestOracle.new({from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
 
             // Setup variables
@@ -113,7 +113,7 @@ contract("USM", accounts => {
 
         before(async () => {
             // Deploy contracts
-            oracle = await USDOracle.new({from: deployer});
+            oracle = await TestOracle.new({from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
 
             // Setup variables
@@ -160,7 +160,7 @@ contract("USM", accounts => {
 
         before(async () => {
             // Deploy contracts
-            oracle = await USDOracle.new({from: deployer});
+            oracle = await TestOracle.new({from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
 
             // Setup variables
