@@ -4,6 +4,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./IOracle.sol";
 import "@nomiclabs/buidler/console.sol";
+import "./FUM.sol";
 
 /**
  * @title USM Stable Coin
@@ -18,6 +19,7 @@ contract USM is ERC20 {
     uint constant BURN_FEE = UNIT / 200; // 0.5%
 
     address oracle;
+    address fum;
     uint public ethPool;
 
     /**
@@ -26,8 +28,10 @@ contract USM is ERC20 {
     constructor(address _oracle) public ERC20("Minimal USD", "USM") {
         oracle = _oracle;
         ethPool = 0;
+        fum = address(new FUM());
         console.log("Hi!");
         console.log(_oracle);
+        console.log(fum);
     }
 
     /**
