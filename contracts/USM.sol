@@ -71,13 +71,24 @@ contract USM is ERC20 {
         Address.sendValue(msg.sender, ethMinusFee);
     }
 
+    /**
+     * @notice Calculate the price of FUM in ETH using this ethBuffer
+     * and the current total supply of FUM.
+     */
+    function ethPriceOfFum() external view returns (uint){
+        uint fumTotalSupply = FUM(fum).totalSupply();
+        if (fumTotalSupply == 0) {
+            fumTotalSupply = 1;
+        }
+        return divFixed(ethBuffer(), fumTotalSupply.mul(UNIT));
+    }
 
     /**
      * @notice Calculate the buffer between the ETH in the pool and the value
      * of the totalSupply of USM
      */
-    function ethBuffer() external view returns (uint){
-        return  ethPool.sub(_usmToEth(totalSupply()));
+    function ethBuffer() public view returns (uint){
+        return ethPool.sub(_usmToEth(totalSupply()));
     }
 
     /**

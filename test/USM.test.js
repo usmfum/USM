@@ -45,11 +45,18 @@ contract("USM", accounts => {
         });
 
         it("calculates the correct ETH buffer", async () => {
-            let bufferValue = parseInt(await usm.fumPrice());
+            let bufferValue = parseInt(await usm.ethBuffer());
             //0.1%
             let feeTaken = ethDeposit / 1000;
             toEth(bufferValue.toString()).should.equal(feeTaken.toString());
         });
+
+        it("calculates the correct price of FUM", async () => {
+            let fumPrice = (await usm.ethPriceOfFum()).toString();
+            //0.1%
+            let feeTaken = ethDeposit / 1000;
+            toEth(fumPrice).should.equal(feeTaken.toString());
+        })
 
         it("mints the correct amount", async () => {
             let erc20Minted = await usm.balanceOf(deployer);
