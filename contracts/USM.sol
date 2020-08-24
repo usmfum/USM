@@ -71,6 +71,15 @@ contract USM is ERC20 {
         Address.sendValue(msg.sender, ethMinusFee);
     }
 
+
+    /**
+     * @notice Calculate the buffer between the ETH in the pool and the value
+     * of the totalSupply of USM
+     */
+    function ethBuffer() external view returns (uint){
+        return  ethPool.sub(_usmToEth(totalSupply()));
+    }
+
     /**
      * @notice Calculate debt ratio of the current Eth pool amount and outstanding USM
      * (the amount of USM in total supply).
