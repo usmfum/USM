@@ -71,6 +71,9 @@ contract USM is ERC20 {
         Address.sendValue(msg.sender, ethMinusFee);
     }
 
+    // TODO: fund depending on ethPriceOfFum
+    // TODO: defund depending on ethPriceOfFum
+
     /**
      * @notice Calculate the price of FUM in ETH using this ethBuffer
      * and the current total supply of FUM.
