@@ -2,6 +2,7 @@ pragma solidity ^0.6.7;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./WadMath.sol";
 import "./oracles/IOracle.sol";
 import "@nomiclabs/buidler/console.sol";
 import "./FUM.sol";
@@ -13,10 +14,11 @@ import "./FUM.sol";
  */
 contract USM is ERC20 {
     using SafeMath for uint;
+    using WadMath for uint;
 
-    uint constant UNIT = 1e27; // 10**27, MakerDAO's RAY
-    uint constant MINT_FEE = UNIT / 1000; // 0.1%
-    uint constant BURN_FEE = UNIT / 200; // 0.5%
+    uint constant WAD = 10 ** 18;
+    uint constant MINT_FEE = WAD / 1000; // 0.1%
+    uint constant BURN_FEE = WAD / 200; // 0.5%
 
     address oracle;
     address fum;
@@ -29,23 +31,8 @@ contract USM is ERC20 {
         oracle = _oracle;
         ethPool = 0;
         fum = address(new FUM());
-        console.log("Hi!");
         console.log(_oracle);
         console.log(fum);
-    }
-
-    /**
-     * @notice Multiplies x and y, assuming they are both fixed point with 27 digits.
-     */
-    function mulFixed(uint256 x, uint256 y) internal pure returns (uint256) {
-        return x.mul(y).div(UNIT);
-    }
-
-    /**
-     * @notice Divides x by y, assuming they are both fixed point with 27 digits.
-     */
-    function divFixed(uint256 x, uint256 y) internal pure returns (uint256) {
-        return x.mul(UNIT).div(y);
     }
 
     /**
@@ -53,7 +40,7 @@ contract USM is ERC20 {
      */
     function mint() external payable {
         uint usmAmount = _ethToUsm(msg.value);
-        uint usmMinusFee = usmAmount.sub(mulFixed(usmAmount, MINT_FEE));
+        uint usmMinusFee = usmAmount.sub(usmAmount.wmul(MINT_FEE));
         ethPool = ethPool.add(msg.value);
         _mint(msg.sender, usmMinusFee);
     }
@@ -65,30 +52,37 @@ contract USM is ERC20 {
      */
     function burn(uint _usmAmount) external {
         uint ethAmount = _usmToEth(_usmAmount);
-        uint ethMinusFee = ethAmount.sub(mulFixed(ethAmount, BURN_FEE));
+        uint ethMinusFee = ethAmount.sub(ethAmount.wmul(BURN_FEE));
         ethPool = ethPool.sub(ethMinusFee);
         _burn(msg.sender, _usmAmount);
         Address.sendValue(msg.sender, ethMinusFee);
     }
 
-    // TODO: fund depending on ethPriceOfFum
-    // TODO: defund depending on ethPriceOfFum
+    // // TODO: fund depending on ethPriceOfFum
+    // function fund() external payable{
+    //     console.log(divFixed(msg.value, ethPriceOfFum()));
+    // }
+    // // TODO: defund depending on ethPriceOfFum
 
     /**
      * @notice Calculate the price of FUM in ETH using this ethBuffer
      * and the current total supply of FUM.
+     *
+     * @return ETH price of FUM in UNIT
      */
-    function ethPriceOfFum() external view returns (uint){
+    function ethPriceOfFum() public view returns (uint){
         uint fumTotalSupply = FUM(fum).totalSupply();
         if (fumTotalSupply == 0) {
             fumTotalSupply = 1;
         }
-        return divFixed(ethBuffer(), fumTotalSupply.mul(UNIT));
+        return ethBuffer().wdiv(fumTotalSupply);
     }
 
     /**
      * @notice Calculate the buffer between the ETH in the pool and the value
      * of the totalSupply of USM
+     *
+     * @return Amount of ETH buffer in WAD
      */
     function ethBuffer() public view returns (uint){
         return ethPool.sub(_usmToEth(totalSupply()));
@@ -105,7 +99,7 @@ contract USM is ERC20 {
             return 0;
         }
         // If divFixed is fed two integers, returns their division as a fixed point number
-        return divFixed(totalSupply(), _ethToUsm(ethPool));
+        return totalSupply().wdiv(_ethToUsm(ethPool));
     }
 
     /**
@@ -117,7 +111,7 @@ contract USM is ERC20 {
      */
     function _ethToUsm(uint _ethAmount) internal view returns (uint) {
         require(_ethAmount > 0, "Eth Amount must be more than 0");
-        return mulFixed(_oraclePrice(), _ethAmount);
+        return _oraclePrice().wmul(_ethAmount);
     }
 
     /**
@@ -129,7 +123,7 @@ contract USM is ERC20 {
      */
     function _usmToEth(uint _usmAmount) internal view returns (uint) {
         require(_usmAmount > 0, "USM Amount must be more than 0");
-        return divFixed(_usmAmount, _oraclePrice());
+        return _usmAmount.wdiv(_oraclePrice());
     }
 
     /**
@@ -139,6 +133,6 @@ contract USM is ERC20 {
      */
     function _oraclePrice() internal view returns (uint) {
         // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
-        return IOracle(oracle).latestPrice().mul(UNIT).div(10 ** IOracle(oracle).decimalShift());
+        return IOracle(oracle).latestPrice().mul(WAD).div(10 ** IOracle(oracle).decimalShift());
     }
 }
