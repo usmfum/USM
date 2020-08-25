@@ -40,7 +40,7 @@ contract USM is ERC20 {
      */
     function mint() external payable {
         uint usmAmount = _ethToUsm(msg.value);
-        uint usmMinusFee = usmAmount.sub(usmAmount.wmul(MINT_FEE));
+        uint usmMinusFee = usmAmount.sub(usmAmount.wadMul(MINT_FEE));
         ethPool = ethPool.add(msg.value);
         _mint(msg.sender, usmMinusFee);
     }
@@ -52,7 +52,7 @@ contract USM is ERC20 {
      */
     function burn(uint _usmAmount) external {
         uint ethAmount = _usmToEth(_usmAmount);
-        uint ethMinusFee = ethAmount.sub(ethAmount.wmul(BURN_FEE));
+        uint ethMinusFee = ethAmount.sub(ethAmount.wadMul(BURN_FEE));
         ethPool = ethPool.sub(ethMinusFee);
         _burn(msg.sender, _usmAmount);
         Address.sendValue(msg.sender, ethMinusFee);
@@ -75,7 +75,7 @@ contract USM is ERC20 {
         if (fumTotalSupply == 0) {
             fumTotalSupply = 1;
         }
-        return ethBuffer().wdiv(fumTotalSupply);
+        return ethBuffer().wadDiv(fumTotalSupply);
     }
 
     /**
@@ -99,7 +99,7 @@ contract USM is ERC20 {
             return 0;
         }
         // If divFixed is fed two integers, returns their division as a fixed point number
-        return totalSupply().wdiv(_ethToUsm(ethPool));
+        return totalSupply().wadDiv(_ethToUsm(ethPool));
     }
 
     /**
@@ -111,7 +111,7 @@ contract USM is ERC20 {
      */
     function _ethToUsm(uint _ethAmount) internal view returns (uint) {
         require(_ethAmount > 0, "Eth Amount must be more than 0");
-        return _oraclePrice().wmul(_ethAmount);
+        return _oraclePrice().wadMul(_ethAmount);
     }
 
     /**
@@ -123,7 +123,7 @@ contract USM is ERC20 {
      */
     function _usmToEth(uint _usmAmount) internal view returns (uint) {
         require(_usmAmount > 0, "USM Amount must be more than 0");
-        return _usmAmount.wdiv(_oraclePrice());
+        return _usmAmount.wadDiv(_oraclePrice());
     }
 
     /**

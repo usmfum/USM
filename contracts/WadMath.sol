@@ -8,12 +8,12 @@ library WadMath {
     uint constant WAD = 10 ** 18;
 
     //rounds to zero if x*y < WAD / 2
-    function wmul(uint x, uint y) internal pure returns (uint) {
+    function wadMul(uint x, uint y) internal pure returns (uint) {
         return ((x.mul(y)).add(WAD.div(2))).div(WAD);
     }
 
     //rounds to zero if x*y < WAD / 2
-    function wdiv(uint x, uint y) internal pure returns (uint) {
+    function wadDiv(uint x, uint y) internal pure returns (uint) {
         return ((x.mul(WAD)).add(y.div(2))).div(y);
     }
 
