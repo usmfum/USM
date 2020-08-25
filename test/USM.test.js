@@ -32,8 +32,8 @@ contract("USM", accounts => {
             // Setup variables
             etherPrice = parseInt(await oracle.latestPrice());
             etherPriceDecimalShift = parseInt(await oracle.decimalShift());
-            ethDeposit = 0.1;
-            mintAmount = 24975000000000000000;
+            ethDeposit = 100;
+            mintAmount = "24975000000000000000000";
 
             // Mint
             await usm.mint({from: deployer, value: toWei(ethDeposit)});
@@ -44,27 +44,16 @@ contract("USM", accounts => {
             debtRatio.toString().should.equal("999000000000000000");
         });
 
-        it("calculates the correct ETH buffer", async () => {
-            let bufferValue = parseInt(await usm.ethBuffer());
-            //0.1%
-            let feeTaken = ethDeposit / 1000;
-            toEth(bufferValue.toString()).should.equal(feeTaken.toString());
-        });
-
         it("calculates the correct price of FUM", async () => {
-            let fumPrice = (await usm.ethPriceOfFum()).toString();
-            //0.1%
-            let feeTaken = ethDeposit / 1000;
-            toEth(fumPrice).should.equal(toWei(feeTaken).toString());
+            let ethBuffer = (await usm.ethBuffer()).toString();
+            console.log(ethBuffer);
+            let spotPrice = (await usm.spotPriceOfFum()).toString();
+            console.log(spotPrice);
         });
-
-        // it("mints the correct amount of FUM", async () => {
-        //     await usm.fund({from: deployer, value: toWei(ethDeposit)});
-        // })
 
         it("mints the correct amount", async () => {
             let erc20Minted = await usm.balanceOf(deployer);
-            erc20Minted.toString().should.equal(mintAmount.toString());
+            erc20Minted.toString().should.equal(mintAmount);
         });
 
         it("stores correct amount of ether", async () => {
@@ -76,7 +65,7 @@ contract("USM", accounts => {
 
         it("updates the total supply", async () => {
             let usmTotalSupply = await usm.totalSupply();
-            usmTotalSupply.toString().should.equal(mintAmount.toString());
+            usmTotalSupply.toString().should.equal(mintAmount);
         });
 
         after(() => {
@@ -98,7 +87,7 @@ contract("USM", accounts => {
 
                 it("redeems ether back to the owner", async () => {
                     let newUsmEtherBalance = await web3.eth.getBalance(usm.address);
-                    newUsmEtherBalance.toString().should.equal("599500000000000");
+                    newUsmEtherBalance.toString().should.equal("599500000000000000");
                 });
 
                 it("updates the total supply", async () => {

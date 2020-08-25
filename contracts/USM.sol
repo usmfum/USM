@@ -39,6 +39,7 @@ contract USM is ERC20 {
      * @notice Mint ETH for USM. Uses msg.value as the ETH deposit.
      */
     function mint() external payable {
+        require(msg.value > MINT_FEE, "Must deposit more than 0.001 ETH");
         uint usmAmount = _ethToUsm(msg.value);
         uint usmMinusFee = usmAmount.sub(usmAmount.wadMul(MINT_FEE));
         ethPool = ethPool.add(msg.value);
@@ -58,43 +59,37 @@ contract USM is ERC20 {
         Address.sendValue(msg.sender, ethMinusFee);
     }
 
-    // // TODO: fund depending on ethPriceOfFum
-    // function fund() external payable{
-    //     console.log(divFixed(msg.value, ethPriceOfFum()));
-    // }
-    // // TODO: defund depending on ethPriceOfFum
+    // TODO: fund
+    // TODO: defund
+    // TODO: on all eth movement operations, check the ratio and set a price if over the threshold
 
-    /**
-     * @notice Calculate the price of FUM in ETH using this ethBuffer
-     * and the current total supply of FUM.
-     *
-     * @return ETH price of FUM in UNIT
-     */
-    function ethPriceOfFum() public view returns (uint){
+    function spotPriceOfFum() external view returns (uint) {
         uint fumTotalSupply = FUM(fum).totalSupply();
         if (fumTotalSupply == 0) {
-            fumTotalSupply = 1;
+            fumTotalSupply = WAD;
         }
-        return ethBuffer().wadDiv(fumTotalSupply);
+        int buffer = ethBuffer();
+        if (buffer <= 0) {
+            // TODO
+        }
+        else {
+            return uint(buffer).wadDiv(fumTotalSupply);
+        }
     }
 
-    /**
-     * @notice Calculate the buffer between the ETH in the pool and the value
-     * of the totalSupply of USM
-     *
-     * @return Amount of ETH buffer in WAD
-     */
-    function ethBuffer() public view returns (uint){
-        return ethPool.sub(_usmToEth(totalSupply()));
+    function ethBuffer() public view returns (int) {
+        int buffer = int(ethPool) - int(_usmToEth(totalSupply()));
+        require(buffer <= int(_usmToEth(totalSupply())));
+        return buffer;
     }
 
     /**
      * @notice Calculate debt ratio of the current Eth pool amount and outstanding USM
      * (the amount of USM in total supply).
      *
-     * @return Debt ratio in UNIT.
+     * @return Debt ratio.
      */
-    function debtRatio() external view returns (uint) {
+    function debtRatio() public view returns (uint) {
         if (ethPool == 0) {
             return 0;
         }
@@ -129,7 +124,7 @@ contract USM is ERC20 {
     /**
      * @notice Retrieve the latest price of the price oracle.
      *
-     * @return price in UNIT
+     * @return price
      */
     function _oraclePrice() internal view returns (uint) {
         // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
