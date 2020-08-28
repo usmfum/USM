@@ -5,6 +5,13 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./WadMath.sol";
 import "./oracles/IOracle.sol";
 
+/**
+ * @title Buffered Token
+ * @author Alex Roan (@alexroan)
+ * @notice This contract represents a token which accepts ETH as collateral to mint and burn ERC20 tokens.
+ * It's functions abstract all oracle, conversion, debt ratio and ETH buffer calculations, so that
+ * inheriting contracts can focus on their minting and burning algorithms.
+ */
 contract BufferedToken is ERC20 {
     using SafeMath for uint;
     using WadMath for uint;

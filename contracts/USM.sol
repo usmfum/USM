@@ -9,7 +9,7 @@ import "./FUM.sol";
 /**
  * @title USM Stable Coin
  * @author Alex Roan (@alexroan)
- * @notice Concept by Jacob Eliosoff (@jacob-eliosoff)
+ * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
 contract USM is BufferedToken {
     using SafeMath for uint;
