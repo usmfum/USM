@@ -44,11 +44,15 @@ contract("USM", accounts => {
             debtRatio.toString().should.equal("999000000000000000");
         });
 
-        it("calculates the correct price of FUM", async () => {
-            let ethBuffer = (await usm.ethBuffer()).toString();
-            console.log(ethBuffer);
-            let spotPrice = (await usm.spotPriceOfFum()).toString();
-            console.log(spotPrice);
+        it("sets the minFumBuyPrice", async () => {
+            let minFumBuyPrice = (await usm.minFumBuyPrice()).toString();
+            toEth(minFumBuyPrice).toString().should.equal("0.1");
+        });
+
+        it("returns the correct FUM price", async () => {
+            let fumPrice = await usm.fumPrice();
+            console.log(fumPrice);
+            // toEth(fumPrice).toString().should.equal("0.1");
         });
 
         it("mints the correct amount", async () => {
