@@ -20,15 +20,15 @@ contract USM is BufferedToken {
     uint constant MAX_DEBT_RATIO = 900000000000000000; // 90%
 
     address fum;
-    uint public minFumBuyPrice;
+    uint public latestFumPrice;
 
-    event MinFumBuyPriceChanged(uint debtRatio, uint priceBefore, uint priceAfter);
+    event LatestFumPriceChanged(uint previous, uint latest);
 
     /**
      * @param _oracle Address of the oracle
      */
     constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
-        minFumBuyPrice = 0;
+        _setLatestFumPrice(MINT_FEE);
         fum = address(new FUM());
     }
 
@@ -41,7 +41,8 @@ contract USM is BufferedToken {
         uint usmMinusFee = usmAmount.sub(usmAmount.wadMul(MINT_FEE));
         ethPool = ethPool.add(msg.value);
         _mint(msg.sender, usmMinusFee);
-        _checkDebtRatio();
+        // set latest fum price
+        _setLatestFumPrice(_fumPrice());
     }
 
     /**
@@ -54,9 +55,12 @@ contract USM is BufferedToken {
         uint ethAmount = _usmToEth(_usmAmount);
         uint ethMinusFee = ethAmount.sub(ethAmount.wadMul(BURN_FEE));
         ethPool = ethPool.sub(ethMinusFee);
+        require(totalSupply().sub(_usmAmount).wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
+            "Cannot burn this amount. Will take debt ratio above maximum.");
         _burn(msg.sender, _usmAmount);
         Address.sendValue(msg.sender, ethMinusFee);
-        _checkDebtRatio();
+        // set latest fum price
+        _setLatestFumPrice(_fumPrice());
     }
 
     /**
@@ -64,10 +68,33 @@ contract USM is BufferedToken {
      */
     function fund() external payable {
         require(msg.value > MINT_FEE, "Must deposit more than 0.001 ETH");
-        uint fumAmount = fumPrice().wadMul(msg.value);
+        if(debtRatio() > MAX_DEBT_RATIO){
+            uint ethNeeded = _usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
+            // If the eth sent isn't enough to dip below MAX_DEBT_RATIO, then don't do this.
+            // Skip straight to minting at the current price
+            if (msg.value > ethNeeded) {
+                // calculate amount of FUM to mint whilst above the max
+                uint aboveMaxFum = ethNeeded.wadMul(_fumPrice());
+                // calculate amount to mint at price below the max
+                // this will increase the buffer
+                ethPool = ethPool.add(ethNeeded);
+                uint ethLeft = ethNeeded.sub(msg.value);
+                // get the new fum price now that the buffer has increased
+                uint newFumPrice = _fumPrice();
+                uint belowMaxFum = ethLeft.wadMul(newFumPrice);
+                ethPool = ethPool.add(ethLeft);
+                // mint
+                FUM(fum).mint(msg.sender, aboveMaxFum.add(belowMaxFum));
+                //set latest fum price
+                _setLatestFumPrice(newFumPrice);
+                return;
+            }
+        }
+        uint fumPrice = _fumPrice();
+        uint fumAmount = fumPrice.wadMul(msg.value);
         ethPool = ethPool.add(msg.value);
         FUM(fum).mint(msg.sender, fumAmount);
-        _checkDebtRatio();
+        _setLatestFumPrice(fumPrice);
     }
 
     /**
@@ -76,67 +103,45 @@ contract USM is BufferedToken {
      */
     function defund(uint _fumAmount) external {
         require(_fumAmount >= WAD, "Must defund at least 1 FUM");
-        uint ethAmount = _fumAmount.wadDiv(fumPrice());
+        uint fumPrice = _fumPrice();
+        uint ethAmount = _fumAmount.wadDiv(fumPrice);
         uint ethMinusFee = ethAmount.sub(ethAmount.wadMul(BURN_FEE));
         ethPool = ethPool.sub(ethMinusFee);
+        require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
+            "Cannot defund this amount. Will take debt ratio above maximum.");
         FUM(fum).burn(msg.sender, _fumAmount);
         Address.sendValue(msg.sender, ethMinusFee);
-        _checkDebtRatio();
-    }
-    
-    /**
-     * @notice Get the fum price whether under or over the debt ratio
-     *
-     * @return _fumPrice The price of FUM
-     */
-    function fumPrice() public returns (uint) {
-        uint price = WAD;
-        if (debtRatio() >= MAX_DEBT_RATIO) {
-            if (minFumBuyPrice == 0) {
-                _checkDebtRatio();
-            }
-            price = minFumBuyPrice;
-        }
-        else{
-            price = _fumPrice(uint(ethBuffer()));
-        }
-        return price;
+        // set latest fum price
+        _setLatestFumPrice(fumPrice);
     }
 
     /**
-     * @notice Checks the debt ratio and sets the minFumBuyPrice
-     * if the ratio has crossed the MAX threshold in either direction
+     * @notice Set the latest fum price. Emits a LatestFumPriceChanged event.
+     *
+     * @param _fumPrice the latest fum price
      */
-    function _checkDebtRatio() internal {
-        uint previousMinFumBuyPrice = minFumBuyPrice;
-        // If the debtRatio has just risen above the MAX
-        if (debtRatio() >= MAX_DEBT_RATIO && minFumBuyPrice == 0) {
-            int buffer = ethBuffer();
-            if (buffer <= 0) {
-                // TODO fix this - cuurently sets price to 0.001 ETH
-                minFumBuyPrice = MINT_FEE;
-            }
-            else{
-                minFumBuyPrice = _fumPrice(uint(buffer));
-            }
-            emit MinFumBuyPriceChanged(debtRatio(), previousMinFumBuyPrice, minFumBuyPrice);
-        }
-        // If the debtRatio has just dropped below the MAX
-        else if (debtRatio() < MAX_DEBT_RATIO && minFumBuyPrice != 0) {
-            minFumBuyPrice = 0;
-            emit MinFumBuyPriceChanged(debtRatio(), previousMinFumBuyPrice, minFumBuyPrice);
-        }
+    function _setLatestFumPrice(uint _fumPrice) internal {
+        uint previous = latestFumPrice;
+        latestFumPrice = _fumPrice;
+        emit LatestFumPriceChanged(previous, latestFumPrice);
     }
 
     /**
      * @notice Calculates the price of FUM using its total supply
-     * and a specified ETH buffer
+     * and ETH buffer
      */
-    function _fumPrice(uint _buffer) internal view returns (uint) {
+    function _fumPrice() public view returns (uint) {
+        int buffer = ethBuffer();
+        // if we're underwater, use the last fum price
+        if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
+            return latestFumPrice;
+        }
+
         uint fumTotalSupply = FUM(fum).totalSupply();
+        // If there are no FUM, assume there's 1
         if (fumTotalSupply == 0) {
             fumTotalSupply = WAD;
         }
-        return uint(_buffer).wadDiv(fumTotalSupply);
+        return uint(buffer).wadDiv(fumTotalSupply);
     }
 }

@@ -26,7 +26,7 @@ contract BufferedToken is ERC20 {
      */
     function ethBuffer() public view returns (int) {
         int buffer = int(ethPool) - int(_usmToEth(totalSupply()));
-        require(buffer <= int(_usmToEth(totalSupply())));
+        require(buffer <= int(ethPool), "Underflow error");
         return buffer;
     }
 
