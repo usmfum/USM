@@ -51,7 +51,9 @@ contract BufferedToken is ERC20 {
      * @return The amount of USM.
      */
     function _ethToUsm(uint _ethAmount) internal view returns (uint) {
-        require(_ethAmount > 0, "Eth Amount must be more than 0");
+        if (_ethAmount == 0) {
+            return 0;
+        }
         return _oraclePrice().wadMul(_ethAmount);
     }
 
@@ -63,7 +65,9 @@ contract BufferedToken is ERC20 {
      * @return The amount of ETH.
      */
     function _usmToEth(uint _usmAmount) internal view returns (uint) {
-        require(_usmAmount > 0, "USM Amount must be more than 0");
+        if (_usmAmount == 0) {
+            return 0;
+        }
         return _usmAmount.wadDiv(_oraclePrice());
     }
 

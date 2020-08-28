@@ -42,7 +42,7 @@ contract USM is BufferedToken {
         ethPool = ethPool.add(msg.value);
         _mint(msg.sender, usmMinusFee);
         // set latest fum price
-        _setLatestFumPrice(_fumPrice());
+        _setLatestFumPrice(fumPrice());
     }
 
     /**
@@ -60,7 +60,7 @@ contract USM is BufferedToken {
         _burn(msg.sender, _usmAmount);
         Address.sendValue(msg.sender, ethMinusFee);
         // set latest fum price
-        _setLatestFumPrice(_fumPrice());
+        _setLatestFumPrice(fumPrice());
     }
 
     /**
@@ -74,13 +74,13 @@ contract USM is BufferedToken {
             // Skip straight to minting at the current price
             if (msg.value > ethNeeded) {
                 // calculate amount of FUM to mint whilst above the max
-                uint aboveMaxFum = ethNeeded.wadMul(_fumPrice());
+                uint aboveMaxFum = ethNeeded.wadMul(fumPrice());
                 // calculate amount to mint at price below the max
                 // this will increase the buffer
                 ethPool = ethPool.add(ethNeeded);
                 uint ethLeft = ethNeeded.sub(msg.value);
                 // get the new fum price now that the buffer has increased
-                uint newFumPrice = _fumPrice();
+                uint newFumPrice = fumPrice();
                 uint belowMaxFum = ethLeft.wadMul(newFumPrice);
                 ethPool = ethPool.add(ethLeft);
                 // mint
@@ -90,7 +90,7 @@ contract USM is BufferedToken {
                 return;
             }
         }
-        uint fumPrice = _fumPrice();
+        uint fumPrice = fumPrice();
         uint fumAmount = fumPrice.wadMul(msg.value);
         ethPool = ethPool.add(msg.value);
         FUM(fum).mint(msg.sender, fumAmount);
@@ -103,7 +103,7 @@ contract USM is BufferedToken {
      */
     function defund(uint _fumAmount) external {
         require(_fumAmount >= WAD, "Must defund at least 1 FUM");
-        uint fumPrice = _fumPrice();
+        uint fumPrice = fumPrice();
         uint ethAmount = _fumAmount.wadDiv(fumPrice);
         uint ethMinusFee = ethAmount.sub(ethAmount.wadMul(BURN_FEE));
         ethPool = ethPool.sub(ethMinusFee);
@@ -130,7 +130,7 @@ contract USM is BufferedToken {
      * @notice Calculates the price of FUM using its total supply
      * and ETH buffer
      */
-    function _fumPrice() public view returns (uint) {
+    function fumPrice() public view returns (uint) {
         int buffer = ethBuffer();
         // if we're underwater, use the last fum price
         if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
