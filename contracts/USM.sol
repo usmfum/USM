@@ -64,36 +64,28 @@ contract USM is BufferedToken {
     }
 
     /**
-     * @notice Funds the pool with ETH, minting FUM at its current price
+     * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
      */
     function fund() external payable {
         require(msg.value > MINT_FEE, "Must deposit more than 0.001 ETH");
         if(debtRatio() > MAX_DEBT_RATIO){
             uint ethNeeded = _usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
-            // If the eth sent isn't enough to dip below MAX_DEBT_RATIO, then don't do this.
-            // Skip straight to minting at the current price
-            if (msg.value > ethNeeded) {
-                // calculate amount of FUM to mint whilst above the max
-                uint aboveMaxFum = ethNeeded.wadMul(fumPrice());
-                // calculate amount to mint at price below the max
-                // this will increase the buffer
-                ethPool = ethPool.add(ethNeeded);
-                uint ethLeft = ethNeeded.sub(msg.value);
-                // get the new fum price now that the buffer has increased
-                uint newFumPrice = fumPrice();
-                uint belowMaxFum = ethLeft.wadMul(newFumPrice);
-                ethPool = ethPool.add(ethLeft);
-                // mint
-                FUM(fum).mint(msg.sender, aboveMaxFum.add(belowMaxFum));
-                //set latest fum price
-                _setLatestFumPrice(newFumPrice);
-                return;
-            }
+            if (msg.value >= ethNeeded) { // Split into two fundings at different prices
+                _fund(msg.sender, ethNeeded);
+                _fund(msg.sender, msg.value.sub(ethNeeded));
+            } // Otherwise continue for funding the total at a single price
         }
+        _fund(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Funds the pool with ETH, minting FUM at its current price
+     */
+    function _fund(address to, uint ethIn) internal {
         uint fumPrice = fumPrice();
-        uint fumAmount = fumPrice.wadMul(msg.value);
-        ethPool = ethPool.add(msg.value);
-        FUM(fum).mint(msg.sender, fumAmount);
+        uint fumOut = fumPrice.wadMul(ethIn);
+        ethPool = ethPool.add(ethIn);
+        FUM(fum).mint(to, fumOut);
         _setLatestFumPrice(fumPrice);
     }
 
