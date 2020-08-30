@@ -1,10 +1,11 @@
 pragma solidity ^0.6.7;
 
-import "./BufferedToken.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./BufferedToken.sol";
 import "./WadMath.sol";
-import "@nomiclabs/buidler/console.sol";
 import "./FUM.sol";
+import "@nomiclabs/buidler/console.sol";
+
 
 /**
  * @title USM Stable Coin
@@ -19,7 +20,7 @@ contract USM is BufferedToken {
     uint constant BURN_FEE = WAD / 200; // 0.5%
     uint constant MAX_DEBT_RATIO = 900000000000000000; // 90%
 
-    address fum;
+    FUM public fum;
     uint public latestFumPrice;
 
     event LatestFumPriceChanged(uint previous, uint latest);
@@ -29,7 +30,7 @@ contract USM is BufferedToken {
      */
     constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
         _setLatestFumPrice(MINT_FEE);
-        fum = address(new FUM());
+        fum = new FUM();
     }
 
     /**
@@ -85,7 +86,7 @@ contract USM is BufferedToken {
         uint fumPrice = fumPrice();
         uint fumOut = fumPrice.wadMul(ethIn);
         ethPool = ethPool.add(ethIn);
-        FUM(fum).mint(to, fumOut);
+        fum.mint(to, fumOut);
         _setLatestFumPrice(fumPrice);
     }
 
@@ -101,7 +102,7 @@ contract USM is BufferedToken {
         ethPool = ethPool.sub(ethMinusFee);
         require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
             "Cannot defund this amount. Will take debt ratio above maximum.");
-        FUM(fum).burn(msg.sender, _fumAmount);
+        fum.burn(msg.sender, _fumAmount);
         Address.sendValue(msg.sender, ethMinusFee);
         // set latest fum price
         _setLatestFumPrice(fumPrice);
