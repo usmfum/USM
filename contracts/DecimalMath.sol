@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 
 
 /// @dev Implements simple fixed point math mul and div operations for 27 decimals.
-contract DecimalMath {
+library DecimalMath {
     using SafeMath for uint256;
 
-    uint256 constant internal UNIT = 1e27;
+    uint256 constant internal UNIT = 1e18;
 
     struct UFixed {
         uint256 value;
@@ -20,6 +20,66 @@ contract DecimalMath {
         return UFixed({
             value: x
         });
+    }
+
+    /// @dev Greater than.
+    function gt(UFixed memory x, UFixed memory y) internal pure returns (bool) {
+        return x.value > y.value;
+    }
+
+    /// @dev Greater than.
+    function gt(UFixed memory x, uint y) internal pure returns (bool) {
+        return x.value > y.mul(UNIT);
+    }
+
+    /// @dev Greater than.
+    function gt(uint x, UFixed memory y) internal pure returns (bool) {
+        return x.mul(UNIT) > y.value;
+    }
+
+    /// @dev Greater or equal.
+    function geq(UFixed memory x, UFixed memory y) internal pure returns (bool) {
+        return x.value >= y.value;
+    }
+
+    /// @dev Greater or equal.
+    function geq(UFixed memory x, uint y) internal pure returns (bool) {
+        return x.value >= y.mul(UNIT);
+    }
+
+    /// @dev Greater or equal.
+    function geq(uint x, UFixed memory y) internal pure returns (bool) {
+        return x.mul(UNIT) >= y.value;
+    }
+
+    /// @dev Less than.
+    function lt(UFixed memory x, UFixed memory y) internal pure returns (bool) {
+        return x.value < y.value;
+    }
+
+    /// @dev Less than.
+    function lt(UFixed memory x, uint y) internal pure returns (bool) {
+        return x.value < y.mul(UNIT);
+    }
+
+    /// @dev Less than.
+    function lt(uint x, UFixed memory y) internal pure returns (bool) {
+        return x.mul(UNIT) < y.value;
+    }
+
+    /// @dev Less or equal.
+    function leq(UFixed memory x, UFixed memory y) internal pure returns (bool) {
+        return x.value <= y.value;
+    }
+
+    /// @dev Less or equal.
+    function leq(uint x, UFixed memory y) internal pure returns (bool) {
+        return x.mul(UNIT) <= y.value;
+    }
+
+    /// @dev Less or equal.
+    function leq(UFixed memory x, uint y) internal pure returns (bool) {
+        return x.value <= y.mul(UNIT);
     }
 
     /// @dev Multiplies x and y.

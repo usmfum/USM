@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.10;
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./BufferedToken.sol";
-import "./WadMath.sol";
+import "./DecimalMath.sol";
+import "./USMMath.sol";
 import "./FUM.sol";
 import "@nomiclabs/buidler/console.sol";
 
@@ -13,15 +15,16 @@ import "@nomiclabs/buidler/console.sol";
  * @author Alex Roan (@alexroan)
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is BufferedToken {
+contract USM is BufferedToken, USMMath {
+    using DecimalMath for DecimalMath.UFixed;
+    using DecimalMath for uint;
     using SafeMath for uint;
-    using WadMath for uint;
 
-    uint constant MIN_ETH_AMOUNT = WAD / 1000          // 0.001 (of an ETH)
-    uint constant MAX_DEBT_RATIO = 900000000000000000; // 90%
+    uint constant MIN_ETH_AMOUNT = 1e15;            // 0.001 (of an ETH)
+    DecimalMath.UFixed public MAX_DEBT_RATIO = DecimalMath.UFixed({ value: DecimalMath.UNIT * 9/10 }); // 90%
 
     FUM public fum;
-    uint public latestFumPrice;
+    DecimalMath.UFixed public latestFumPrice;
 
     event LatestFumPriceChanged(uint previous, uint latest);
 
@@ -29,7 +32,7 @@ contract USM is BufferedToken {
      * @param _oracle Address of the oracle
      */
     constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
-        _setLatestFumPrice(MIN_ETH_AMOUNT);
+        _setLatestFumPrice(MIN_ETH_AMOUNT.toUFixed());
         fum = new FUM();
     }
 
@@ -54,7 +57,7 @@ contract USM is BufferedToken {
         require(_usmAmount >= WAD, "Must burn at least 1 USM");
         uint ethAmount = _usmToEth(_usmAmount);
         ethPool = ethPool.sub(ethAmount);
-        require(totalSupply().sub(_usmAmount).wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
+        require(totalSupply().sub(_usmAmount).divd(_ethToUsm(ethPool)).leq(MAX_DEBT_RATIO),
             "Cannot burn this amount. Will take debt ratio above maximum.");
         _burn(msg.sender, _usmAmount);
         Address.sendValue(msg.sender, ethAmount);
@@ -67,8 +70,8 @@ contract USM is BufferedToken {
      */
     function fund() external payable {
         require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
-        if(debtRatio() > MAX_DEBT_RATIO){
-            uint ethNeeded = _usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
+        if(debtRatio().gt(MAX_DEBT_RATIO)){
+            uint ethNeeded = _usmToEth(totalSupply()).divd(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
             if (msg.value >= ethNeeded) { // Split into two fundings at different prices
                 _fund(msg.sender, ethNeeded);
                 _fund(msg.sender, msg.value.sub(ethNeeded));
@@ -81,8 +84,8 @@ contract USM is BufferedToken {
      * @notice Funds the pool with ETH, minting FUM at its current price
      */
     function _fund(address to, uint ethIn) internal {
-        uint fumPrice = fumPrice();
-        uint fumOut = fumPrice.wadMul(ethIn);
+        DecimalMath.UFixed memory fumPrice = fumPrice();
+        uint fumOut = ethIn.muld(fumPrice);
         ethPool = ethPool.add(ethIn);
         fum.mint(to, fumOut);
         _setLatestFumPrice(fumPrice);
@@ -94,10 +97,10 @@ contract USM is BufferedToken {
      */
     function defund(uint _fumAmount) external {
         require(_fumAmount >= WAD, "Must defund at least 1 FUM");
-        uint fumPrice = fumPrice();
-        uint ethAmount = _fumAmount.wadDiv(fumPrice);
+        DecimalMath.UFixed memory fumPrice = fumPrice();
+        uint ethAmount = _fumAmount.divd(fumPrice);
         ethPool = ethPool.sub(ethAmount);
-        require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
+        require(totalSupply().divd(_ethToUsm(ethPool)).leq(MAX_DEBT_RATIO),
             "Cannot defund this amount. Will take debt ratio above maximum.");
         fum.burn(msg.sender, _fumAmount);
         Address.sendValue(msg.sender, ethAmount);
@@ -110,20 +113,20 @@ contract USM is BufferedToken {
      *
      * @param _fumPrice the latest fum price
      */
-    function _setLatestFumPrice(uint _fumPrice) internal {
-        uint previous = latestFumPrice;
+    function _setLatestFumPrice(DecimalMath.UFixed memory _fumPrice) internal {
+        DecimalMath.UFixed memory previous = latestFumPrice;
         latestFumPrice = _fumPrice;
-        emit LatestFumPriceChanged(previous, latestFumPrice);
+        emit LatestFumPriceChanged(previous.value, latestFumPrice.value);
     }
 
     /**
      * @notice Calculates the price of FUM using its total supply
      * and ETH buffer
      */
-    function fumPrice() public view returns (uint) {
+    function fumPrice() public view returns (DecimalMath.UFixed memory) {
         int buffer = ethBuffer();
         // if we're underwater, use the last fum price
-        if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
+        if (buffer <= 0 || debtRatio().gt(MAX_DEBT_RATIO)) {
             return latestFumPrice;
         }
 
@@ -132,6 +135,6 @@ contract USM is BufferedToken {
         if (fumTotalSupply == 0) {
             fumTotalSupply = WAD;
         }
-        return uint(buffer).wadDiv(fumTotalSupply);
+        return uint(buffer).divd(fumTotalSupply);
     }
 }

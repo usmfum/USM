@@ -1,8 +1,9 @@
 pragma solidity ^0.6.7;
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "./WadMath.sol";
+import "./DecimalMath.sol";
 import "./oracles/IOracle.sol";
 
 /**
@@ -13,8 +14,9 @@ import "./oracles/IOracle.sol";
  * inheriting contracts can focus on their minting and burning algorithms.
  */
 contract BufferedToken is ERC20 {
+    using DecimalMath for DecimalMath.UFixed;
+    using DecimalMath for uint;
     using SafeMath for uint;
-    using WadMath for uint;
 
     uint constant WAD = 10 ** 18;
 
@@ -43,11 +45,11 @@ contract BufferedToken is ERC20 {
      *
      * @return Debt ratio.
      */
-    function debtRatio() public view returns (uint) {
+    function debtRatio() public view returns (DecimalMath.UFixed memory) {
         if (ethPool == 0) {
-            return 0;
+            return uint(0).toUFixed();
         }
-        return totalSupply().wadDiv(_ethToUsm(ethPool));
+        return totalSupply().divd(_ethToUsm(ethPool));
     }
 
     /**
@@ -61,7 +63,7 @@ contract BufferedToken is ERC20 {
         if (_ethAmount == 0) {
             return 0;
         }
-        return _oraclePrice().wadMul(_ethAmount);
+        return _ethAmount.muld(_oraclePrice().toUFixed());
     }
 
     /**
@@ -75,7 +77,7 @@ contract BufferedToken is ERC20 {
         if (_usmAmount == 0) {
             return 0;
         }
-        return _usmAmount.wadDiv(_oraclePrice());
+        return _usmAmount.divd(_oraclePrice()).value;
     }
 
     /**
