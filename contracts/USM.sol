@@ -16,8 +16,7 @@ contract USM is BufferedToken {
     using SafeMath for uint;
     using WadMath for uint;
 
-    uint constant MINT_FEE = WAD / 1000; // 0.1%
-    uint constant BURN_FEE = WAD / 200; // 0.5%
+    uint constant MIN_ETH_AMOUNT = WAD / 1000          // 0.001 (of an ETH)
     uint constant MAX_DEBT_RATIO = 900000000000000000; // 90%
 
     FUM public fum;
@@ -29,7 +28,7 @@ contract USM is BufferedToken {
      * @param _oracle Address of the oracle
      */
     constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
-        _setLatestFumPrice(MINT_FEE);
+        _setLatestFumPrice(MIN_ETH_AMOUNT);
         fum = new FUM();
     }
 
@@ -37,11 +36,10 @@ contract USM is BufferedToken {
      * @notice Mint ETH for USM. Uses msg.value as the ETH deposit.
      */
     function mint() external payable {
-        require(msg.value > MINT_FEE, "Must deposit more than 0.001 ETH");
+        require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
         uint usmAmount = _ethToUsm(msg.value);
-        uint usmMinusFee = usmAmount.sub(usmAmount.wadMul(MINT_FEE));
         ethPool = ethPool.add(msg.value);
-        _mint(msg.sender, usmMinusFee);
+        _mint(msg.sender, usmAmount);
         // set latest fum price
         _setLatestFumPrice(fumPrice());
     }
@@ -54,12 +52,11 @@ contract USM is BufferedToken {
     function burn(uint _usmAmount) external {
         require(_usmAmount >= WAD, "Must burn at least 1 USM");
         uint ethAmount = _usmToEth(_usmAmount);
-        uint ethMinusFee = ethAmount.sub(ethAmount.wadMul(BURN_FEE));
-        ethPool = ethPool.sub(ethMinusFee);
+        ethPool = ethPool.sub(ethAmount);
         require(totalSupply().sub(_usmAmount).wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
             "Cannot burn this amount. Will take debt ratio above maximum.");
         _burn(msg.sender, _usmAmount);
-        Address.sendValue(msg.sender, ethMinusFee);
+        Address.sendValue(msg.sender, ethAmount);
         // set latest fum price
         _setLatestFumPrice(fumPrice());
     }
@@ -68,7 +65,7 @@ contract USM is BufferedToken {
      * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
      */
     function fund() external payable {
-        require(msg.value > MINT_FEE, "Must deposit more than 0.001 ETH");
+        require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
         if(debtRatio() > MAX_DEBT_RATIO){
             uint ethNeeded = _usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
             if (msg.value >= ethNeeded) { // Split into two fundings at different prices
@@ -98,12 +95,11 @@ contract USM is BufferedToken {
         require(_fumAmount >= WAD, "Must defund at least 1 FUM");
         uint fumPrice = fumPrice();
         uint ethAmount = _fumAmount.wadDiv(fumPrice);
-        uint ethMinusFee = ethAmount.sub(ethAmount.wadMul(BURN_FEE));
-        ethPool = ethPool.sub(ethMinusFee);
+        ethPool = ethPool.sub(ethAmount);
         require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
             "Cannot defund this amount. Will take debt ratio above maximum.");
         fum.burn(msg.sender, _fumAmount);
-        Address.sendValue(msg.sender, ethMinusFee);
+        Address.sendValue(msg.sender, ethAmount);
         // set latest fum price
         _setLatestFumPrice(fumPrice);
     }
