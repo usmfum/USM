@@ -130,7 +130,7 @@ contract USM is BufferedToken {
             return latestFumPrice;
         }
 
-        uint fumTotalSupply = FUM(fum).totalSupply();
+        uint fumTotalSupply = fum.totalSupply();
         // If there are no FUM, assume there's 1
         if (fumTotalSupply == 0) {
             fumTotalSupply = WAD;
