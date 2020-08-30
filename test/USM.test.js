@@ -17,7 +17,7 @@ require('chai')
 
 contract("USM", accounts => {
 
-    let deployer = accounts[0];
+    let [deployer, user] = accounts;
     
     describe("mints and burns a static amount", () => {
         
@@ -36,7 +36,7 @@ contract("USM", accounts => {
             mintAmount = "24975000000000000000000";
 
             // Mint
-            await usm.mint({from: deployer, value: toWei(ethDeposit)});
+            await usm.mint({from: user, value: toWei(ethDeposit)});
         });
 
         it("sets the correct debt ratio", async () => {
@@ -51,7 +51,7 @@ contract("USM", accounts => {
         });
 
         it("mints the correct amount", async () => {
-            let erc20Minted = await usm.balanceOf(deployer);
+            let erc20Minted = await usm.balanceOf(user);
             erc20Minted.toString().should.equal(mintAmount);
         });
 
@@ -71,11 +71,11 @@ contract("USM", accounts => {
             describe("burns the static amount", () => {
                 before(async () => {
                     // Burn
-                    await usm.burn(mintAmount, {from: deployer});
+                    await usm.burn(mintAmount, {from: user});
                 });
 
                 it("burns the correct amount of usm", async () => {
-                    let usmBalance = await usm.balanceOf(deployer);
+                    let usmBalance = await usm.balanceOf(user);
                     usmBalance.toString().should.equal("0");
                 });
 
@@ -114,10 +114,10 @@ contract("USM", accounts => {
             ethDeposit = 0.1;
 
             // Mint
-            await usm.mint({from: deployer, value: toWei(ethDeposit)});
+            await usm.mint({from: user, value: toWei(ethDeposit)});
 
             // Setup half variables
-            let usmMinted = await usm.balanceOf(deployer);
+            let usmMinted = await usm.balanceOf(user);
             halfUsmAmount = parseInt(usmMinted.toString()) / 2;
             halfEtherAmount = ethDeposit / 2;
             halfWithFees = 50299750000000000;
@@ -125,11 +125,11 @@ contract("USM", accounts => {
             // Burn
             // TODO - refactor burning as it won't allow burning if the debtRatio
             // is too high!
-            await usm.burn(halfUsmAmount.toString(), {from: deployer});
+            await usm.burn(halfUsmAmount.toString(), {from: user});
         });
 
         it("burns half the amount of usm", async () => {
-            let newBalance = await usm.balanceOf(deployer);
+            let newBalance = await usm.balanceOf(user);
             newBalance.toString().should.equal(halfUsmAmount.toString());
         });
 
@@ -164,7 +164,7 @@ contract("USM", accounts => {
             ethDeposit = 0.1;
 
             // Mint
-            await usm.mint({from: deployer, value: toWei(ethDeposit)});
+            await usm.mint({from: user, value: toWei(ethDeposit)});
 
             // Double the price
             await oracle.setPrice(doublePrice.toString(), {from: deployer});
@@ -174,16 +174,16 @@ contract("USM", accounts => {
             debtRatio.toString().should.equal("499500000000000000");
 
             // Setup quarter variables
-            let usmMinted = await usm.balanceOf(deployer);
+            let usmMinted = await usm.balanceOf(user);
             halfUsmAmount = parseInt(usmMinted.toString()) / 2;
             quarterEthAmount = ethDeposit / 4;
 
             // Burn
-            await usm.burn(halfUsmAmount.toString(), {from: deployer});
+            await usm.burn(halfUsmAmount.toString(), {from: user});
         });
 
         it("burns the same amount of usm", async () => {
-            let newBalance = await usm.balanceOf(deployer);
+            let newBalance = await usm.balanceOf(user);
             newBalance.toString().should.equal(halfUsmAmount.toString());
         });
 
