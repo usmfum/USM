@@ -16,7 +16,7 @@ contract("BufferedToken", accounts => {
     const price = new BN('25000');
     const shift = new BN('2');
     const WAD = new BN('1000000000000000000');
-    const priceWAD = price.mul(WAD).div((new BN('10')).pow(shift));
+    const priceWAD = WAD.mul(price).div((new BN('10')).pow(shift));
     
     beforeEach(async() => {
         oracle = await TestOracle.new(price, shift, { from: deployer });
@@ -39,6 +39,20 @@ contract("BufferedToken", accounts => {
         it("returns the oracle price in WAD", async () => {
             let oraclePrice = (await token.oraclePrice()).toString()
             oraclePrice.should.equal(priceWAD.toString());
+        })
+
+        it("returns the value of eth in usm", async () => {
+            const oneEth = WAD;
+            const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
+            let usmAmount = (await token.ethToUsm(oneEth)).toString()
+            usmAmount.should.equal(equivalentUSM.toString());
+        })
+
+        it("returns the value of usm in eth", async () => {
+            const oneUSM = WAD;
+            const equivalentEth = oneUSM.mul(WAD).div(priceWAD)
+            let ethAmount = (await token.usmToEth(oneUSM)).toString()
+            ethAmount.should.equal(equivalentEth.toString());
         })
     })
 });
