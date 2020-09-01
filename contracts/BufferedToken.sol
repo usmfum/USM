@@ -26,6 +26,26 @@ contract BufferedToken is ERC20 {
     }
 
     /**
+     * @notice Mint USM from Eth. Inheriting contract must handle the Ether transfers.
+     */
+    function _mint(uint ethAmount) internal returns (uint) {
+        uint usmAmount = _ethToUsm(ethAmount);
+        ethPool = ethPool.add(ethAmount);
+        super._mint(msg.sender, usmAmount);
+        return usmAmount;
+    }
+
+    /**
+     * @notice Burn USM for Eth. Inheriting contract must handle the Ether transfers.
+     */
+    function _burn(uint usmAmount) internal returns (uint) {
+        uint ethAmount = _usmToEth(usmAmount);
+        ethPool = ethPool.sub(ethAmount);
+        super._burn(msg.sender, usmAmount);
+        return ethAmount;
+    }
+
+    /**
      * @notice Calculate the amount of ETH in the buffer
      *
      * @return ETH buffer
