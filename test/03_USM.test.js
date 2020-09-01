@@ -19,6 +19,9 @@ contract("USM", accounts => {
 
     let [deployer, user] = accounts;
     
+    const price = '25000';
+    const decShift = '2';
+    
     describe("mints and burns a static amount", () => {
         
         let oracle, usm;
@@ -26,7 +29,7 @@ contract("USM", accounts => {
 
         before(async () => {
             // Deploy contracts
-            oracle = await TestOracle.new({from: deployer});
+            oracle = await TestOracle.new(price, decShift, {from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
 
             // Setup variables
@@ -105,7 +108,7 @@ contract("USM", accounts => {
 
         before(async () => {
             // Deploy contracts
-            oracle = await TestOracle.new({from: deployer});
+            oracle = await TestOracle.new(price, decShift, {from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
 
             // Setup variables
@@ -154,7 +157,7 @@ contract("USM", accounts => {
 
         before(async () => {
             // Deploy contracts
-            oracle = await TestOracle.new({from: deployer});
+            oracle = await TestOracle.new(price, decShift, {from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
 
             // Setup variables
