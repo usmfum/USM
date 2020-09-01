@@ -61,6 +61,14 @@ contract("BufferedToken", accounts => {
             debtRatio.should.equal(ZERO.toString());
         })
 
+        it("allows minting", async () => {
+            const oneEth = WAD;
+
+            await token.mint(oneEth, { from: user });
+            const tokenBalance = (await token.balanceOf(user)).toString();
+            tokenBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
+        })
+
         it("updates the debt ratio on mint", async () => {
             await token.mint(WAD, { from: user });
             let debtRatio = (await token.debtRatio()).toString();
