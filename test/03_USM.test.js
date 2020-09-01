@@ -89,9 +89,30 @@ contract("USM", accounts => {
                     await usm.burn(usmBalance, { from: user });
                     const newUsmBalance = (await usm.balanceOf(user)).toString();
                     newUsmBalance.should.equal('0');
+                    // TODO: Test the eth balance just went up. Try setting gas price to zero for an exact amount
     
                     const newFumPrice = (await usm.latestFumPrice()).toString();
                     newFumPrice.should.equal(fumPrice); // Burning doesn't change the fum price if buffer is 0
+                })
+
+                it("doesn't allow burning with less than MIN_BURN_AMOUNT", async () => {
+                    const MIN_BURN_AMOUNT = await usm.MIN_BURN_AMOUNT();
+                    // TODO: assert MIN_BURN_AMOUNT > 0
+                    await expectRevert(
+                        usm.burn(MIN_BURN_AMOUNT.sub(new BN('1')), { from: user }),
+                        "Must burn at least 1 USM"
+                    );
+                })
+
+                it("doesn't allow burning USM if underwater", async () => {
+                    const oneUSM = WAD;
+                    const factor = new BN('2');
+                    await oracle.setPrice(price.div(factor)); // Dropping eth prices will push up the debt ratio
+    
+                    await expectRevert(
+                        usm.burn(oneUSM, { from: user }),
+                        "Cannot burn this amount. Will take debt ratio above maximum."
+                    );
                 })
             });
         });

@@ -18,7 +18,8 @@ contract USM is BufferedToken {
     using Math for uint;
     using WadMath for uint;
 
-    uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 (of an ETH)
+    uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
+    uint constant public MIN_BURN_AMOUNT = WAD;               // 1 USM
     uint constant public MAX_DEBT_RATIO = 900000000000000000; // 90%
 
     FUM public fum;
@@ -65,7 +66,7 @@ contract USM is BufferedToken {
      * @param _usmToBurn Amount of USM to burn.
      */
     function burn(uint _usmToBurn) external {
-        require(_usmToBurn >= WAD, "Must burn at least 1 USM");
+        require(_usmToBurn >= MIN_BURN_AMOUNT, "Must burn at least 1 USM");
         uint ethToSend = _burn(_usmToBurn);
         require(debtRatio() <= MAX_DEBT_RATIO,
             "Cannot burn this amount. Will take debt ratio above maximum.");
