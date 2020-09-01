@@ -1,3 +1,5 @@
+const { BN, expectRevert } = require('@openzeppelin/test-helpers');
+
 const USM = artifacts.require("./USM.sol");
 const TestOracle = artifacts.require("./TestOracle.sol");
 
@@ -19,8 +21,10 @@ contract("USM", accounts => {
 
     let [deployer, user] = accounts;
     
-    const price = '25000';
-    const decShift = '2';
+    const price = new BN('25000');
+    const shift = new BN('2');
+    const WAD = new BN('1000000000000000000');
+    const priceWAD = WAD.mul(price).div((new BN('10')).pow(shift));
     
     describe("mints and burns a static amount", () => {
         
@@ -29,19 +33,34 @@ contract("USM", accounts => {
 
         before(async () => {
             // Deploy contracts
-            oracle = await TestOracle.new(price, decShift, {from: deployer});
+            oracle = await TestOracle.new(price, shift, {from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
 
             // Setup variables
-            etherPrice = parseInt(await oracle.latestPrice());
-            etherPriceDecimalShift = parseInt(await oracle.decimalShift());
-            ethDeposit = 100;
-            mintAmount = "24975000000000000000000";
+            // etherPrice = parseInt(await oracle.latestPrice());
+            // etherPriceDecimalShift = parseInt(await oracle.decimalShift());
+            // ethDeposit = 100;
+            // mintAmount = "24975000000000000000000";
 
             // Mint
-            await usm.mint({from: user, value: toWei(ethDeposit)});
+            // await usm.mint({from: user, value: toWei(ethDeposit)});
         });
 
+        describe("deployment", () => {
+            it("sets latest fum price", async () => {
+                let latestFumPrice = (await usm.latestFumPrice()).toString();
+                let MIN_ETH_AMOUNT = (await usm.MIN_ETH_AMOUNT()).toString();
+                latestFumPrice.should.equal(MIN_ETH_AMOUNT);
+            });    
+        });
+
+        it("allows minting USM", async () => {
+            const oneEth = WAD;
+            await usm.mint({ from: user, value: oneEth });
+            const usmBalance = (await usm.balanceOf(user)).toString();
+            usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
+        })
+        /*
         it("sets the correct debt ratio", async () => {
             let debtRatio = (await usm.debtRatio()).toString();
             debtRatio.toString().should.equal("999000000000000000");
@@ -97,9 +116,10 @@ contract("USM", accounts => {
                     newUsmTotalSupply.toString().should.equal("0");
                 });
             });
-        });
+        }); */
     });
 
+    /*
     describe("mints, then burns half without the price changing", () => {
 
         let oracle, usm;
@@ -208,5 +228,5 @@ contract("USM", accounts => {
             let newUsmTotalSupply = await usm.totalSupply();
             newUsmTotalSupply.toString().should.equal(halfUsmAmount.toString());
         });
-    });
+    }); */
 });

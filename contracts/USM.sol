@@ -1,6 +1,7 @@
 pragma solidity ^0.6.7;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/math/Math.sol";
 import "./BufferedToken.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
@@ -14,10 +15,11 @@ import "@nomiclabs/buidler/console.sol";
  */
 contract USM is BufferedToken {
     using SafeMath for uint;
+    using Math for uint;
     using WadMath for uint;
 
-    uint constant MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 (of an ETH)
-    uint constant MAX_DEBT_RATIO = 900000000000000000; // 90%
+    uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 (of an ETH)
+    uint constant public MAX_DEBT_RATIO = 900000000000000000; // 90%
 
     FUM public fum;
     uint public latestFumPrice;
@@ -30,6 +32,21 @@ contract USM is BufferedToken {
     constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
         _setLatestFumPrice(MIN_ETH_AMOUNT);
         fum = new FUM();
+    }
+
+    /**
+     * @notice Calculates the price of FUM using its total supply
+     * and ETH buffer
+     */
+    function fumPrice() public view returns (uint) {
+        int buffer = ethBuffer();
+        // if we're underwater, use the last fum price
+        if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
+            return latestFumPrice;
+        }
+
+        uint fumTotalSupply = fum.totalSupply().max(WAD); // fumTotalSupply is floored at WAD
+        return uint(buffer).wadDiv(fumTotalSupply);
     }
 
     /**
@@ -109,24 +126,5 @@ contract USM is BufferedToken {
         uint previous = latestFumPrice;
         latestFumPrice = _fumPrice;
         emit LatestFumPriceChanged(previous, latestFumPrice);
-    }
-
-    /**
-     * @notice Calculates the price of FUM using its total supply
-     * and ETH buffer
-     */
-    function fumPrice() public view returns (uint) {
-        int buffer = ethBuffer();
-        // if we're underwater, use the last fum price
-        if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
-            return latestFumPrice;
-        }
-
-        uint fumTotalSupply = fum.totalSupply();
-        // If there are no FUM, assume there's 1
-        if (fumTotalSupply == 0) {
-            fumTotalSupply = WAD;
-        }
-        return uint(buffer).wadDiv(fumTotalSupply);
     }
 }
