@@ -13,7 +13,8 @@ contract("BufferedToken", accounts => {
 
     const price = '25000';
     const decShift = '2';
-
+    const priceWAD = '250000000000000000000'; // TODO: This should be encoded in a javascript function that combines price and decShift
+    
     beforeEach(async() => {
         oracle = await TestOracle.new(price, decShift, {from: deployer});
         token = await BufferedToken.new(oracle.address, "Name", "Symbol", {from: deployer});
@@ -21,8 +22,8 @@ contract("BufferedToken", accounts => {
 
     describe("deployment", async () => {
         it("returns the correct price", async () => {
-            let price = (await oracle.latestPrice()).toString();
-            price.should.equal(price);
+            let oraclePrice = (await oracle.latestPrice()).toString();
+            price.should.equal(oraclePrice);
         });
 
         it("returns the correct decimal shift", async () => {
@@ -31,9 +32,10 @@ contract("BufferedToken", accounts => {
         })
     });
 
-    it("returns the oracle price in WAD", async () => {
-        let price = (await token.oraclePrice()).toString()
-        console.log(price);
-        // shift.should.equal(decShift);
+    describe("functionality", async () => {
+        it("returns the oracle price in WAD", async () => {
+            let oraclePrice = (await token.oraclePrice()).toString()
+            priceWAD.should.equal(oraclePrice);
+        })
     })
 });
