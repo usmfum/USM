@@ -85,6 +85,7 @@ contract USM is BufferedToken {
             if (msg.value >= ethNeeded) { // Split into two fundings at different prices
                 _fund(msg.sender, ethNeeded);
                 _fund(msg.sender, msg.value.sub(ethNeeded));
+                return;
             } // Otherwise continue for funding the total at a single price
         }
         _fund(msg.sender, msg.value);
