@@ -10,7 +10,7 @@ require('chai')
     .should();
 
 contract("BufferedToken", accounts => {
-    const [deployer, user] = accounts;
+    const [deployer, user1, user2, user3] = accounts;
     let token;
 
     const price = new BN('25000');
@@ -64,30 +64,30 @@ contract("BufferedToken", accounts => {
         it("allows minting", async () => {
             const oneEth = WAD;
 
-            await token.mint(oneEth, { from: user });
-            const tokenBalance = (await token.balanceOf(user)).toString();
+            await token.mint(oneEth, { from: user1 });
+            const tokenBalance = (await token.balanceOf(user1)).toString();
             tokenBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
         })
 
         it("updates the debt ratio on mint", async () => {
-            await token.mint(WAD, { from: user });
+            await token.mint(WAD, { from: user1 });
             let debtRatio = (await token.debtRatio()).toString();
             debtRatio.should.equal(WAD.toString());
         })
 
         describe("with a positive supply", async () => {
             beforeEach(async() => {
-                await token.mint(WAD, { from: user });
+                await token.mint(WAD, { from: user1 });
             });
 
             it("allows burning", async () => {
-                const tokenBalance = (await token.balanceOf(user));
+                const tokenBalance = (await token.balanceOf(user1));
 
-                const returnedEth = (await token.burn.call(tokenBalance, { from: user })).toString(); // .call transforms a transaction into a `view` function
+                const returnedEth = (await token.burn.call(tokenBalance, { from: user1 })).toString(); // .call transforms a transaction into a `view` function
                 returnedEth.should.equal(tokenBalance.mul(WAD).div(priceWAD).toString());
 
-                await token.burn(tokenBalance, { from: user });
-                const newTokenBalance = (await token.balanceOf(user)).toString();
+                await token.burn(tokenBalance, { from: user1 });
+                const newTokenBalance = (await token.balanceOf(user1)).toString();
                 newTokenBalance.should.equal('0');
             })
 
@@ -101,6 +101,33 @@ contract("BufferedToken", accounts => {
                 await oracle.setPrice(price.div(factor));
                 newDebtRatio = (await token.debtRatio()).toString();
                 newDebtRatio.should.equal(debtRatio.mul(factor).toString());
+            })
+
+            it("price changes affect the token amount minted", async () => {
+                const oneEth = WAD;
+                const factor = new BN('2');
+                await oracle.setPrice(price.mul(factor));
+                await token.mint(oneEth, { from: user2 });
+                let tokenBalance = (await token.balanceOf(user2)).toString();
+                tokenBalance.should.equal(oneEth.mul(priceWAD.mul(factor)).div(WAD).toString());
+
+                await oracle.setPrice(price.div(factor));
+                await token.mint(oneEth, { from: user3 });
+                tokenBalance = (await token.balanceOf(user3)).toString();
+                tokenBalance.should.equal(oneEth.mul(priceWAD.div(factor)).div(WAD).toString());
+            })
+
+            it("price changes affect the underlying received on burning", async () => {
+                const oneToken = WAD;
+                const oneEth = WAD;
+                const factor = new BN('2');
+                await oracle.setPrice(price.mul(factor));
+                let burned = (await token.burn.call(oneToken, { from: user1 })).toString();
+                burned.should.equal(oneEth.mul(WAD).div(priceWAD.mul(factor)).toString());
+
+                await oracle.setPrice(price.div(factor));
+                burned = (await token.burn.call(oneToken, { from: user1 })).toString();
+                burned.should.equal(oneEth.mul(WAD).div(priceWAD.div(factor)).toString());
             })
 
             it("returns the eth buffer amount", async () => {
