@@ -80,6 +80,17 @@ contract("BufferedToken", accounts => {
                 await token.mint(WAD, { from: user });
             });
 
+            it("allows burning", async () => {
+                const tokenBalance = (await token.balanceOf(user));
+
+                const returnedEth = (await token.burn.call(tokenBalance, { from: user })).toString(); // .call transforms a transaction into a `view` function
+                returnedEth.should.equal(tokenBalance.mul(WAD).div(priceWAD).toString());
+
+                await token.burn(tokenBalance, { from: user });
+                const newTokenBalance = (await token.balanceOf(user)).toString();
+                newTokenBalance.should.equal('0');
+            })
+
             it("price changes affect the debt ratio", async () => {
                 const debtRatio = await token.debtRatio();
                 const factor = new BN('2');
