@@ -30,40 +30,40 @@ contract("BufferedToken", accounts => {
         });
 
         it("returns the correct decimal shift", async () => {
-            let decimalshift = (await oracle.decimalShift()).toString()
+            let decimalshift = (await oracle.decimalShift()).toString();
             decimalshift.should.equal(shift.toString());
         })
     });
 
     describe("functionality", async () => {
         it("returns the oracle price in WAD", async () => {
-            let oraclePrice = (await token.oraclePrice()).toString()
+            let oraclePrice = (await token.oraclePrice()).toString();
             oraclePrice.should.equal(priceWAD.toString());
         })
 
         it("returns the value of eth in usm", async () => {
             const oneEth = WAD;
-            const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-            let usmAmount = (await token.ethToUsm(oneEth)).toString()
+            const equivalentUSM = oneEth.mul(priceWAD).div(WAD);
+            let usmAmount = (await token.ethToUsm(oneEth)).toString();
             usmAmount.should.equal(equivalentUSM.toString());
         })
 
         it("returns the value of usm in eth", async () => {
             const oneUSM = WAD;
             const equivalentEth = oneUSM.mul(WAD).div(priceWAD)
-            let ethAmount = (await token.usmToEth(oneUSM)).toString()
+            let ethAmount = (await token.usmToEth(oneUSM)).toString();
             ethAmount.should.equal(equivalentEth.toString());
         })
 
         it("returns the debt ratio as zero", async () => {
             const ZERO = new BN('0');
-            let debtRatio = (await token.debtRatio()).toString()
+            let debtRatio = (await token.debtRatio()).toString();
             debtRatio.should.equal(ZERO.toString());
         })
 
         it("updates the debt ratio on mint", async () => {
             await token.mint({ from: user, value: WAD });
-            let debtRatio = (await token.debtRatio()).toString()
+            let debtRatio = (await token.debtRatio()).toString();
             debtRatio.should.equal(WAD.toString());
         })
 
@@ -76,12 +76,28 @@ contract("BufferedToken", accounts => {
                 const debtRatio = await token.debtRatio();
                 const factor = new BN('2');
                 await oracle.setPrice(price.mul(factor));
-                let newDebtRatio = (await token.debtRatio()).toString()
+                let newDebtRatio = (await token.debtRatio()).toString();
                 newDebtRatio.should.equal(debtRatio.div(factor).toString());
 
                 await oracle.setPrice(price.div(factor));
-                newDebtRatio = (await token.debtRatio()).toString()
+                newDebtRatio = (await token.debtRatio()).toString();
                 newDebtRatio.should.equal(debtRatio.mul(factor).toString());
+            })
+
+            it("returns the eth buffer amount", async () => {
+                const ethPool = (await token.ethPool())
+                const ZERO = new BN('0');
+                let ethBuffer = (await token.ethBuffer()).toString();
+                ethBuffer.should.equal(ZERO.toString());
+
+                const factor = new BN('2');
+                await oracle.setPrice(price.mul(factor));
+                ethBuffer = (await token.ethBuffer()).toString();
+                ethBuffer.should.equal(ethPool.div(factor).toString()); // Price multiplying by two frees half the eth pool
+
+                await oracle.setPrice(price.div(factor));
+                ethBuffer = (await token.ethBuffer()).toString();
+                ethBuffer.should.equal(ethPool.mul(new BN('-1')).toString()); // Price dividing by two makes debt twice the pool, we are one "ethpool" short of debt ratio == 1.
             })
         });
     })
