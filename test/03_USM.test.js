@@ -75,6 +75,25 @@ contract("USM", accounts => {
                     "Must deposit more than 0.001 ETH"
                 );
             })
+
+            describe("with existing USM supply", () => {
+                beforeEach(async () => {
+                    const oneEth = WAD;
+                    await usm.mint({ from: user, value: oneEth });
+                });
+
+                it("allows burning USM", async () => {
+                    const usmBalance = (await usm.balanceOf(user)).toString();
+                    const fumPrice = (await usm.latestFumPrice()).toString();
+    
+                    await usm.burn(usmBalance, { from: user });
+                    const newUsmBalance = (await usm.balanceOf(user)).toString();
+                    newUsmBalance.should.equal('0');
+    
+                    const newFumPrice = (await usm.latestFumPrice()).toString();
+                    newFumPrice.should.equal(fumPrice); // Burning doesn't change the fum price if buffer is 0
+                })
+            });
         });
         /*
         it("sets the correct debt ratio", async () => {
