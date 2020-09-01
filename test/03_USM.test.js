@@ -54,12 +54,28 @@ contract("USM", accounts => {
             });    
         });
 
-        it("allows minting USM", async () => {
-            const oneEth = WAD;
-            await usm.mint({ from: user, value: oneEth });
-            const usmBalance = (await usm.balanceOf(user)).toString();
-            usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
-        })
+        describe("minting and burning", () => {
+            it("allows minting USM", async () => {
+                const oneEth = WAD;
+                const fumPrice = (await usm.latestFumPrice()).toString();
+
+                await usm.mint({ from: user, value: oneEth });
+                const usmBalance = (await usm.balanceOf(user)).toString();
+                usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
+
+                const newFumPrice = (await usm.latestFumPrice()).toString();
+                newFumPrice.should.equal(fumPrice); // Minting doesn't change the fum price if buffer is 0
+            })
+
+            it("doesn't allow minting with less than MIN_ETH_AMOUNT", async () => {
+                const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT();
+                // TODO: assert MIN_ETH_AMOUNT > 0
+                await expectRevert(
+                    usm.mint({ from: user, value: MIN_ETH_AMOUNT.sub(new BN('1')) }),
+                    "Must deposit more than 0.001 ETH"
+                );
+            })
+        });
         /*
         it("sets the correct debt ratio", async () => {
             let debtRatio = (await usm.debtRatio()).toString();
