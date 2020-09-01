@@ -14,12 +14,25 @@ contract MockBufferedToken is BufferedToken {
 
     constructor(address _oracle, string memory _name, string memory _symbol) public BufferedToken(_oracle, _name, _symbol) {}
 
+    function mint() external payable {
+        uint usmAmount = _ethToUsm(msg.value);
+        ethPool = ethPool.add(msg.value);
+        _mint(msg.sender, usmAmount);
+    }
+
+    function burn(uint usmAmount) public {
+        uint ethAmount = _usmToEth(usmAmount);
+        ethPool = ethPool.sub(ethAmount);
+        _burn(msg.sender, usmAmount);
+        Address.sendValue(msg.sender, ethAmount);
+    }
+
     function ethToUsm(uint _ethAmount) public view returns (uint) {
         return _ethToUsm(_ethAmount);
     }
 
-    function usmToEth(uint _usmAmount) public view returns (uint) {
-        return _usmToEth(_usmAmount);
+    function usmToEth(uint usmAmount) public view returns (uint) {
+        return _usmToEth(usmAmount);
     }
 
     function oraclePrice() public view returns (uint) {

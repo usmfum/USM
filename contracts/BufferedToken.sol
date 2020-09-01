@@ -86,5 +86,4 @@ contract BufferedToken is ERC20 {
         // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
         return IOracle(oracle).latestPrice().mul(WAD).div(10 ** IOracle(oracle).decimalShift());
     }
-
 }

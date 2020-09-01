@@ -54,5 +54,35 @@ contract("BufferedToken", accounts => {
             let ethAmount = (await token.usmToEth(oneUSM)).toString()
             ethAmount.should.equal(equivalentEth.toString());
         })
+
+        it("returns the debt ratio as zero", async () => {
+            const ZERO = new BN('0');
+            let debtRatio = (await token.debtRatio()).toString()
+            debtRatio.should.equal(ZERO.toString());
+        })
+
+        it("updates the debt ratio on mint", async () => {
+            await token.mint({ from: user, value: WAD });
+            let debtRatio = (await token.debtRatio()).toString()
+            debtRatio.should.equal(WAD.toString());
+        })
+
+        describe("with a positive supply", async () => {
+            beforeEach(async() => {
+                await token.mint({ from: user, value: WAD });
+            });
+
+            it("price changes affect the debt ratio", async () => {
+                const debtRatio = await token.debtRatio();
+                const factor = new BN('2');
+                await oracle.setPrice(price.mul(factor));
+                let newDebtRatio = (await token.debtRatio()).toString()
+                newDebtRatio.should.equal(debtRatio.div(factor).toString());
+
+                await oracle.setPrice(price.div(factor));
+                newDebtRatio = (await token.debtRatio()).toString()
+                newDebtRatio.should.equal(debtRatio.mul(factor).toString());
+            })
+        });
     })
 });
