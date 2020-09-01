@@ -33,30 +33,26 @@ contract USM is BufferedToken {
     }
 
     /**
-     * @notice Mint ETH for USM. Uses msg.value as the ETH deposit.
+     * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
      */
     function mint() external payable {
         require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
-        uint usmAmount = _ethToUsm(msg.value);
-        ethPool = ethPool.add(msg.value);
-        _mint(msg.sender, usmAmount);
+        _mint(msg.value);
         // set latest fum price
         _setLatestFumPrice(fumPrice());
     }
 
     /**
-     * @notice Burn USM for ETH.
+     * @notice Burn USM for ETH with checks and asset transfers.
      *
-     * @param _usmAmount Amount of USM to burn.
+     * @param _usmToBurn Amount of USM to burn.
      */
-    function burn(uint _usmAmount) external {
-        require(_usmAmount >= WAD, "Must burn at least 1 USM");
-        uint ethAmount = _usmToEth(_usmAmount);
-        ethPool = ethPool.sub(ethAmount);
-        require(totalSupply().sub(_usmAmount).wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
+    function burn(uint _usmToBurn) external {
+        require(_usmToBurn >= WAD, "Must burn at least 1 USM");
+        uint ethToSend = _burn(_usmToBurn);
+        require(debtRatio() <= MAX_DEBT_RATIO,
             "Cannot burn this amount. Will take debt ratio above maximum.");
-        _burn(msg.sender, _usmAmount);
-        Address.sendValue(msg.sender, ethAmount);
+        Address.sendValue(msg.sender, ethToSend);
         // set latest fum price
         _setLatestFumPrice(fumPrice());
     }

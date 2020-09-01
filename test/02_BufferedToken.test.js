@@ -1,7 +1,7 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers');
 
 const TestOracle = artifacts.require("./TestOracle.sol");
-const BufferedToken = artifacts.require("./MockBufferedToken.sol");
+const MockBufferedToken = artifacts.require("./MockBufferedToken.sol");
 
 const EVM_REVERT = "VM Exception while processing transaction: revert";
 
@@ -20,7 +20,7 @@ contract("BufferedToken", accounts => {
     
     beforeEach(async() => {
         oracle = await TestOracle.new(price, shift, { from: deployer });
-        token = await BufferedToken.new(oracle.address, "Name", "Symbol", { from: deployer });
+        token = await MockBufferedToken.new(oracle.address, "Name", "Symbol", { from: deployer });
     });
 
     describe("deployment", async () => {
@@ -62,14 +62,14 @@ contract("BufferedToken", accounts => {
         })
 
         it("updates the debt ratio on mint", async () => {
-            await token.mint({ from: user, value: WAD });
+            await token.mint(WAD, { from: user });
             let debtRatio = (await token.debtRatio()).toString();
             debtRatio.should.equal(WAD.toString());
         })
 
         describe("with a positive supply", async () => {
             beforeEach(async() => {
-                await token.mint({ from: user, value: WAD });
+                await token.mint(WAD, { from: user });
             });
 
             it("price changes affect the debt ratio", async () => {
