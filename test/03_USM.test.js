@@ -1,6 +1,7 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers');
 
 const USM = artifacts.require("./USM.sol");
+const FUM = artifacts.require("./FUM.sol");
 const TestOracle = artifacts.require("./TestOracle.sol");
 
 const EVM_REVERT = "VM Exception while processing transaction: revert";
@@ -35,6 +36,7 @@ contract("USM", accounts => {
             // Deploy contracts
             oracle = await TestOracle.new(price, shift, {from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
+            fum = await FUM.at(await usm.fum());
 
             // Setup variables
             // etherPrice = parseInt(await oracle.latestPrice());
@@ -113,6 +115,15 @@ contract("USM", accounts => {
                         usm.burn(oneUSM, { from: user }),
                         "Cannot burn with debt ratio below 100%"
                     );
+                })
+
+                it("allows minting FUM", async () => {
+                    const oneEth = WAD;
+                    const fumPrice = (await usm.latestFumPrice());
+    
+                    await usm.fund({ from: user, value: oneEth });
+                    const fumBalance = (await fum.balanceOf(user)).toString();
+                    fumBalance.should.equal((oneEth.mul(fumPrice).div(WAD)).toString());
                 })
             });
         });
