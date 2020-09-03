@@ -20,7 +20,7 @@ contract USM is BufferedToken {
 
     uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
     uint constant public MIN_BURN_AMOUNT = WAD;               // 1 USM
-    uint constant public MAX_DEBT_RATIO = WAD 9 / 10; // 90%
+    uint constant public MAX_DEBT_RATIO = WAD * 9 / 10; // 90%
 
     FUM public fum;
     uint public latestFumPrice;
