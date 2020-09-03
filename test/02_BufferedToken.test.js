@@ -65,8 +65,12 @@ contract("BufferedToken", accounts => {
             const oneEth = WAD;
 
             await token.mint(oneEth, { from: user1 });
+            
             const tokenBalance = (await token.balanceOf(user1)).toString();
             tokenBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
+
+            const ethPool = (await token.ethPool()).toString();
+            ethPool.should.equal(oneEth.toString());
         })
 
         it("updates the debt ratio on mint", async () => {
@@ -87,8 +91,11 @@ contract("BufferedToken", accounts => {
                 returnedEth.should.equal(tokenBalance.mul(WAD).div(priceWAD).toString());
 
                 await token.burn(tokenBalance, { from: user1 });
+
                 const newTokenBalance = (await token.balanceOf(user1)).toString();
                 newTokenBalance.should.equal('0');
+                const ethPool = (await token.ethPool()).toString();
+                ethPool.should.equal((new BN('0')).toString());
             })
 
             it("price changes affect the debt ratio", async () => {
