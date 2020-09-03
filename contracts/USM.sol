@@ -21,9 +21,9 @@ contract USM is BufferedToken {
     uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
     uint constant public MIN_BURN_AMOUNT = WAD;               // 1 USM
     uint constant public MAX_DEBT_RATIO = WAD * 8 / 10; // 80%
+    uint public latestFumPrice = MIN_ETH_AMOUNT;
 
     FUM public fum;
-    uint public latestFumPrice;
 
     event LatestFumPriceChanged(uint previous, uint latest);
 
@@ -31,7 +31,6 @@ contract USM is BufferedToken {
      * @param _oracle Address of the oracle
      */
     constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
-        _setLatestFumPrice(MIN_ETH_AMOUNT);
         fum = new FUM();
     }
 
@@ -58,7 +57,7 @@ contract USM is BufferedToken {
         require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
         uint usmMinted = _mint(msg.value);
         // set latest fum price
-        _setLatestFumPrice(fumPrice());
+        _setLatestFumPrice();
         return usmMinted;
     }
 
@@ -75,7 +74,7 @@ contract USM is BufferedToken {
             "Cannot burn with debt ratio below 100%");
         Address.sendValue(msg.sender, ethToSend);
         // set latest fum price
-        _setLatestFumPrice(fumPrice());
+        _setLatestFumPrice();
         return (ethToSend);
     }
 
@@ -103,7 +102,7 @@ contract USM is BufferedToken {
         uint fumOut = fumPrice.wadMul(ethIn);
         ethPool = ethPool.add(ethIn);
         fum.mint(to, fumOut);
-        _setLatestFumPrice(fumPrice);
+        _setLatestFumPrice();
     }
 
     /**
@@ -120,17 +119,15 @@ contract USM is BufferedToken {
         fum.burn(msg.sender, _fumAmount);
         Address.sendValue(msg.sender, ethAmount);
         // set latest fum price
-        _setLatestFumPrice(fumPrice);
+        _setLatestFumPrice();
     }
 
     /**
      * @notice Set the latest fum price. Emits a LatestFumPriceChanged event.
-     *
-     * @param _fumPrice the latest fum price
      */
-    function _setLatestFumPrice(uint _fumPrice) internal {
+    function _setLatestFumPrice() internal {
         uint previous = latestFumPrice;
-        latestFumPrice = _fumPrice;
+        latestFumPrice = fumPrice();
         emit LatestFumPriceChanged(previous, latestFumPrice);
     }
 }
