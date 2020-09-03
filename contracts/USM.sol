@@ -71,8 +71,8 @@ contract USM is BufferedToken {
     function burn(uint _usmToBurn) external returns (uint) {
         require(_usmToBurn >= MIN_BURN_AMOUNT, "Must burn at least 1 USM");
         uint ethToSend = _burn(_usmToBurn);
-        require(debtRatio() <= MAX_DEBT_RATIO,
-            "Cannot burn this amount. Will take debt ratio above maximum.");
+        require(debtRatio() <= WAD,
+            "Cannot burn with debt ratio below 100%");
         Address.sendValue(msg.sender, ethToSend);
         // set latest fum price
         _setLatestFumPrice(fumPrice());

@@ -104,14 +104,14 @@ contract("USM", accounts => {
                     );
                 })
 
-                it("doesn't allow burning USM if underwater", async () => {
+                it("doesn't allow burning USM if debt ratio under 100%", async () => {
                     const oneUSM = WAD;
                     const factor = new BN('2');
                     await oracle.setPrice(price.div(factor)); // Dropping eth prices will push up the debt ratio
     
                     await expectRevert(
                         usm.burn(oneUSM, { from: user }),
-                        "Cannot burn this amount. Will take debt ratio above maximum."
+                        "Cannot burn with debt ratio below 100%"
                     );
                 })
             });
