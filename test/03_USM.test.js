@@ -118,12 +118,23 @@ contract("USM", accounts => {
                 })
 
                 it("allows minting FUM", async () => {
-                    const oneEth = WAD;
-                    const fumPrice = (await usm.latestFumPrice());
+                    const ethPool = await usm.ethPool();
+                    ethPool.toString().should.equal(WAD.toString());
+
+                    const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT();
+                    const fumPrice = (await usm.fumPrice());
+                    fumPrice.toString().should.equal(MIN_ETH_AMOUNT.toString());
     
-                    await usm.fund({ from: user, value: oneEth });
+                    await usm.fund({ from: user, value: ethPool.toString() });
+
                     const fumBalance = (await fum.balanceOf(user)).toString();
-                    fumBalance.should.equal((oneEth.mul(fumPrice).div(WAD)).toString());
+                    fumBalance.should.equal((ethPool.mul(fumPrice).div(WAD)).toString());
+
+                    const newEthPool = (await usm.ethPool()).toString();
+                    newEthPool.should.equal((ethPool.mul(new BN('2'))).toString());
+
+                    const newFumPrice = (await usm.fumPrice()).toString();
+                    newFumPrice.should.equal((fumPrice.mul(new BN('2'))).toString());
                 })
             });
         });
