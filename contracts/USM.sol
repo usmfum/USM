@@ -52,20 +52,23 @@ contract USM is BufferedToken {
 
     /**
      * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
+     * @return USM minted
      */
-    function mint() external payable {
+    function mint() external payable returns (uint) {
         require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
-        _mint(msg.value);
+        uint usmMinted = _mint(msg.value);
         // set latest fum price
         _setLatestFumPrice(fumPrice());
+        return usmMinted;
     }
 
     /**
      * @notice Burn USM for ETH with checks and asset transfers.
      *
      * @param _usmToBurn Amount of USM to burn.
+     * @return ETH sent
      */
-    function burn(uint _usmToBurn) external {
+    function burn(uint _usmToBurn) external returns (uint) {
         require(_usmToBurn >= MIN_BURN_AMOUNT, "Must burn at least 1 USM");
         uint ethToSend = _burn(_usmToBurn);
         require(debtRatio() <= MAX_DEBT_RATIO,
@@ -73,6 +76,7 @@ contract USM is BufferedToken {
         Address.sendValue(msg.sender, ethToSend);
         // set latest fum price
         _setLatestFumPrice(fumPrice());
+        return (ethToSend);
     }
 
     /**
