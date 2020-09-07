@@ -125,6 +125,15 @@ contract("USM", accounts => {
                     const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT();
                     const fumPrice = (await usm.fumPrice());
                     fumPrice.toString().should.equal(MIN_ETH_AMOUNT.toString());
+
+                    // Multiply the price by two, to divide the debt ratio by 2 and bring it under MAX_DEBT_RATIO
+                    const factor = new BN('2');
+                    await oracle.setPrice(price.mul(factor));
+                    const debtRatio = (await usm.debtRatio()).toString();
+                    debtRatio.should.equal(WAD.div(factor).toString());
+
+                    console.log((await usm.debtRatio()).toString())
+                    console.log((await usm.MAX_DEBT_RATIO()).toString())
     
                     await usm.fund({ from: user, value: ethPool.toString() });
                     

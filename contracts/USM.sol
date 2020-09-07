@@ -40,6 +40,7 @@ contract USM is BufferedToken {
      */
     function fumPrice() public view returns (uint) {
         int buffer = ethBuffer();
+
         // if we're underwater, use the last fum price
         if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
             return latestFumPrice;
@@ -85,12 +86,14 @@ contract USM is BufferedToken {
         require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
         if(debtRatio() > MAX_DEBT_RATIO){
             uint ethNeeded = _usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
+            console.log(ethNeeded);
             if (msg.value >= ethNeeded) { // Split into two fundings at different prices
                 _fund(msg.sender, ethNeeded);
                 _fund(msg.sender, msg.value.sub(ethNeeded));
                 return;
             } // Otherwise continue for funding the total at a single price
         }
+        console.log("debt ratio was below max");
         _fund(msg.sender, msg.value);
     }
 
@@ -98,8 +101,8 @@ contract USM is BufferedToken {
      * @notice Funds the pool with ETH, minting FUM at its current price
      */
     function _fund(address to, uint ethIn) internal {
-        uint fumPrice = fumPrice();
-        uint fumOut = fumPrice.wadMul(ethIn);
+        uint _fumPrice = fumPrice();
+        uint fumOut = _fumPrice.wadMul(ethIn);
         ethPool = ethPool.add(ethIn);
         fum.mint(to, fumOut);
         _setLatestFumPrice();
@@ -111,8 +114,8 @@ contract USM is BufferedToken {
      */
     function defund(uint _fumAmount) external {
         require(_fumAmount >= WAD, "Must defund at least 1 FUM");
-        uint fumPrice = fumPrice();
-        uint ethAmount = _fumAmount.wadDiv(fumPrice);
+        uint _fumPrice = fumPrice();
+        uint ethAmount = _fumAmount.wadDiv(_fumPrice);
         ethPool = ethPool.sub(ethAmount);
         require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
             "Cannot defund this amount. Will take debt ratio above maximum.");

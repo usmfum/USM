@@ -15,6 +15,7 @@ contract("BufferedToken", accounts => {
 
     const price = new BN('25000');
     const shift = new BN('2');
+    const ZERO = new BN('0');
     const WAD = new BN('1000000000000000000');
     const priceWAD = WAD.mul(price).div((new BN('10')).pow(shift));
     
@@ -139,7 +140,8 @@ contract("BufferedToken", accounts => {
 
             it("returns the eth buffer amount", async () => {
                 const ethPool = (await token.ethPool())
-                const ZERO = new BN('0');
+                ethPool.should.not.equal(ZERO.toString());
+                
                 let ethBuffer = (await token.ethBuffer()).toString();
                 ethBuffer.should.equal(ZERO.toString());
 
