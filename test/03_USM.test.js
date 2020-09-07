@@ -24,6 +24,7 @@ contract("USM", accounts => {
     
     const price = new BN('25000');
     const shift = new BN('2');
+    const ZERO = new BN('0');
     const WAD = new BN('1000000000000000000');
     const priceWAD = WAD.mul(price).div((new BN('10')).pow(shift));
     
@@ -32,7 +33,7 @@ contract("USM", accounts => {
         let oracle, usm;
         let etherPrice, etherPriceDecimalShift, ethDeposit, expectedMintAmount, mintFee;
 
-        before(async () => {
+        beforeEach(async () => {
             // Deploy contracts
             oracle = await TestOracle.new(price, shift, {from: deployer});
             usm = await USM.new(oracle.address, {from: deployer});
@@ -126,15 +127,16 @@ contract("USM", accounts => {
                     fumPrice.toString().should.equal(MIN_ETH_AMOUNT.toString());
     
                     await usm.fund({ from: user, value: ethPool.toString() });
+                    
+                    // The fum price shouldn't change with funding / defunding operations
+                    const newFumPrice = (await usm.fumPrice()).toString();
+                    newFumPrice.should.equal(fumPrice.toString());
 
                     const fumBalance = (await fum.balanceOf(user)).toString();
                     fumBalance.should.equal((ethPool.mul(fumPrice).div(WAD)).toString());
 
                     const newEthPool = (await usm.ethPool()).toString();
                     newEthPool.should.equal((ethPool.mul(new BN('2'))).toString());
-
-                    const newFumPrice = (await usm.fumPrice()).toString();
-                    newFumPrice.should.equal((fumPrice.mul(new BN('2'))).toString());
                 })
             });
         });
