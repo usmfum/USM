@@ -21,15 +21,17 @@ require('chai')
 contract("USM", accounts => {
 
     let [deployer, user] = accounts;
-    
+
     const price = new BN('25000');
     const shift = new BN('2');
     const ZERO = new BN('0');
     const WAD = new BN('1000000000000000000');
+    const oneEth = WAD;
+    const oneUsm = WAD;
     const priceWAD = WAD.mul(price).div((new BN('10')).pow(shift));
-    
+
     describe("mints and burns a static amount", () => {
-        
+
         let oracle, usm;
         let etherPrice, etherPriceDecimalShift, ethDeposit, expectedMintAmount, mintFee;
 
@@ -52,101 +54,100 @@ contract("USM", accounts => {
         describe("deployment", () => {
             it("sets latest fum price", async () => {
                 let latestFumPrice = (await usm.latestFumPrice()).toString();
-                let MIN_ETH_AMOUNT = (await usm.MIN_ETH_AMOUNT()).toString();
-                latestFumPrice.should.equal(MIN_ETH_AMOUNT);
-            });    
+                // The fum price should start off equal to $1, in ETH terms = 1 / price:
+                latestFumPrice.should.equal(WAD.mul(WAD).div(priceWAD).toString());
+            });
         });
 
         describe("minting and burning", () => {
-            it("allows minting USM", async () => {
-                const oneEth = WAD;
+            it("doesn't allow minting USM before minting FUM", async () => {
+                await expectRevert(
+                    usm.mint({ from: user, value: oneEth }),
+                    "Must fund before minting"
+                );
+            });
+
+            it("allows minting FUM", async () => {
                 const fumPrice = (await usm.latestFumPrice()).toString();
 
-                await usm.mint({ from: user, value: oneEth });
-                const usmBalance = (await usm.balanceOf(user)).toString();
-                usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
+                await usm.fund({ from: user, value: oneEth });
+                const fumBalance = (await fum.balanceOf(user)).toString();
+                fumBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
+
+                const newEthPool = (await usm.ethPool()).toString();
+                newEthPool.should.equal(oneEth.toString());
 
                 const newFumPrice = (await usm.latestFumPrice()).toString();
-                newFumPrice.should.equal(fumPrice); // Minting doesn't change the fum price if buffer is 0
-            })
+                newFumPrice.should.equal(fumPrice); // Funding doesn't change the fum price
+            });
 
-            it("doesn't allow minting with less than MIN_ETH_AMOUNT", async () => {
-                const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT();
-                // TODO: assert MIN_ETH_AMOUNT > 0
-                await expectRevert(
-                    usm.mint({ from: user, value: MIN_ETH_AMOUNT.sub(new BN('1')) }),
-                    "Must deposit more than 0.001 ETH"
-                );
-            })
-
-            describe("with existing USM supply", () => {
+            describe("with existing FUM supply", () => {
                 beforeEach(async () => {
-                    const oneEth = WAD;
-                    await usm.mint({ from: user, value: oneEth });
+                    await usm.fund({ from: user, value: oneEth });
                 });
 
-                it("allows burning USM", async () => {
-                    const usmBalance = (await usm.balanceOf(user)).toString();
+                it("allows minting USM", async () => {
                     const fumPrice = (await usm.latestFumPrice()).toString();
-    
-                    await usm.burn(usmBalance, { from: user });
-                    const newUsmBalance = (await usm.balanceOf(user)).toString();
-                    newUsmBalance.should.equal('0');
-                    // TODO: Test the eth balance just went up. Try setting gas price to zero for an exact amount
-    
+
+                    await usm.mint({ from: user, value: oneEth });
+                    const usmBalance = (await usm.balanceOf(user)).toString();
+                    usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString());
+
                     const newFumPrice = (await usm.latestFumPrice()).toString();
-                    newFumPrice.should.equal(fumPrice); // Burning doesn't change the fum price if buffer is 0
-                })
+                    newFumPrice.should.equal(fumPrice); // Minting doesn't change the fum price if buffer is 0
+                });
 
-                it("doesn't allow burning with less than MIN_BURN_AMOUNT", async () => {
-                    const MIN_BURN_AMOUNT = await usm.MIN_BURN_AMOUNT();
-                    // TODO: assert MIN_BURN_AMOUNT > 0
-                    await expectRevert(
-                        usm.burn(MIN_BURN_AMOUNT.sub(new BN('1')), { from: user }),
-                        "Must burn at least 1 USM"
-                    );
-                })
-
-                it("doesn't allow burning USM if debt ratio under 100%", async () => {
-                    const oneUSM = WAD;
-                    const factor = new BN('2');
-                    await oracle.setPrice(price.div(factor)); // Dropping eth prices will push up the debt ratio
-    
-                    await expectRevert(
-                        usm.burn(oneUSM, { from: user }),
-                        "Cannot burn with debt ratio below 100%"
-                    );
-                })
-
-                it("allows minting FUM", async () => {
-                    const ethPool = await usm.ethPool();
-                    ethPool.toString().should.equal(WAD.toString());
-
+                it("doesn't allow minting with less than MIN_ETH_AMOUNT", async () => {
                     const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT();
-                    const fumPrice = (await usm.fumPrice());
-                    fumPrice.toString().should.equal(MIN_ETH_AMOUNT.toString());
+                    // TODO: assert MIN_ETH_AMOUNT > 0
+                    await expectRevert(
+                        usm.mint({ from: user, value: MIN_ETH_AMOUNT.sub(new BN('1')) }),
+                        "Must deposit more than 0.001 ETH"
+                    );
+                });
 
-                    // Multiply the price by two, to divide the debt ratio by 2 and bring it under MAX_DEBT_RATIO
-                    const factor = new BN('2');
-                    await oracle.setPrice(price.mul(factor));
-                    const debtRatio = (await usm.debtRatio()).toString();
-                    debtRatio.should.equal(WAD.div(factor).toString());
+                describe("with existing USM supply", () => {
+                    beforeEach(async () => {
+                        await usm.mint({ from: user, value: oneEth });
+                    });
 
-                    console.log((await usm.debtRatio()).toString())
-                    console.log((await usm.MAX_DEBT_RATIO()).toString())
-    
-                    await usm.fund({ from: user, value: ethPool.toString() });
-                    
-                    // The fum price shouldn't change with funding / defunding operations
-                    const newFumPrice = (await usm.fumPrice()).toString();
-                    newFumPrice.should.equal(fumPrice.toString());
+                    it("allows burning USM", async () => {
+                        const usmBalance = (await usm.balanceOf(user)).toString();
+                        const fumPrice = (await usm.latestFumPrice()).toString();
 
-                    const fumBalance = (await fum.balanceOf(user)).toString();
-                    fumBalance.should.equal((ethPool.mul(fumPrice).div(WAD)).toString());
+                        await usm.burn(usmBalance, { from: user });
+                        const newUsmBalance = (await usm.balanceOf(user)).toString();
+                        newUsmBalance.should.equal('0');
+                        // TODO: Test the eth balance just went up. Try setting gas price to zero for an exact amount
 
-                    const newEthPool = (await usm.ethPool()).toString();
-                    newEthPool.should.equal((ethPool.mul(new BN('2'))).toString());
-                })
+                        const newFumPrice = (await usm.latestFumPrice()).toString();
+                        newFumPrice.should.equal(fumPrice); // Burning doesn't change the fum price if buffer is 0
+                    });
+
+                    it("doesn't allow burning with less than MIN_BURN_AMOUNT", async () => {
+                        const MIN_BURN_AMOUNT = await usm.MIN_BURN_AMOUNT();
+                        // TODO: assert MIN_BURN_AMOUNT > 0
+                        await expectRevert(
+                            usm.burn(MIN_BURN_AMOUNT.sub(new BN('1')), { from: user }),
+                            "Must burn at least 1 USM"
+                        );
+                    });
+
+                    it("doesn't allow burning USM if debt ratio under 100%", async () => {
+                        const debtRatio = (await usm.debtRatio()).toString();
+                        const factor = new BN('2');
+                        debtRatio.should.equal(WAD.div(factor).toString());
+
+                        await oracle.setPrice(price.div(factor).div(factor)); // Dropping eth prices will push up the debt ratio
+                        const newDebtRatio = (await usm.debtRatio()).toString();
+                        newDebtRatio.should.equal(WAD.mul(factor).toString());
+
+                        await expectRevert(
+                            usm.burn(oneUsm, { from: user }),
+                            "Cannot burn with debt ratio below 100%"
+                        );
+                    });
+                });
             });
         });
         /*

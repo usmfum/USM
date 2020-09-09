@@ -20,8 +20,8 @@ contract USM is BufferedToken {
 
     uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
     uint constant public MIN_BURN_AMOUNT = WAD;               // 1 USM
-    uint constant public MAX_DEBT_RATIO = WAD * 8 / 10; // 80%
-    uint public latestFumPrice = MIN_ETH_AMOUNT;
+    uint constant public MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
+    uint public latestFumPrice = 0;                           // initial value doesn't matter, set by constructor below
 
     FUM public fum;
 
@@ -32,6 +32,7 @@ contract USM is BufferedToken {
      */
     constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
         fum = new FUM();
+        _setLatestFumPrice();
     }
 
     /**
@@ -39,14 +40,16 @@ contract USM is BufferedToken {
      * and ETH buffer
      */
     function fumPrice() public view returns (uint) {
-        int buffer = ethBuffer();
+        uint fumTotalSupply = fum.totalSupply();
 
+        if (fumTotalSupply == 0) {
+            return _usmToEth(WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in ETH terms)
+        }
+        int buffer = ethBuffer();
         // if we're underwater, use the last fum price
         if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
             return latestFumPrice;
         }
-
-        uint fumTotalSupply = fum.totalSupply().max(WAD); // fumTotalSupply is floored at WAD
         return uint(buffer).wadDiv(fumTotalSupply);
     }
 
@@ -56,6 +59,7 @@ contract USM is BufferedToken {
      */
     function mint() external payable returns (uint) {
         require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
+	require(fum.totalSupply() > 0, "Must fund before minting");
         uint usmMinted = _mint(msg.value);
         // set latest fum price
         _setLatestFumPrice();
@@ -86,14 +90,12 @@ contract USM is BufferedToken {
         require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
         if(debtRatio() > MAX_DEBT_RATIO){
             uint ethNeeded = _usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
-            console.log(ethNeeded);
             if (msg.value >= ethNeeded) { // Split into two fundings at different prices
                 _fund(msg.sender, ethNeeded);
                 _fund(msg.sender, msg.value.sub(ethNeeded));
                 return;
             } // Otherwise continue for funding the total at a single price
         }
-        console.log("debt ratio was below max");
         _fund(msg.sender, msg.value);
     }
 
@@ -102,7 +104,7 @@ contract USM is BufferedToken {
      */
     function _fund(address to, uint ethIn) internal {
         uint _fumPrice = fumPrice();
-        uint fumOut = _fumPrice.wadMul(ethIn);
+        uint fumOut = ethIn.wadDiv(_fumPrice);
         ethPool = ethPool.add(ethIn);
         fum.mint(to, fumOut);
         _setLatestFumPrice();
