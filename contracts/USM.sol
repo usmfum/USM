@@ -1,117 +1,135 @@
 pragma solidity ^0.6.7;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "./oracles/IOracle.sol";
+import "./BufferedToken.sol";
+import "./WadMath.sol";
+import "./FUM.sol";
 import "@nomiclabs/buidler/console.sol";
+
 
 /**
  * @title USM Stable Coin
  * @author Alex Roan (@alexroan)
- * @notice Concept by Jacob Eliosoff (@jacob-eliosoff)
+ * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is ERC20 {
+contract USM is BufferedToken {
     using SafeMath for uint;
+    using WadMath for uint;
 
-    uint constant UNIT = 1e27; // 10**27, MakerDAO's RAY
-    uint constant MINT_FEE = UNIT / 1000; // 0.1%
-    uint constant BURN_FEE = UNIT / 200; // 0.5%
+    uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
+    uint constant public MIN_BURN_AMOUNT = WAD;               // 1 USM
+    uint constant public MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
+    uint public latestFumPrice = 0;                           // initial value doesn't matter, set by constructor below
 
-    address oracle;
-    uint public ethPool;
+    FUM public fum;
+
+    event LatestFumPriceChanged(uint previous, uint latest);
 
     /**
      * @param _oracle Address of the oracle
      */
-    constructor(address _oracle) public ERC20("Minimal USD", "USM") {
-        oracle = _oracle;
-        ethPool = 0;
-        console.log("Hi!");
-        console.log(_oracle);
+    constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
+        fum = new FUM();
+        _setLatestFumPrice();
     }
 
     /**
-     * @notice Multiplies x and y, assuming they are both fixed point with 27 digits.
+     * @notice Calculates the price of FUM using its total supply
+     * and ETH buffer
      */
-    function mulFixed(uint256 x, uint256 y) internal pure returns (uint256) {
-        return x.mul(y).div(UNIT);
-    }
+    function fumPrice() public view returns (uint) {
+        uint fumTotalSupply = fum.totalSupply();
 
-    /**
-     * @notice Divides x by y, assuming they are both fixed point with 27 digits.
-     */
-    function divFixed(uint256 x, uint256 y) internal pure returns (uint256) {
-        return x.mul(UNIT).div(y);
-    }
-
-    /**
-     * @notice Mint ETH for USM. Uses msg.value as the ETH deposit.
-     */
-    function mint() external payable {
-        uint usmAmount = _ethToUsm(msg.value);
-        uint usmMinusFee = usmAmount.sub(mulFixed(usmAmount, MINT_FEE));
-        ethPool = ethPool.add(msg.value);
-        _mint(msg.sender, usmMinusFee);
-    }
-
-    /**
-     * @notice Burn USM for ETH.
-     *
-     * @param _usmAmount Amount of USM to burn.
-     */
-    function burn(uint _usmAmount) external {
-        uint ethAmount = _usmToEth(_usmAmount);
-        uint ethMinusFee = ethAmount.sub(mulFixed(ethAmount, BURN_FEE));
-        ethPool = ethPool.sub(ethMinusFee);
-        _burn(msg.sender, _usmAmount);
-        Address.sendValue(msg.sender, ethMinusFee);
-    }
-
-    /**
-     * @notice Calculate debt ratio of the current Eth pool amount and outstanding USM
-     * (the amount of USM in total supply).
-     *
-     * @return Debt ratio in UNIT.
-     */
-    function debtRatio() external view returns (uint) {
-        if (ethPool == 0) {
-            return 0;
+        if (fumTotalSupply == 0) {
+            return _usmToEth(WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in ETH terms)
         }
-        // If divFixed is fed two integers, returns their division as a fixed point number
-        return divFixed(totalSupply(), _ethToUsm(ethPool));
+        int buffer = ethBuffer();
+        // if we're underwater, use the last fum price
+        if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
+            return latestFumPrice;
+        }
+        return uint(buffer).wadDiv(fumTotalSupply);
     }
 
     /**
-     * @notice Convert ETH amount to USM using the latest price of USM
-     * in ETH.
-     *
-     * @param _ethAmount The amount of ETH to convert.
-     * @return The amount of USM.
+     * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
+     * @return USM minted
      */
-    function _ethToUsm(uint _ethAmount) internal view returns (uint) {
-        require(_ethAmount > 0, "Eth Amount must be more than 0");
-        return mulFixed(_oraclePrice(), _ethAmount);
+    function mint() external payable returns (uint) {
+        require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
+        require(fum.totalSupply() > 0, "Must fund before minting");
+        uint usmMinted = _mint(msg.value);
+        // set latest fum price
+        _setLatestFumPrice();
+        return usmMinted;
     }
 
     /**
-     * @notice Convert USM amount to ETH using the latest price of USM
-     * in ETH.
+     * @notice Burn USM for ETH with checks and asset transfers.
      *
-     * @param _usmAmount The amount of USM to convert.
-     * @return The amount of ETH.
+     * @param _usmToBurn Amount of USM to burn.
+     * @return ETH sent
      */
-    function _usmToEth(uint _usmAmount) internal view returns (uint) {
-        require(_usmAmount > 0, "USM Amount must be more than 0");
-        return divFixed(_usmAmount, _oraclePrice());
+    function burn(uint _usmToBurn) external returns (uint) {
+        require(_usmToBurn >= MIN_BURN_AMOUNT, "Must burn at least 1 USM");
+        uint ethToSend = _burn(_usmToBurn);
+        require(debtRatio() <= WAD,
+            "Cannot burn with debt ratio above 100%");
+        Address.sendValue(msg.sender, ethToSend);
+        // set latest fum price
+        _setLatestFumPrice();
+        return (ethToSend);
     }
 
     /**
-     * @notice Retrieve the latest price of the price oracle.
-     *
-     * @return price in UNIT
+     * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
      */
-    function _oraclePrice() internal view returns (uint) {
-        // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
-        return IOracle(oracle).latestPrice().mul(UNIT).div(10 ** IOracle(oracle).decimalShift());
+    function fund() external payable {
+        require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
+        if(debtRatio() > MAX_DEBT_RATIO){
+            uint ethNeeded = _usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
+            if (msg.value >= ethNeeded) { // Split into two fundings at different prices
+                _fund(msg.sender, ethNeeded);
+                _fund(msg.sender, msg.value.sub(ethNeeded));
+                return;
+            } // Otherwise continue for funding the total at a single price
+        }
+        _fund(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Funds the pool with ETH, minting FUM at its current price
+     */
+    function _fund(address to, uint ethIn) internal {
+        uint _fumPrice = fumPrice();
+        uint fumOut = ethIn.wadDiv(_fumPrice);
+        ethPool = ethPool.add(ethIn);
+        fum.mint(to, fumOut);
+        _setLatestFumPrice();
+    }
+
+    /**
+     * @notice Defunds the pool by sending FUM out in exchange for equivalent ETH
+     * from the pool
+     */
+    function defund(uint _fumAmount) external {
+        uint _fumPrice = fumPrice();
+        uint ethAmount = _fumAmount.wadMul(_fumPrice);
+        ethPool = ethPool.sub(ethAmount);
+        require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
+            "Cannot defund this amount. Will take debt ratio above maximum");
+        fum.burn(msg.sender, _fumAmount);
+        Address.sendValue(msg.sender, ethAmount);
+        // set latest fum price
+        _setLatestFumPrice();
+    }
+
+    /**
+     * @notice Set the latest fum price. Emits a LatestFumPriceChanged event.
+     */
+    function _setLatestFumPrice() internal {
+        uint previous = latestFumPrice;
+        latestFumPrice = fumPrice();
+        emit LatestFumPriceChanged(previous, latestFumPrice);
     }
 }

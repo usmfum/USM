@@ -10,10 +10,10 @@ contract TestOracle is IOracle, Ownable{
     uint price;
     uint decShift;
 
-    constructor() public {
-        decShift = 2;
-        // $250.00
-        price = 25000;
+    constructor(uint price_, uint decShift_) public {
+        price = price_;
+        decShift = decShift_;
+        // 25000, 2 = $250.00
     }
 
     function latestPrice() external override view returns (uint) {
