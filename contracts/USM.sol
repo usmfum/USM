@@ -59,7 +59,7 @@ contract USM is BufferedToken {
      */
     function mint() external payable returns (uint) {
         require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
-	require(fum.totalSupply() > 0, "Must fund before minting");
+        require(fum.totalSupply() > 0, "Must fund before minting");
         uint usmMinted = _mint(msg.value);
         // set latest fum price
         _setLatestFumPrice();
@@ -120,7 +120,7 @@ contract USM is BufferedToken {
         uint ethAmount = _fumAmount.wadMul(_fumPrice);
         ethPool = ethPool.sub(ethAmount);
         require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
-            "Cannot defund this amount. Will take debt ratio above maximum.");
+            "Cannot defund this amount. Will take debt ratio above maximum");
         fum.burn(msg.sender, _fumAmount);
         Address.sendValue(msg.sender, ethAmount);
         // set latest fum price
