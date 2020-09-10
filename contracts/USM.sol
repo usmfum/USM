@@ -1,7 +1,6 @@
 pragma solidity ^0.6.7;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/math/Math.sol";
 import "./BufferedToken.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
@@ -15,7 +14,6 @@ import "@nomiclabs/buidler/console.sol";
  */
 contract USM is BufferedToken {
     using SafeMath for uint;
-    using Math for uint;
     using WadMath for uint;
 
     uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
