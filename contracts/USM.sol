@@ -115,7 +115,6 @@ contract USM is BufferedToken {
      * from the pool
      */
     function defund(uint _fumAmount) external {
-        require(_fumAmount >= WAD, "Must defund at least 1 FUM");
         uint _fumPrice = fumPrice();
         uint ethAmount = _fumAmount.wadMul(_fumPrice);
         ethPool = ethPool.sub(ethAmount);
