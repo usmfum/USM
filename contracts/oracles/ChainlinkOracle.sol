@@ -5,8 +5,8 @@ import "@chainlink/contracts/src/v0.6/interfaces/AggregatorInterface.sol";
 
 contract ChainlinkOracle is IOracle{
 
-    address oracle;
-    uint decShift;
+    address public oracle;
+    uint private decShift;
 
     /**
      * @notice Ropsten Details:

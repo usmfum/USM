@@ -7,8 +7,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract TestOracle is IOracle, Ownable{
     using SafeMath for uint;
 
-    uint price;
-    uint decShift;
+    uint private price;
+    uint private decShift;
 
     constructor(uint price_, uint decShift_) public {
         price = price_;
