@@ -117,7 +117,7 @@ contract USM is BufferedToken {
     function defund(uint _fumAmount) external {
         require(_fumAmount >= WAD, "Must defund at least 1 FUM");
         uint _fumPrice = fumPrice();
-        uint ethAmount = _fumAmount.wadDiv(_fumPrice);
+        uint ethAmount = _fumAmount.wadMul(_fumPrice);
         ethPool = ethPool.sub(ethAmount);
         require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
             "Cannot defund this amount. Will take debt ratio above maximum.");
