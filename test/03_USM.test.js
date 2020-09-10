@@ -144,7 +144,7 @@ contract("USM", accounts => {
 
                         await expectRevert(
                             usm.burn(oneUsm, { from: user }),
-                            "Cannot burn with debt ratio below 100%"
+                            "Cannot burn with debt ratio above 100%"
                         );
                     });
                 });
