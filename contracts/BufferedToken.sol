@@ -18,7 +18,7 @@ contract BufferedToken is ERC20 {
 
     uint public constant WAD = 10 ** 18;
 
-    uint public ethPool = 0;
+    uint public ethPool;        //default 0
     address public oracle;
 
     constructor(address _oracle, string memory _name, string memory _symbol) public ERC20(_name, _symbol) {
