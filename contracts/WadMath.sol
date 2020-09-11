@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 library WadMath {
     using SafeMath for uint;
 
-    uint constant WAD = 10 ** 18;
+    uint public constant WAD = 10 ** 18;
 
     //rounds to zero if x*y < WAD / 2
     function wadMul(uint x, uint y) internal pure returns (uint) {

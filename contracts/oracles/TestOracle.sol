@@ -7,24 +7,16 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract TestOracle is IOracle, Ownable{
     using SafeMath for uint;
 
-    uint price;
-    uint decShift;
+    uint public override latestPrice;
+    uint public override decimalShift;
 
-    constructor(uint price_, uint decShift_) public {
-        price = price_;
-        decShift = decShift_;
+    constructor(uint price, uint shift) public {
+        latestPrice = price;
+        decimalShift = shift;
         // 25000, 2 = $250.00
     }
 
-    function latestPrice() external override view returns (uint) {
-        return price;
-    }
-
-    function decimalShift() external override view returns (uint) {
-        return decShift;
-    }
-
-    function setPrice(uint _newPrice) external onlyOwner {
-        price = _newPrice;
+    function setPrice(uint price) external onlyOwner {
+        latestPrice = price;
     }
 }

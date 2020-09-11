@@ -12,7 +12,7 @@ import "../BufferedToken.sol";
  */
 contract MockBufferedToken is BufferedToken {
 
-    constructor(address _oracle, string memory _name, string memory _symbol) public BufferedToken(_oracle, _name, _symbol) {}
+    constructor(address _oracle, string memory _name, string memory _symbol) public BufferedToken(_oracle, _name, _symbol) { }
 
     function mint(uint ethAmount) public returns (uint) {
         return _mint(ethAmount);

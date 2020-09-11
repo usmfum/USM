@@ -10,8 +10,8 @@
     "build": "buidler compile",
     "test": "buidler test test/*.js",
     "coverage": "buidler coverage --network coverage --temp build --testfiles 'test/*.js'",
-    "lint": "prettier ./test/**/*.js --check",
-    "lint:fix": "prettier ./test/**/*.js --write"
+    "lint:js": "prettier ./test/**/*.js --write",
+    "lint:sol": "solhint -f table contracts/**/*.sol"
   },
   "author": "Alex Roan",
   "license": "ISC",
@@ -31,6 +31,7 @@
     "ganache-time-traveler": "^1.0.14",
     "mocha": "^7.1.0",
     "prettier": "^2.0.5",
+    "solhint": "^3.2.0",
     "solidity-coverage": "^0.7.9",
     "truffle": "^5.1.39"
   },
