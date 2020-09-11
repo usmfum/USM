@@ -4,6 +4,7 @@
     "rules": {
         "avoid-throw": "off",
         "avoid-suicide": "error",
-        "avoid-sha3": "warn"
+        "avoid-sha3": "warn",
+        "compiler-version": "off"
     }
 }
