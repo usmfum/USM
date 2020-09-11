@@ -56,8 +56,8 @@ contract USM is BufferedToken {
      * @return USM minted
      */
     function mint() external payable returns (uint) {
-        require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
-        require(fum.totalSupply() > 0, "Must fund before minting");
+        require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum");
+        require(fum.totalSupply() > 0, "Fund before minting");
         uint usmMinted = _mint(msg.value);
         // set latest fum price
         _setLatestFumPrice();
@@ -71,10 +71,9 @@ contract USM is BufferedToken {
      * @return ETH sent
      */
     function burn(uint _usmToBurn) external returns (uint) {
-        require(_usmToBurn >= MIN_BURN_AMOUNT, "Must burn at least 1 USM");
+        require(_usmToBurn >= MIN_BURN_AMOUNT, "1 USM minimum");
         uint ethToSend = _burn(_usmToBurn);
-        require(debtRatio() <= WAD,
-            "Cannot burn with debt ratio above 100%");
+        require(debtRatio() <= WAD, "Debt ratio too high");
         Address.sendValue(msg.sender, ethToSend);
         // set latest fum price
         _setLatestFumPrice();
@@ -85,7 +84,7 @@ contract USM is BufferedToken {
      * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
      */
     function fund() external payable {
-        require(msg.value > MIN_ETH_AMOUNT, "Must deposit more than 0.001 ETH");
+        require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum");
         if(debtRatio() > MAX_DEBT_RATIO){
             uint ethNeeded = _usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
             if (msg.value >= ethNeeded) { // Split into two fundings at different prices
@@ -117,7 +116,7 @@ contract USM is BufferedToken {
         uint ethAmount = _fumAmount.wadMul(_fumPrice);
         ethPool = ethPool.sub(ethAmount);
         require(totalSupply().wadDiv(_ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
-            "Cannot defund this amount. Will take debt ratio above maximum");
+            "Max debt ratio breach");
         fum.burn(msg.sender, _fumAmount);
         Address.sendValue(msg.sender, ethAmount);
         // set latest fum price

@@ -37,7 +37,7 @@ contract('USM', (accounts) => {
 
     describe('minting and burning', () => {
       it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(usm.mint({ from: user, value: oneEth }), 'Must fund before minting')
+        await expectRevert(usm.mint({ from: user, value: oneEth }), 'Fund before minting')
       })
 
       it('allows minting FUM', async () => {
@@ -75,7 +75,7 @@ contract('USM', (accounts) => {
           // TODO: assert MIN_ETH_AMOUNT > 0
           await expectRevert(
             usm.mint({ from: user, value: MIN_ETH_AMOUNT.sub(new BN('1')) }),
-            'Must deposit more than 0.001 ETH'
+            '0.001 ETH minimum'
           )
         })
 
@@ -108,7 +108,7 @@ contract('USM', (accounts) => {
           it("doesn't allow burning FUM if it would push debt ratio above MAX_DEBT_RATIO", async () => {
             await expectRevert(
               usm.defund(priceWAD.mul(new BN('7')).div(new BN('8')), { from: user }), // try to defund 7/8 = 87.5% of our fum
-              'Cannot defund this amount. Will take debt ratio above maximum'
+              'Max debt ratio breach'
             )
           })
 
@@ -128,7 +128,7 @@ contract('USM', (accounts) => {
           it("doesn't allow burning USM with less than MIN_BURN_AMOUNT", async () => {
             const MIN_BURN_AMOUNT = await usm.MIN_BURN_AMOUNT()
             // TODO: assert MIN_BURN_AMOUNT > 0
-            await expectRevert(usm.burn(MIN_BURN_AMOUNT.sub(new BN('1')), { from: user }), 'Must burn at least 1 USM')
+            await expectRevert(usm.burn(MIN_BURN_AMOUNT.sub(new BN('1')), { from: user }), '1 USM minimum')
           })
 
           it("doesn't allow burning USM if debt ratio under 100%", async () => {
@@ -140,7 +140,7 @@ contract('USM', (accounts) => {
             const newDebtRatio = (await usm.debtRatio()).toString()
             newDebtRatio.should.equal(WAD.mul(factor).toString())
 
-            await expectRevert(usm.burn(oneUsm, { from: user }), 'Cannot burn with debt ratio above 100%')
+            await expectRevert(usm.burn(oneUsm, { from: user }), 'Debt ratio too high')
           })
         })
       })
