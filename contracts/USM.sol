@@ -1,36 +1,64 @@
 pragma solidity ^0.6.7;
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "./BufferedToken.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
 import "@nomiclabs/buidler/console.sol";
-
+import "./oracles/IOracle.sol";
 
 /**
  * @title USM Stable Coin
  * @author Alex Roan (@alexroan)
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is BufferedToken {
+contract USM is ERC20 {
     using SafeMath for uint;
     using WadMath for uint;
 
+    address public oracle;
+    FUM public fum;
+    uint public ethPool;                                      // default 0
+    uint public latestFumPrice;                               // default 0
+
+    uint public constant WAD = 10 ** 18;
     uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
     uint constant public MIN_BURN_AMOUNT = WAD;               // 1 USM
     uint constant public MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
-    uint public latestFumPrice;                               // default 0
-
-    FUM public fum;
 
     event LatestFumPriceChanged(uint previous, uint latest);
 
     /**
      * @param _oracle Address of the oracle
      */
-    constructor(address _oracle) public BufferedToken(_oracle, "Minimal USD", "USM") {
+    constructor(address _oracle) public ERC20("Minimal USD", "USM") {
         fum = new FUM();
+        oracle = _oracle;
         _setLatestFumPrice();
+    }
+
+    /**
+     * @notice Calculate the amount of ETH in the buffer
+     *
+     * @return ETH buffer
+     */
+    function ethBuffer() public view returns (int) {
+        int buffer = int(ethPool) - int(_usmToEth(totalSupply()));
+        require(buffer <= int(ethPool), "Underflow error");
+        return buffer;
+    }
+
+    /**
+     * @notice Calculate debt ratio of the current Eth pool amount and outstanding USM
+     * (the amount of USM in total supply).
+     *
+     * @return Debt ratio.
+     */
+    function debtRatio() public view returns (uint) {
+        if (ethPool == 0) {
+            return 0;
+        }
+        return totalSupply().wadDiv(_ethToUsm(ethPool));
     }
 
     /**
@@ -97,17 +125,6 @@ contract USM is BufferedToken {
     }
 
     /**
-     * @notice Funds the pool with ETH, minting FUM at its current price
-     */
-    function _fund(address to, uint ethIn) internal {
-        uint _fumPrice = fumPrice();
-        uint fumOut = ethIn.wadDiv(_fumPrice);
-        ethPool = ethPool.add(ethIn);
-        fum.mint(to, fumOut);
-        _setLatestFumPrice();
-    }
-
-    /**
      * @notice Defunds the pool by sending FUM out in exchange for equivalent ETH
      * from the pool
      */
@@ -130,5 +147,76 @@ contract USM is BufferedToken {
         uint previous = latestFumPrice;
         latestFumPrice = fumPrice();
         emit LatestFumPriceChanged(previous, latestFumPrice);
+    }
+
+    /** INTERNAL FUNCTIONS */
+
+    /**
+     * @notice Funds the pool with ETH, minting FUM at its current price
+     */
+    function _fund(address to, uint ethIn) internal {
+        uint _fumPrice = fumPrice();
+        uint fumOut = ethIn.wadDiv(_fumPrice);
+        ethPool = ethPool.add(ethIn);
+        fum.mint(to, fumOut);
+        _setLatestFumPrice();
+    }
+
+    /**
+     * @notice Mint USM from Eth. Inheriting contract must handle the Ether transfers.
+     */
+    function _mint(uint ethAmount) internal returns (uint) {
+        uint usmAmount = _ethToUsm(ethAmount);
+        ethPool = ethPool.add(ethAmount);
+        super._mint(msg.sender, usmAmount);
+        return usmAmount;
+    }
+
+    /**
+     * @notice Burn USM for Eth. Inheriting contract must handle the Ether transfers.
+     */
+    function _burn(uint usmAmount) internal returns (uint) {
+        uint ethAmount = _usmToEth(usmAmount);
+        ethPool = ethPool.sub(ethAmount);
+        super._burn(msg.sender, usmAmount);
+        return ethAmount;
+    }
+
+    /**
+     * @notice Convert ETH amount to USM using the latest price of USM
+     * in ETH.
+     *
+     * @param _ethAmount The amount of ETH to convert.
+     * @return The amount of USM.
+     */
+    function _ethToUsm(uint _ethAmount) internal view returns (uint) {
+        if (_ethAmount == 0) {
+            return 0;
+        }
+        return _oraclePrice().wadMul(_ethAmount);
+    }
+
+    /**
+     * @notice Convert USM amount to ETH using the latest price of USM
+     * in ETH.
+     *
+     * @param _usmAmount The amount of USM to convert.
+     * @return The amount of ETH.
+     */
+    function _usmToEth(uint _usmAmount) internal view returns (uint) {
+        if (_usmAmount == 0) {
+            return 0;
+        }
+        return _usmAmount.wadDiv(_oraclePrice());
+    }
+
+    /**
+     * @notice Retrieve the latest price of the price oracle.
+     *
+     * @return price
+     */
+    function _oraclePrice() internal view returns (uint) {
+        // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
+        return IOracle(oracle).latestPrice().mul(WAD).div(10 ** IOracle(oracle).decimalShift());
     }
 }
