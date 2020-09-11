@@ -10,9 +10,8 @@
     "build": "buidler compile",
     "test": "buidler test test/*.js",
     "coverage": "buidler coverage --network coverage --temp build --testfiles 'test/*.js'",
-    "lint": "prettier ./test/**/*.js --check",
-    "lint:fix": "prettier ./test/**/*.js --write",
-    "solhint": "./node_modules/.bin/solhint -f table contracts/**/*.sol"
+    "lint:js": "prettier ./test/**/*.js --write",
+    "lint:sol": "solhint -f table contracts/**/*.sol"
   },
   "author": "Alex Roan",
   "license": "ISC",
