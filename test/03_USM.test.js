@@ -73,10 +73,7 @@ contract('USM', (accounts) => {
         it("doesn't allow minting with less than MIN_ETH_AMOUNT", async () => {
           const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT()
           // TODO: assert MIN_ETH_AMOUNT > 0
-          await expectRevert(
-            usm.mint({ from: user, value: MIN_ETH_AMOUNT.sub(new BN('1')) }),
-            '0.001 ETH minimum'
-          )
+          await expectRevert(usm.mint({ from: user, value: MIN_ETH_AMOUNT.sub(new BN('1')) }), '0.001 ETH minimum')
         })
 
         describe('with existing USM supply', () => {
