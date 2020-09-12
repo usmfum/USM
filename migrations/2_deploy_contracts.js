@@ -6,6 +6,6 @@ module.exports = async function(deployer) {
     // not be undefined??
     await web3.eth.net.getId();
     
-    let oracle = await deployer.deploy(TestOracle);
+    let oracle = await deployer.deploy(TestOracle, "25000", "2");
     await deployer.deploy(USM, oracle.address);
 }
