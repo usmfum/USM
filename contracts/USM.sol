@@ -63,10 +63,10 @@ contract USM is ERC20 {
         // uint ethToSend = _burn(_usmToBurn);
         uint ethToSend = usmToEth(_usmToBurn);
         _burn(msg.sender, _usmToBurn);
-        require(debtRatio() <= WAD, "Debt ratio too high");
         Address.sendValue(msg.sender, ethToSend);
         // set latest fum price
         _setLatestFumPrice();
+        require(debtRatio() <= WAD, "Debt ratio too high");
         return (ethToSend);
     }
 
@@ -92,15 +92,15 @@ contract USM is ERC20 {
      * from the pool
      */
     function defund(uint _fumAmount) external {
+        require(_fumAmount >= MIN_BURN_AMOUNT, "1 FUM minimum");
         uint _fumPrice = fumPrice();
         uint ethAmount = _fumAmount.wadMul(_fumPrice);
-        uint remainingPool = address(this).balance.sub(ethAmount);
-        require(totalSupply().wadDiv(ethToUsm(remainingPool)) <= MAX_DEBT_RATIO,
-            "Max debt ratio breach");
         fum.burn(msg.sender, _fumAmount);
         Address.sendValue(msg.sender, ethAmount);
         // set latest fum price
         _setLatestFumPrice();
+        require(debtRatio() <= MAX_DEBT_RATIO,
+            "Max debt ratio breach");
     }
 
     /** PUBLIC FUNCTIONS **/
