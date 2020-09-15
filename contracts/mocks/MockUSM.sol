@@ -23,14 +23,6 @@ contract MockUSM is USM {
         _fund(to, ethIn);
     }
 
-    function internalMint(uint ethAmount) public returns (uint) {
-        return _mint(ethAmount);
-    }
-
-    function internalBurn(uint usmAmount) public returns (uint) {
-        return _burn(usmAmount);
-    }
-
     function oraclePrice() public view returns (uint) {
         return _oraclePrice();
     }

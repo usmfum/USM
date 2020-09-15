@@ -45,7 +45,8 @@ contract USM is ERC20 {
     function mint() external payable returns (uint) {
         require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum");
         require(fum.totalSupply() > 0, "Fund before minting");
-        uint usmMinted = _mint(msg.value);
+        uint usmMinted = ethToUsm(msg.value);
+        _mint(msg.sender, usmMinted);
         // set latest fum price
         _setLatestFumPrice();
         return usmMinted;
@@ -59,7 +60,9 @@ contract USM is ERC20 {
      */
     function burn(uint _usmToBurn) external returns (uint) {
         require(_usmToBurn >= MIN_BURN_AMOUNT, "1 USM minimum");
-        uint ethToSend = _burn(_usmToBurn);
+        // uint ethToSend = _burn(_usmToBurn);
+        uint ethToSend = usmToEth(_usmToBurn);
+        _burn(msg.sender, _usmToBurn);
         require(debtRatio() <= WAD, "Debt ratio too high");
         Address.sendValue(msg.sender, ethToSend);
         // set latest fum price
@@ -191,24 +194,6 @@ contract USM is ERC20 {
         uint fumOut = ethIn.wadDiv(_fumPrice);
         fum.mint(to, fumOut);
         _setLatestFumPrice();
-    }
-
-    /**
-     * @notice Mint USM from Eth. Inheriting contract must handle the Ether transfers.
-     */
-    function _mint(uint ethAmount) internal returns (uint) {
-        uint usmAmount = ethToUsm(ethAmount);
-        super._mint(msg.sender, usmAmount);
-        return usmAmount;
-    }
-
-    /**
-     * @notice Burn USM for Eth. Inheriting contract must handle the Ether transfers.
-     */
-    function _burn(uint usmAmount) internal returns (uint) {
-        uint ethAmount = usmToEth(usmAmount);
-        super._burn(msg.sender, usmAmount);
-        return ethAmount;
     }
 
     /**
