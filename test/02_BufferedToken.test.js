@@ -1,15 +1,15 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 
 const TestOracle = artifacts.require('./TestOracle.sol')
-const MockBufferedToken = artifacts.require('./MockBufferedToken.sol')
+const MockUSM = artifacts.require('./MockUSM.sol')
 
 const EVM_REVERT = 'VM Exception while processing transaction: revert'
 
 require('chai').use(require('chai-as-promised')).should()
 
-contract('BufferedToken', (accounts) => {
+contract('MockUSM', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
-  let token
+  let mockToken
 
   const price = new BN('25000')
   const shift = new BN('2')
@@ -19,7 +19,7 @@ contract('BufferedToken', (accounts) => {
 
   beforeEach(async () => {
     oracle = await TestOracle.new(price, shift, { from: deployer })
-    token = await MockBufferedToken.new(oracle.address, 'Name', 'Symbol', { from: deployer })
+    mockToken = await MockUSM.new(oracle.address, { from: deployer })
   })
 
   describe('deployment', async () => {
@@ -36,120 +36,120 @@ contract('BufferedToken', (accounts) => {
 
   describe('functionality', async () => {
     it('returns the oracle price in WAD', async () => {
-      let oraclePrice = (await token.oraclePrice()).toString()
+      let oraclePrice = (await mockToken.oraclePrice()).toString()
       oraclePrice.should.equal(priceWAD.toString())
     })
 
     it('returns the value of eth in usm', async () => {
       const oneEth = WAD
       const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-      let usmAmount = (await token.ethToUsm(oneEth)).toString()
+      let usmAmount = (await mockToken.ethToUsm(oneEth)).toString()
       usmAmount.should.equal(equivalentUSM.toString())
     })
 
     it('returns the value of usm in eth', async () => {
       const oneUSM = WAD
       const equivalentEth = oneUSM.mul(WAD).div(priceWAD)
-      let ethAmount = (await token.usmToEth(oneUSM)).toString()
+      let ethAmount = (await mockToken.usmToEth(oneUSM.toString())).toString()
       ethAmount.should.equal(equivalentEth.toString())
     })
 
     it('returns the debt ratio as zero', async () => {
       const ZERO = new BN('0')
-      let debtRatio = (await token.debtRatio()).toString()
+      let debtRatio = (await mockToken.debtRatio()).toString()
       debtRatio.should.equal(ZERO.toString())
     })
 
     it('allows minting', async () => {
       const oneEth = WAD
 
-      await token.mint(oneEth, { from: user1 })
+      await mockToken.internalMint(oneEth, { from: user1 })
 
-      const tokenBalance = (await token.balanceOf(user1)).toString()
-      tokenBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString())
+      const mockTokenBalance = (await mockToken.balanceOf(user1)).toString()
+      mockTokenBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString())
 
-      const ethPool = (await token.ethPool()).toString()
+      const ethPool = (await mockToken.ethPool()).toString()
       ethPool.should.equal(oneEth.toString())
     })
 
     it('updates the debt ratio on mint', async () => {
-      await token.mint(WAD, { from: user1 })
-      let debtRatio = (await token.debtRatio()).toString()
+      await mockToken.internalMint(WAD, { from: user1 })
+      let debtRatio = (await mockToken.debtRatio()).toString()
       debtRatio.should.equal(WAD.toString())
     })
 
     describe('with a positive supply', async () => {
       beforeEach(async () => {
-        await token.mint(WAD, { from: user1 })
+        await mockToken.internalMint(WAD, { from: user1 })
       })
 
       it('allows burning', async () => {
-        const tokenBalance = await token.balanceOf(user1)
+        const mockTokenBalance = await mockToken.balanceOf(user1)
 
-        const returnedEth = (await token.burn.call(tokenBalance, { from: user1 })).toString() // .call transforms a transaction into a `view` function
-        returnedEth.should.equal(tokenBalance.mul(WAD).div(priceWAD).toString())
+        const returnedEth = (await mockToken.internalBurn.call(mockTokenBalance, { from: user1 })).toString() // .call transforms a transaction into a `view` function
+        returnedEth.should.equal(mockTokenBalance.mul(WAD).div(priceWAD).toString())
 
-        await token.burn(tokenBalance, { from: user1 })
+        await mockToken.internalBurn(mockTokenBalance, { from: user1 })
 
-        const newTokenBalance = (await token.balanceOf(user1)).toString()
-        newTokenBalance.should.equal('0')
-        const ethPool = (await token.ethPool()).toString()
+        const newmockTokenBalance = (await mockToken.balanceOf(user1)).toString()
+        newmockTokenBalance.should.equal('0')
+        const ethPool = (await mockToken.ethPool()).toString()
         ethPool.should.equal(new BN('0').toString())
       })
 
       it('price changes affect the debt ratio', async () => {
-        const debtRatio = await token.debtRatio()
+        const debtRatio = await mockToken.debtRatio()
         const factor = new BN('2')
         await oracle.setPrice(price.mul(factor))
-        let newDebtRatio = (await token.debtRatio()).toString()
+        let newDebtRatio = (await mockToken.debtRatio()).toString()
         newDebtRatio.should.equal(debtRatio.div(factor).toString())
 
         await oracle.setPrice(price.div(factor))
-        newDebtRatio = (await token.debtRatio()).toString()
+        newDebtRatio = (await mockToken.debtRatio()).toString()
         newDebtRatio.should.equal(debtRatio.mul(factor).toString())
       })
 
-      it('price changes affect the token amount minted', async () => {
+      it('price changes affect the mockToken amount minted', async () => {
         const oneEth = WAD
         const factor = new BN('2')
         await oracle.setPrice(price.mul(factor))
-        await token.mint(oneEth, { from: user2 })
-        let tokenBalance = (await token.balanceOf(user2)).toString()
-        tokenBalance.should.equal(oneEth.mul(priceWAD.mul(factor)).div(WAD).toString())
+        await mockToken.internalMint(oneEth, { from: user2 })
+        let mockTokenBalance = (await mockToken.balanceOf(user2)).toString()
+        mockTokenBalance.should.equal(oneEth.mul(priceWAD.mul(factor)).div(WAD).toString())
 
         await oracle.setPrice(price.div(factor))
-        await token.mint(oneEth, { from: user3 })
-        tokenBalance = (await token.balanceOf(user3)).toString()
-        tokenBalance.should.equal(oneEth.mul(priceWAD.div(factor)).div(WAD).toString())
+        await mockToken.internalMint(oneEth, { from: user3 })
+        mockTokenBalance = (await mockToken.balanceOf(user3)).toString()
+        mockTokenBalance.should.equal(oneEth.mul(priceWAD.div(factor)).div(WAD).toString())
       })
 
       it('price changes affect the underlying received on burning', async () => {
-        const oneToken = WAD
+        const onemockToken = WAD
         const oneEth = WAD
         const factor = new BN('2')
         await oracle.setPrice(price.mul(factor))
-        let burned = (await token.burn.call(oneToken, { from: user1 })).toString()
+        let burned = (await mockToken.internalBurn.call(onemockToken, { from: user1 })).toString()
         burned.should.equal(oneEth.mul(WAD).div(priceWAD.mul(factor)).toString())
 
         await oracle.setPrice(price.div(factor))
-        burned = (await token.burn.call(oneToken, { from: user1 })).toString()
+        burned = (await mockToken.internalBurn.call(onemockToken, { from: user1 })).toString()
         burned.should.equal(oneEth.mul(WAD).div(priceWAD.div(factor)).toString())
       })
 
       it('returns the eth buffer amount', async () => {
-        const ethPool = await token.ethPool()
+        const ethPool = await mockToken.ethPool()
         ethPool.should.not.equal(ZERO.toString())
 
-        let ethBuffer = (await token.ethBuffer()).toString()
+        let ethBuffer = (await mockToken.ethBuffer()).toString()
         ethBuffer.should.equal(ZERO.toString())
 
         const factor = new BN('2')
         await oracle.setPrice(price.mul(factor))
-        ethBuffer = (await token.ethBuffer()).toString()
+        ethBuffer = (await mockToken.ethBuffer()).toString()
         ethBuffer.should.equal(ethPool.div(factor).toString()) // Price multiplying by two frees half the eth pool
 
         await oracle.setPrice(price.div(factor))
-        ethBuffer = (await token.ethBuffer()).toString()
+        ethBuffer = (await mockToken.ethBuffer()).toString()
         ethBuffer.should.equal(ethPool.mul(new BN('-1')).toString()) // Price dividing by two makes debt twice the pool, we are one "ethpool" short of debt ratio == 1.
       })
     })
