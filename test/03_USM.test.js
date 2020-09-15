@@ -47,7 +47,7 @@ contract('USM', (accounts) => {
         const fumBalance = (await fum.balanceOf(user)).toString()
         fumBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString()) // after funding we should have eth_price fum per eth passed in
 
-        const newEthPool = (await usm.ethPool()).toString()
+        const newEthPool = (await web3.eth.getBalance(usm.address)).toString();
         newEthPool.should.equal(oneEth.toString())
 
         const newFumPrice = (await usm.latestFumPrice()).toString()

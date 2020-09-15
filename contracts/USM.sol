@@ -18,7 +18,6 @@ contract USM is ERC20 {
 
     address public oracle;
     FUM public fum;
-    uint public ethPool;                                      // default 0
     uint public latestFumPrice;                               // default 0
 
     uint public constant WAD = 10 ** 18;
@@ -74,7 +73,8 @@ contract USM is ERC20 {
     function fund() external payable {
         require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum");
         if(debtRatio() > MAX_DEBT_RATIO){
-            uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool).add(1); //+ 1 to tip it over the edge
+            // calculate the ETH needed to bring debt ratio to suitable levels
+            uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(address(this).balance).add(1); //+ 1 to tip it over the edge
             if (msg.value >= ethNeeded) { // Split into two fundings at different prices
                 _fund(msg.sender, ethNeeded);
                 _fund(msg.sender, msg.value.sub(ethNeeded));
@@ -91,8 +91,8 @@ contract USM is ERC20 {
     function defund(uint _fumAmount) external {
         uint _fumPrice = fumPrice();
         uint ethAmount = _fumAmount.wadMul(_fumPrice);
-        ethPool = ethPool.sub(ethAmount);
-        require(totalSupply().wadDiv(ethToUsm(ethPool)) <= MAX_DEBT_RATIO,
+        uint remainingPool = address(this).balance.sub(ethAmount);
+        require(totalSupply().wadDiv(ethToUsm(remainingPool)) <= MAX_DEBT_RATIO,
             "Max debt ratio breach");
         fum.burn(msg.sender, _fumAmount);
         Address.sendValue(msg.sender, ethAmount);
@@ -108,8 +108,8 @@ contract USM is ERC20 {
      * @return ETH buffer
      */
     function ethBuffer() public view returns (int) {
-        int buffer = int(ethPool) - int(usmToEth(totalSupply()));
-        require(buffer <= int(ethPool), "Underflow error");
+        int buffer = int(address(this).balance) - int(usmToEth(totalSupply()));
+        require(buffer <= int(address(this).balance), "Underflow error");
         return buffer;
     }
 
@@ -120,10 +120,10 @@ contract USM is ERC20 {
      * @return Debt ratio.
      */
     function debtRatio() public view returns (uint) {
-        if (ethPool == 0) {
+        if (address(this).balance == 0) {
             return 0;
         }
-        return totalSupply().wadDiv(ethToUsm(ethPool));
+        return totalSupply().wadDiv(ethToUsm(address(this).balance));
     }
 
     /**
@@ -189,7 +189,6 @@ contract USM is ERC20 {
     function _fund(address to, uint ethIn) internal {
         uint _fumPrice = fumPrice();
         uint fumOut = ethIn.wadDiv(_fumPrice);
-        ethPool = ethPool.add(ethIn);
         fum.mint(to, fumOut);
         _setLatestFumPrice();
     }
@@ -199,7 +198,6 @@ contract USM is ERC20 {
      */
     function _mint(uint ethAmount) internal returns (uint) {
         uint usmAmount = ethToUsm(ethAmount);
-        ethPool = ethPool.add(ethAmount);
         super._mint(msg.sender, usmAmount);
         return usmAmount;
     }
@@ -209,7 +207,6 @@ contract USM is ERC20 {
      */
     function _burn(uint usmAmount) internal returns (uint) {
         uint ethAmount = usmToEth(usmAmount);
-        ethPool = ethPool.sub(ethAmount);
         super._burn(msg.sender, usmAmount);
         return ethAmount;
     }

@@ -67,15 +67,6 @@ contract('MockUSM', (accounts) => {
 
       const mockTokenBalance = (await mockToken.balanceOf(user1)).toString()
       mockTokenBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString())
-
-      const ethPool = (await mockToken.ethPool()).toString()
-      ethPool.should.equal(oneEth.toString())
-    })
-
-    it('updates the debt ratio on mint', async () => {
-      await mockToken.internalMint(WAD, { from: user1 })
-      let debtRatio = (await mockToken.debtRatio()).toString()
-      debtRatio.should.equal(WAD.toString())
     })
 
     describe('with a positive supply', async () => {
@@ -93,7 +84,7 @@ contract('MockUSM', (accounts) => {
 
         const newmockTokenBalance = (await mockToken.balanceOf(user1)).toString()
         newmockTokenBalance.should.equal('0')
-        const ethPool = (await mockToken.ethPool()).toString()
+        const ethPool = (await web3.eth.getBalance(mockToken.address)).toString()
         ethPool.should.equal(new BN('0').toString())
       })
 
@@ -134,23 +125,6 @@ contract('MockUSM', (accounts) => {
         await oracle.setPrice(price.div(factor))
         burned = (await mockToken.internalBurn.call(onemockToken, { from: user1 })).toString()
         burned.should.equal(oneEth.mul(WAD).div(priceWAD.div(factor)).toString())
-      })
-
-      it('returns the eth buffer amount', async () => {
-        const ethPool = await mockToken.ethPool()
-        ethPool.should.not.equal(ZERO.toString())
-
-        let ethBuffer = (await mockToken.ethBuffer()).toString()
-        ethBuffer.should.equal(ZERO.toString())
-
-        const factor = new BN('2')
-        await oracle.setPrice(price.mul(factor))
-        ethBuffer = (await mockToken.ethBuffer()).toString()
-        ethBuffer.should.equal(ethPool.div(factor).toString()) // Price multiplying by two frees half the eth pool
-
-        await oracle.setPrice(price.div(factor))
-        ethBuffer = (await mockToken.ethBuffer()).toString()
-        ethBuffer.should.equal(ethPool.mul(new BN('-1')).toString()) // Price dividing by two makes debt twice the pool, we are one "ethpool" short of debt ratio == 1.
       })
     })
   })
