@@ -10,8 +10,8 @@ contract('USM', (accounts) => {
   let [deployer, user] = accounts
 
   const sides = {BUY: 0, SELL: 1};
-  const price = new BN('25000')
-  const shift = new BN('2')
+  const price = new BN('25000000000')
+  const shift = new BN('8')
   const ZERO = new BN('0')
   const WAD = new BN('1000000000000000000')
   const oneEth = WAD

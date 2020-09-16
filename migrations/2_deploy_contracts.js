@@ -20,11 +20,11 @@ module.exports = async function(deployer, network) {
 
     let oracle
     if (network !== 'ropsten' && network !== 'rinkeby' && network !== 'kovan') {
-        await deployer.deploy(TestOracle, "25000", "2");
+        await deployer.deploy(TestOracle, "25000000000", "8");
         oracle = await TestOracle.deployed()
     }
     else {
-        await deployer.deploy(ChainlinkOracle, oracleAddresses[network], "2")
+        await deployer.deploy(ChainlinkOracle, oracleAddresses[network], "8")
         oracle = await ChainlinkOracle.deployed()
     }
 
