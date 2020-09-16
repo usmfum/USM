@@ -28,11 +28,11 @@ contract USM is ERC20 {
     event LatestFumPriceChanged(uint previous, uint latest);
 
     /**
-     * @param _oracle Address of the oracle
+     * @param oracle_ Address of the oracle
      */
-    constructor(address _oracle) public ERC20("Minimal USD", "USM") {
+    constructor(address oracle_) public ERC20("Minimal USD", "USM") {
         fum = new FUM();
-        oracle = _oracle;
+        oracle = oracle_;
         _setLatestFumPrice();
     }
 
@@ -55,15 +55,14 @@ contract USM is ERC20 {
     /**
      * @notice Burn USM for ETH with checks and asset transfers.
      *
-     * @param _usmToBurn Amount of USM to burn.
+     * @param usmToBurn Amount of USM to burn.
      * @return ETH sent
      */
-    function burn(uint _usmToBurn) external returns (uint) {
-        require(_usmToBurn >= MIN_BURN_AMOUNT, "1 USM minimum");
-        // uint ethToSend = _burn(_usmToBurn);
-        uint ethToSend = usmToEth(_usmToBurn);
-        _burn(msg.sender, _usmToBurn);
-        Address.sendValue(msg.sender, ethToSend);
+    function burn(uint usmToBurn) external returns (uint) {
+        require(usmToBurn >= MIN_BURN_AMOUNT, "1 USM minimum"); // TODO: Needed?
+        uint ethToSend = usmToEth(usmToBurn);
+        _burn(msg.sender, usmToBurn);
+        Address.sendValue(msg.sender, ethToSend); // TODO: We have a reentrancy risk here
         // set latest fum price
         _setLatestFumPrice();
         require(debtRatio() <= WAD, "Debt ratio too high");
@@ -74,7 +73,7 @@ contract USM is ERC20 {
      * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
      */
     function fund() external payable {
-        require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum");
+        require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum"); // TODO: Needed?
         if(debtRatio() > MAX_DEBT_RATIO){
             // calculate the ETH needed to bring debt ratio to suitable levels
             uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(address(this).balance).add(1); //+ 1 to tip it over the edge
@@ -91,16 +90,14 @@ contract USM is ERC20 {
      * @notice Defunds the pool by sending FUM out in exchange for equivalent ETH
      * from the pool
      */
-    function defund(uint _fumAmount) external {
-        require(_fumAmount >= MIN_BURN_AMOUNT, "1 FUM minimum");
-        uint _fumPrice = fumPrice();
-        uint ethAmount = _fumAmount.wadMul(_fumPrice);
-        fum.burn(msg.sender, _fumAmount);
+    function defund(uint fumAmount) external {
+        require(fumAmount >= MIN_BURN_AMOUNT, "1 FUM minimum"); // TODO: Needed?
+        uint ethAmount = fumAmount.wadMul(fumPrice());
+        fum.burn(msg.sender, fumAmount);
         Address.sendValue(msg.sender, ethAmount);
         // set latest fum price
         _setLatestFumPrice();
-        require(debtRatio() <= MAX_DEBT_RATIO,
-            "Max debt ratio breach");
+        require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
     }
 
     /** PUBLIC FUNCTIONS **/
@@ -151,28 +148,22 @@ contract USM is ERC20 {
      * @notice Convert ETH amount to USM using the latest price of USM
      * in ETH.
      *
-     * @param _ethAmount The amount of ETH to convert.
+     * @param ethAmount The amount of ETH to convert.
      * @return The amount of USM.
      */
-    function ethToUsm(uint _ethAmount) public view returns (uint) {
-        if (_ethAmount == 0) {
-            return 0;
-        }
-        return _oraclePrice().wadMul(_ethAmount);
+    function ethToUsm(uint ethAmount) public view returns (uint) {
+        return _oraclePrice().wadMul(ethAmount);
     }
 
     /**
      * @notice Convert USM amount to ETH using the latest price of USM
      * in ETH.
      *
-     * @param _usmAmount The amount of USM to convert.
+     * @param usmAmount The amount of USM to convert.
      * @return The amount of ETH.
      */
-    function usmToEth(uint _usmAmount) public view returns (uint) {
-        if (_usmAmount == 0) {
-            return 0;
-        }
-        return _usmAmount.wadDiv(_oraclePrice());
+    function usmToEth(uint usmAmount) public view returns (uint) {
+        return usmAmount.wadDiv(_oraclePrice());
     }
 
     /** INTERNAL FUNCTIONS */

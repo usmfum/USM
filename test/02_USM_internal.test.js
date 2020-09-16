@@ -7,7 +7,7 @@ const EVM_REVERT = 'VM Exception while processing transaction: revert'
 
 require('chai').use(require('chai-as-promised')).should()
 
-contract('MockUSM', (accounts) => {
+contract('USM - Internal functions', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
   let mockToken
 
