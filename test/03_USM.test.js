@@ -1,8 +1,9 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 
-const USM = artifacts.require('./USM.sol')
-const FUM = artifacts.require('./FUM.sol')
-const TestOracle = artifacts.require('./TestOracle.sol')
+const TestOracle = artifacts.require('TestOracle')
+const WETH9 = artifacts.require('WETH9')
+const USM = artifacts.require('USM')
+const FUM = artifacts.require('FUM')
 
 require('chai').use(require('chai-as-promised')).should()
 
@@ -13,7 +14,7 @@ contract('USM', (accounts) => {
   const shift = new BN('2')
   const ZERO = new BN('0')
   const WAD = new BN('1000000000000000000')
-  const oneEth = WAD
+  const oneWeth = WAD
   const oneUsm = WAD
   const priceWAD = WAD.mul(price).div(new BN('10').pow(shift))
 
@@ -23,32 +24,37 @@ contract('USM', (accounts) => {
     beforeEach(async () => {
       // Deploy contracts
       oracle = await TestOracle.new(price, shift, { from: deployer })
-      usm = await USM.new(oracle.address, { from: deployer })
+      weth = await WETH9.new({ from: deployer })
+      usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
+
+      // Set the user to obtain 10 Weth and approve USM to take them.
+      await weth.deposit({ from: user, value: oneWeth.mul(new BN('10')) })
+      await weth.approve(usm.address, oneWeth.mul(new BN('10')), { from: user })
     })
 
     describe('deployment', () => {
       it('sets latest fum price', async () => {
         let latestFumPrice = (await usm.latestFumPrice()).toString()
-        // The fum price should start off equal to $1, in ETH terms = 1 / price:
+        // The fum price should start off equal to $1, in WETH terms = 1 / price:
         latestFumPrice.should.equal(WAD.mul(WAD).div(priceWAD).toString())
       })
     })
 
     describe('minting and burning', () => {
       it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(usm.mint({ from: user, value: oneEth }), 'Fund before minting')
+        await expectRevert(usm.mint(oneWeth, { from: user }), 'Fund before minting')
       })
 
       it('allows minting FUM', async () => {
         const fumPrice = (await usm.latestFumPrice()).toString()
 
-        await usm.fund({ from: user, value: oneEth })
+        await usm.fund(oneWeth, { from: user })
         const fumBalance = (await fum.balanceOf(user)).toString()
-        fumBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString()) // after funding we should have eth_price fum per eth passed in
+        fumBalance.should.equal(oneWeth.mul(priceWAD).div(WAD).toString()) // after funding we should have weth_price fum per weth passed in
 
-        const newEthPool = (await web3.eth.getBalance(usm.address)).toString()
-        newEthPool.should.equal(oneEth.toString())
+        const newWethPool = (await weth.balanceOf(usm.address)).toString()
+        newWethPool.should.equal(oneWeth.toString())
 
         const newFumPrice = (await usm.latestFumPrice()).toString()
         newFumPrice.should.equal(fumPrice) // Funding doesn't change the fum price
@@ -56,36 +62,36 @@ contract('USM', (accounts) => {
 
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await usm.fund({ from: user, value: oneEth })
+          await usm.fund(oneWeth, { from: user })
         })
 
         it('allows minting USM', async () => {
           const fumPrice = (await usm.latestFumPrice()).toString()
 
-          await usm.mint({ from: user, value: oneEth })
+          await usm.mint(oneWeth, { from: user })
           const usmBalance = (await usm.balanceOf(user)).toString()
-          usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString())
+          usmBalance.should.equal(oneWeth.mul(priceWAD).div(WAD).toString())
 
           const newFumPrice = (await usm.latestFumPrice()).toString()
           newFumPrice.should.equal(fumPrice) // Minting doesn't change the fum price if buffer is 0
         })
 
-        it("doesn't allow minting with less than MIN_ETH_AMOUNT", async () => {
-          const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT()
-          // TODO: assert MIN_ETH_AMOUNT > 0
-          await expectRevert(usm.mint({ from: user, value: MIN_ETH_AMOUNT.sub(new BN('1')) }), '0.001 ETH minimum')
+        it("doesn't allow minting with less than MIN_WETH_AMOUNT", async () => {
+          const MIN_WETH_AMOUNT = await usm.MIN_WETH_AMOUNT()
+          // TODO: assert MIN_WETH_AMOUNT > 0
+          await expectRevert(usm.mint(MIN_WETH_AMOUNT.sub(new BN('1')), { from: user }), '0.001 WETH minimum')
         })
 
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await usm.mint({ from: user, value: oneEth })
+            await usm.mint(oneWeth, { from: user })
           })
 
           it('allows burning FUM', async () => {
             const fumPrice = (await usm.latestFumPrice()).toString()
 
             const fumBalance = (await fum.balanceOf(user)).toString()
-            const targetFumBalance = oneEth.mul(priceWAD).div(WAD) // see "allows minting FUM" above
+            const targetFumBalance = oneWeth.mul(priceWAD).div(WAD) // see "allows minting FUM" above
             fumBalance.should.equal(targetFumBalance.toString())
 
             const debtRatio = (await usm.debtRatio()).toString()
@@ -116,7 +122,7 @@ contract('USM', (accounts) => {
             await usm.burn(usmBalance, { from: user })
             const newUsmBalance = (await usm.balanceOf(user)).toString()
             newUsmBalance.should.equal('0')
-            // TODO: Test the eth balance just went up. Try setting gas price to zero for an exact amount
+            // TODO: Test the weth balance just went up.
 
             const newFumPrice = (await usm.latestFumPrice()).toString()
             newFumPrice.should.equal(fumPrice) // Burning doesn't change the fum price if buffer is 0
@@ -133,7 +139,7 @@ contract('USM', (accounts) => {
             const factor = new BN('2')
             debtRatio.should.equal(WAD.div(factor).toString())
 
-            await oracle.setPrice(price.div(factor).div(factor)) // Dropping eth prices will push up the debt ratio
+            await oracle.setPrice(price.div(factor).div(factor)) // Dropping weth prices will push up the debt ratio
             const newDebtRatio = (await usm.debtRatio()).toString()
             newDebtRatio.should.equal(WAD.mul(factor).toString())
 

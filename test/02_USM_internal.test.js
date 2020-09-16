@@ -1,7 +1,8 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 
-const TestOracle = artifacts.require('./TestOracle.sol')
-const MockUSM = artifacts.require('./MockUSM.sol')
+const TestOracle = artifacts.require('TestOracle')
+const WETH9 = artifacts.require('WETH9')
+const MockUSM = artifacts.require('MockUSM')
 
 const EVM_REVERT = 'VM Exception while processing transaction: revert'
 
@@ -19,7 +20,8 @@ contract('USM - Internal functions', (accounts) => {
 
   beforeEach(async () => {
     oracle = await TestOracle.new(price, shift, { from: deployer })
-    mockToken = await MockUSM.new(oracle.address, { from: deployer })
+    weth = await WETH9.new({ from: deployer })
+    mockToken = await MockUSM.new(oracle.address, weth.address, { from: deployer })
   })
 
   describe('deployment', async () => {
@@ -40,18 +42,18 @@ contract('USM - Internal functions', (accounts) => {
       oraclePrice.should.equal(priceWAD.toString())
     })
 
-    it('returns the value of eth in usm', async () => {
-      const oneEth = WAD
-      const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-      let usmAmount = (await mockToken.ethToUsm(oneEth)).toString()
+    it('returns the value of weth in usm', async () => {
+      const oneWeth = WAD
+      const equivalentUSM = oneWeth.mul(priceWAD).div(WAD)
+      let usmAmount = (await mockToken.wethToUsm(oneWeth)).toString()
       usmAmount.should.equal(equivalentUSM.toString())
     })
 
-    it('returns the value of usm in eth', async () => {
+    it('returns the value of usm in weth', async () => {
       const oneUSM = WAD
-      const equivalentEth = oneUSM.mul(WAD).div(priceWAD)
-      let ethAmount = (await mockToken.usmToEth(oneUSM.toString())).toString()
-      ethAmount.should.equal(equivalentEth.toString())
+      const equivalentWeth = oneUSM.mul(WAD).div(priceWAD)
+      let wethAmount = (await mockToken.usmToWeth(oneUSM.toString())).toString()
+      wethAmount.should.equal(equivalentWeth.toString())
     })
 
     it('returns the debt ratio as zero', async () => {

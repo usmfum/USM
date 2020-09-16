@@ -16,12 +16,13 @@ contract USM is ERC20 {
     using SafeMath for uint;
     using WadMath for uint;
 
-    address public oracle;
+    IOracle public oracle;
+    ERC20 public weth;
     FUM public fum;
     uint public latestFumPrice;                               // default 0
 
     uint public constant WAD = 10 ** 18;
-    uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
+    uint constant public MIN_WETH_AMOUNT = WAD / 1000;         // 0.001 WETH
     uint constant public MIN_BURN_AMOUNT = WAD;               // 1 USM
     uint constant public MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
 
@@ -30,22 +31,26 @@ contract USM is ERC20 {
     /**
      * @param oracle_ Address of the oracle
      */
-    constructor(address oracle_) public ERC20("Minimal USD", "USM") {
+    constructor(address oracle_, address weth_) public ERC20("Minimal USD", "USM") {
         fum = new FUM();
-        oracle = oracle_;
+        oracle = IOracle(oracle_);
+        weth = ERC20(weth_);
         _setLatestFumPrice();
     }
 
     /** EXTERNAL FUNCTIONS **/
 
     /**
-     * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
+     * @notice Mint WETH for USM with checks and asset transfers.
+     * @param wethAmount Weth to take for minting USM
      * @return USM minted
      */
-    function mint() external payable returns (uint) {
-        require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum");
+    function mint(uint wethAmount) external returns (uint) {
+        require(wethAmount > MIN_WETH_AMOUNT, "0.001 WETH minimum");
+        require(weth.transferFrom(msg.sender, address(this), wethAmount), "Weth transfer fail");
         require(fum.totalSupply() > 0, "Fund before minting");
-        uint usmMinted = ethToUsm(msg.value);
+
+        uint usmMinted = wethToUsm(wethAmount);
         _mint(msg.sender, usmMinted);
         // set latest fum price
         _setLatestFumPrice();
@@ -53,90 +58,102 @@ contract USM is ERC20 {
     }
 
     /**
-     * @notice Burn USM for ETH with checks and asset transfers.
+     * @notice Burn USM for WETH with checks and asset transfers.
      *
      * @param usmToBurn Amount of USM to burn.
-     * @return ETH sent
+     * @return WETH sent
      */
     function burn(uint usmToBurn) external returns (uint) {
         require(usmToBurn >= MIN_BURN_AMOUNT, "1 USM minimum"); // TODO: Needed?
-        uint ethToSend = usmToEth(usmToBurn);
+
+        uint wethToSend = usmToWeth(usmToBurn);
         _burn(msg.sender, usmToBurn);
-        Address.sendValue(msg.sender, ethToSend); // TODO: We have a reentrancy risk here
+        weth.transfer(msg.sender, wethToSend);
         // set latest fum price
         _setLatestFumPrice();
+
         require(debtRatio() <= WAD, "Debt ratio too high");
-        return (ethToSend);
+        return (wethToSend);
     }
 
     /**
-     * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
+     * @notice Funds the pool with WETH, minting FUM at its current price and considering if the debt ratio goes from under to over
+     * @param wethAmount Weth to take for minting FUM
      */
-    function fund() external payable {
-        require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum"); // TODO: Needed?
+    function fund(uint wethAmount) external returns (uint) {
+        require(wethAmount > MIN_WETH_AMOUNT, "0.001 WETH minimum"); // TODO: Needed?
+        require(weth.transferFrom(msg.sender, address(this), wethAmount), "Weth transfer fail");
+        
         if(debtRatio() > MAX_DEBT_RATIO){
-            // calculate the ETH needed to bring debt ratio to suitable levels
-            uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(address(this).balance).add(1); //+ 1 to tip it over the edge
-            if (msg.value >= ethNeeded) { // Split into two fundings at different prices
-                _fund(msg.sender, ethNeeded);
-                _fund(msg.sender, msg.value.sub(ethNeeded));
-                return;
+            // calculate the WETH needed to bring debt ratio to suitable levels
+            uint wethNeeded = usmToWeth(
+                totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(weth.balanceOf(address(this))
+            ).add(1); //+ 1 to tip it over the edge
+            if (wethAmount >= wethNeeded) { // Split into two fundings at different prices
+                uint fumAmount;
+                fumAmount = fumAmount.add(_fund(msg.sender, wethNeeded));
+                fumAmount = fumAmount.add(_fund(msg.sender, wethAmount.sub(wethNeeded)));
+                return fumAmount;
             } // Otherwise continue for funding the total at a single price
         }
-        _fund(msg.sender, msg.value);
+        return _fund(msg.sender, wethAmount);
     }
 
     /**
-     * @notice Defunds the pool by sending FUM out in exchange for equivalent ETH
-     * from the pool
+     * @notice Defunds the pool by sending FUM out in exchange for equivalent WETH from the pool
+     * @param fumAmount FUM to burn in exchange for Weth
      */
-    function defund(uint fumAmount) external {
+    function defund(uint fumAmount) external returns (uint){
         require(fumAmount >= MIN_BURN_AMOUNT, "1 FUM minimum"); // TODO: Needed?
-        uint ethAmount = fumAmount.wadMul(fumPrice());
+
+        uint wethAmount = fumAmount.wadMul(fumPrice());
         fum.burn(msg.sender, fumAmount);
-        Address.sendValue(msg.sender, ethAmount);
+        weth.transfer(msg.sender, wethAmount);
         // set latest fum price
         _setLatestFumPrice();
+
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
+        return wethAmount;
     }
 
     /** PUBLIC FUNCTIONS **/
 
     /**
-     * @notice Calculate the amount of ETH in the buffer
+     * @notice Calculate the amount of WETH in the buffer
      *
-     * @return ETH buffer
+     * @return WETH buffer
      */
-    function ethBuffer() public view returns (int) {
-        int buffer = int(address(this).balance) - int(usmToEth(totalSupply()));
-        require(buffer <= int(address(this).balance), "Underflow error");
+    function wethBuffer() public view returns (int) {
+        int balance = int(weth.balanceOf(address(this))); // TODO: SafeCast 
+        int buffer = balance - int(usmToWeth(totalSupply()));
+        require(buffer <= balance, "Underflow error");
         return buffer;
     }
 
     /**
-     * @notice Calculate debt ratio of the current Eth pool amount and outstanding USM
+     * @notice Calculate debt ratio of the current Weth pool amount and outstanding USM
      * (the amount of USM in total supply).
      *
      * @return Debt ratio.
      */
     function debtRatio() public view returns (uint) {
-        if (address(this).balance == 0) {
+        if (weth.balanceOf(address(this)) == 0) {
             return 0;
         }
-        return totalSupply().wadDiv(ethToUsm(address(this).balance));
+        return totalSupply().wadDiv(wethToUsm(weth.balanceOf(address(this))));
     }
 
     /**
      * @notice Calculates the price of FUM using its total supply
-     * and ETH buffer
+     * and WETH buffer
      */
     function fumPrice() public view returns (uint) {
         uint fumTotalSupply = fum.totalSupply();
 
         if (fumTotalSupply == 0) {
-            return usmToEth(WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in ETH terms)
+            return usmToWeth(WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in WETH terms)
         }
-        int buffer = ethBuffer();
+        int buffer = wethBuffer();
         // if we're underwater, use the last fum price
         if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
             return latestFumPrice;
@@ -145,24 +162,24 @@ contract USM is ERC20 {
     }
 
     /**
-     * @notice Convert ETH amount to USM using the latest price of USM
-     * in ETH.
+     * @notice Convert WETH amount to USM using the latest price of USM
+     * in WETH.
      *
-     * @param ethAmount The amount of ETH to convert.
+     * @param wethAmount The amount of WETH to convert.
      * @return The amount of USM.
      */
-    function ethToUsm(uint ethAmount) public view returns (uint) {
-        return _oraclePrice().wadMul(ethAmount);
+    function wethToUsm(uint wethAmount) public view returns (uint) {
+        return _oraclePrice().wadMul(wethAmount);
     }
 
     /**
-     * @notice Convert USM amount to ETH using the latest price of USM
-     * in ETH.
+     * @notice Convert USM amount to WETH using the latest price of USM
+     * in WETH.
      *
      * @param usmAmount The amount of USM to convert.
-     * @return The amount of ETH.
+     * @return The amount of WETH.
      */
-    function usmToEth(uint usmAmount) public view returns (uint) {
+    function usmToWeth(uint usmAmount) public view returns (uint) {
         return usmAmount.wadDiv(_oraclePrice());
     }
 
@@ -178,13 +195,14 @@ contract USM is ERC20 {
     }
 
     /**
-     * @notice Funds the pool with ETH, minting FUM at its current price
+     * @notice Funds the pool with WETH, minting FUM at its current price
      */
-    function _fund(address to, uint ethIn) internal {
+    function _fund(address to, uint wethIn) internal returns (uint) {
         uint _fumPrice = fumPrice();
-        uint fumOut = ethIn.wadDiv(_fumPrice);
+        uint fumOut = wethIn.wadDiv(_fumPrice);
         fum.mint(to, fumOut);
         _setLatestFumPrice();
+        return fumOut;
     }
 
     /**
@@ -193,7 +211,7 @@ contract USM is ERC20 {
      * @return price
      */
     function _oraclePrice() internal view returns (uint) {
-        // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
-        return IOracle(oracle).latestPrice().mul(WAD).div(10 ** IOracle(oracle).decimalShift());
+        // Needs a convertDecimal(oracle.decimalShift(), UNIT) function.
+        return oracle.latestPrice().mul(WAD).div(10 ** oracle.decimalShift());
     }
 }
