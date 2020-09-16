@@ -5,7 +5,7 @@ import "@chainlink/contracts/src/v0.6/interfaces/AggregatorInterface.sol";
 
 contract ChainlinkOracle is IOracle{
 
-    address public oracle;
+    AggregatorInterface public oracle;
     uint public override decimalShift;
 
     /**
@@ -14,11 +14,11 @@ contract ChainlinkOracle is IOracle{
      * decShift: 8
      */
     constructor(address oracle_, uint shift) public {
-        oracle = oracle_;
+        oracle = AggregatorInterface(oracle_);
         decimalShift = shift;
     }
 
     function latestPrice() external override view returns (uint) {
-        return uint(AggregatorInterface(oracle).latestAnswer());
+        return uint(oracle.latestAnswer());
     }
 }
