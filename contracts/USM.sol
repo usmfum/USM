@@ -176,13 +176,25 @@ contract USM is ERC20 {
 
     /**
      * @notice Set the min fum price, based on the current oracle price and debt ratio. Emits a MinFumBuyPriceChanged event.
+     * @dev The logic for calculating a new minFumBuyPrice is as follows.  We want to set it to the FUM price, in ETH terms, at
+     * which debt ratio was exactly MAX_DEBT_RATIO.  So we can assume:
+     *
+     *     usmToEth(totalSupply()) / ethPool() = MAX_DEBT_RATIO, or in other words:
+     *     usmToEth(totalSupply()) = MAX_DEBT_RATIO * ethPool()
+     *
+     * And with this assumption, we calculate the FUM price (buffer / FUM qty) like so:
+     *
+     *     minFumBuyPrice = ethBuffer() / fum.totalSupply()
+     *                    = (ethPool() - usmToEth(totalSupply())) / fum.totalSupply()
+     *                    = (ethPool() - (MAX_DEBT_RATIO * ethPool())) / fum.totalSupply()
+     *                    = (1 - MAX_DEBT_RATIO) * ethPool() / fum.totalSupply()
      */
     function _updateMinFumBuyPrice() internal {
         uint previous = minFumBuyPrice;
         if (debtRatio() <= MAX_DEBT_RATIO) {                // We've dropped below (or were already below, whatev) max debt ratio
             minFumBuyPrice = 0;                             // Clear mfbp
         } else if (minFumBuyPrice == 0) {                   // We were < max debt ratio, but have now crossed above - so set mfbp
-            // This calculates the mfbp, in ETH terms, at the point we crossed max debt ratio.  Note how few vars it depends on:
+            // See reasoning in @dev comment above
             minFumBuyPrice = (WAD - MAX_DEBT_RATIO).wadMul(ethPool()).wadDiv(fum.totalSupply());
         }
 
