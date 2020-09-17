@@ -25,8 +25,7 @@ contract USM is ERC20 {
     uint public constant MIN_BURN_AMOUNT = WAD;               // 1 USM
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
 
-    int public constant BUY = 1;
-    int public constant SELL = -1;
+    enum Side {Buy, Sell}
 
     event MinFumBuyPriceChanged(uint previous, uint latest);
 
@@ -90,7 +89,7 @@ contract USM is ERC20 {
      */
     function defund(uint fumAmount) external {
         require(fumAmount >= MIN_BURN_AMOUNT, "1 FUM minimum"); // TODO: Needed?
-        uint ethAmount = fumAmount.wadMul(fumPrice(SELL));
+        uint ethAmount = fumAmount.wadMul(fumPrice(Side.Sell));
         fum.burn(msg.sender, fumAmount);
         Address.sendValue(msg.sender, ethAmount);
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
@@ -137,16 +136,15 @@ contract USM is ERC20 {
      * @notice Calculates the price of FUM using its total supply
      * and ETH buffer
      */
-    function fumPrice(int side) public view returns (uint) {
-        require((side == BUY) || (side == SELL), "Unrecognized side");
+    function fumPrice(Side side) public view returns (uint) {
         uint fumTotalSupply = fum.totalSupply();
 
         if (fumTotalSupply == 0) {
             return usmToEth(WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in ETH terms)
         }
         uint theoreticalFumPrice = uint(ethBuffer()).wadDiv(fumTotalSupply);
-        // if side == BUY, floor the price at minFumBuyPrice
-        if ((side == BUY) && (minFumBuyPrice > theoreticalFumPrice)) {
+        // if side == buy, floor the price at minFumBuyPrice
+        if ((side == Side.Buy) && (minFumBuyPrice > theoreticalFumPrice)) {
             return minFumBuyPrice;
         }
         return theoreticalFumPrice;
@@ -196,7 +194,7 @@ contract USM is ERC20 {
      */
     function _fund(address to, uint ethIn) internal {
         _updateMinFumBuyPrice();
-        uint fumOut = ethIn.wadDiv(fumPrice(BUY));
+        uint fumOut = ethIn.wadDiv(fumPrice(Side.Buy));
         fum.mint(to, fumOut);
     }
 

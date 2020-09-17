@@ -9,8 +9,7 @@ require('chai').use(require('chai-as-promised')).should()
 contract('USM', (accounts) => {
   let [deployer, user] = accounts
 
-  const BUY = 1;
-  const SELL = -1;
+  const sides = {BUY: 0, SELL: 1};
   const price = new BN('25000')
   const shift = new BN('2')
   const ZERO = new BN('0')
@@ -31,7 +30,7 @@ contract('USM', (accounts) => {
 
     describe('deployment', () => {
       it('starts with correct fum buy price', async () => {
-        let fumBuyPrice = (await usm.fumPrice(BUY)).toString()
+        let fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
         // The fum price should start off equal to $1, in ETH terms = 1 / price:
         fumBuyPrice.should.equal(WAD.mul(WAD).div(priceWAD).toString())
       })
@@ -43,8 +42,8 @@ contract('USM', (accounts) => {
       })
 
       it('allows minting FUM', async () => {
-        const fumBuyPrice = (await usm.fumPrice(BUY)).toString()
-        const fumSellPrice = (await usm.fumPrice(SELL)).toString()
+        const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
+        const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
         await usm.fund({ from: user, value: oneEth })
         const fumBalance = (await fum.balanceOf(user)).toString()
@@ -53,9 +52,9 @@ contract('USM', (accounts) => {
         const newEthPool = (await web3.eth.getBalance(usm.address)).toString()
         newEthPool.should.equal(oneEth.toString())
 
-        const newFumBuyPrice = (await usm.fumPrice(BUY)).toString()
+        const newFumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
         newFumBuyPrice.should.equal(fumBuyPrice) // Funding doesn't change the fum price
-        const newFumSellPrice = (await usm.fumPrice(SELL)).toString()
+        const newFumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
         newFumSellPrice.should.equal(fumSellPrice)
       })
 
@@ -65,16 +64,16 @@ contract('USM', (accounts) => {
         })
 
         it('allows minting USM', async () => {
-          const fumBuyPrice = (await usm.fumPrice(BUY)).toString()
-          const fumSellPrice = (await usm.fumPrice(SELL)).toString()
+          const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
+          const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
           await usm.mint({ from: user, value: oneEth })
           const usmBalance = (await usm.balanceOf(user)).toString()
           usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString())
 
-          const newFumBuyPrice = (await usm.fumPrice(BUY)).toString()
+          const newFumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
           newFumBuyPrice.should.equal(fumBuyPrice) // Minting doesn't change the fum price if buffer is 0
-          const newFumSellPrice = (await usm.fumPrice(SELL)).toString()
+          const newFumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
           newFumSellPrice.should.equal(fumSellPrice)
         })
 
@@ -90,8 +89,8 @@ contract('USM', (accounts) => {
           })
 
           it('allows burning FUM', async () => {
-            const fumBuyPrice = (await usm.fumPrice(BUY)).toString()
-            const fumSellPrice = (await usm.fumPrice(SELL)).toString()
+            const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
+            const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
             const fumBalance = (await fum.balanceOf(user)).toString()
             const targetFumBalance = oneEth.mul(priceWAD).div(WAD) // see "allows minting FUM" above
@@ -107,9 +106,9 @@ contract('USM', (accounts) => {
             const newDebtRatio = (await usm.debtRatio()).toString()
             newDebtRatio.should.equal(WAD.mul(new BN('4')).div(new BN('5')).toString()) // debt ratio should now be 80%
 
-            const newFumBuyPrice = (await usm.fumPrice(BUY)).toString()
+            const newFumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
             newFumBuyPrice.should.equal(fumBuyPrice) // Defunding doesn't change the fum price
-            const newFumSellPrice = (await usm.fumPrice(SELL)).toString()
+            const newFumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
             newFumSellPrice.should.equal(fumSellPrice)
           })
 
@@ -122,17 +121,17 @@ contract('USM', (accounts) => {
 
           it('allows burning USM', async () => {
             const usmBalance = (await usm.balanceOf(user)).toString()
-            const fumBuyPrice = (await usm.fumPrice(BUY)).toString()
-            const fumSellPrice = (await usm.fumPrice(SELL)).toString()
+            const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
+            const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
             await usm.burn(usmBalance, { from: user })
             const newUsmBalance = (await usm.balanceOf(user)).toString()
             newUsmBalance.should.equal('0')
             // TODO: Test the eth balance just went up. Try setting gas price to zero for an exact amount
 
-            const newFumBuyPrice = (await usm.fumPrice(BUY)).toString()
+            const newFumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
             newFumBuyPrice.should.equal(fumBuyPrice) // Burning doesn't change the fum price if buffer is 0
-            const newFumSellPrice = (await usm.fumPrice(SELL)).toString()
+            const newFumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
             newFumSellPrice.should.equal(fumSellPrice)
           })
 
