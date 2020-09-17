@@ -11,12 +11,13 @@
     "test": "buidler test test/*.js",
     "coverage": "buidler coverage --network coverage --temp build --testfiles 'test/*.js'",
     "lint:js": "prettier ./test/**/*.js --write",
-    "lint:sol": "solhint -f table contracts/**/*.sol"
+    "lint:sol": "solhint -f table contracts/**/*.sol",
+    "solhint": "solhint -f table contracts/**/*.sol"
   },
   "author": "Alex Roan",
   "license": "ISC",
   "devDependencies": {
-    "@nomiclabs/buidler": "^1.3.8",
+    "@nomiclabs/buidler": "^1.4.7",
     "@nomiclabs/buidler-truffle5": "^1.3.4",
     "@nomiclabs/buidler-web3": "^1.3.4",
     "@openzeppelin/contracts": "^3.1.0",
@@ -33,7 +34,7 @@
     "prettier": "^2.0.5",
     "solhint": "^3.2.0",
     "solidity-coverage": "^0.7.9",
-    "truffle": "^5.1.39"
+    "truffle": "^5.1.44"
   },
   "dependencies": {
     "@chainlink/contracts": "0.0.9"
