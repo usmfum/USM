@@ -18,14 +18,16 @@ contract USM is ERC20 {
 
     address public oracle;
     FUM public fum;
-    uint public latestFumPrice;                               // default 0
+    uint public minFumBuyPrice;                               // in units of ETH. default 0
 
     uint public constant WAD = 10 ** 18;
-    uint constant public MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
-    uint constant public MIN_BURN_AMOUNT = WAD;               // 1 USM
-    uint constant public MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
+    uint public constant MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
+    uint public constant MIN_BURN_AMOUNT = WAD;               // 1 USM
+    uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
 
-    event LatestFumPriceChanged(uint previous, uint latest);
+    enum Side {Buy, Sell}
+
+    event MinFumBuyPriceChanged(uint previous, uint latest);
 
     /**
      * @param oracle_ Address of the oracle
@@ -33,7 +35,6 @@ contract USM is ERC20 {
     constructor(address oracle_) public ERC20("Minimal USD", "USM") {
         fum = new FUM();
         oracle = oracle_;
-        _setLatestFumPrice();
     }
 
     /** EXTERNAL FUNCTIONS **/
@@ -47,8 +48,6 @@ contract USM is ERC20 {
         require(fum.totalSupply() > 0, "Fund before minting");
         uint usmMinted = ethToUsm(msg.value);
         _mint(msg.sender, usmMinted);
-        // set latest fum price
-        _setLatestFumPrice();
         return usmMinted;
     }
 
@@ -63,8 +62,6 @@ contract USM is ERC20 {
         uint ethToSend = usmToEth(usmToBurn);
         _burn(msg.sender, usmToBurn);
         Address.sendValue(msg.sender, ethToSend); // TODO: We have a reentrancy risk here
-        // set latest fum price
-        _setLatestFumPrice();
         require(debtRatio() <= WAD, "Debt ratio too high");
         return (ethToSend);
     }
@@ -76,7 +73,7 @@ contract USM is ERC20 {
         require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum"); // TODO: Needed?
         if(debtRatio() > MAX_DEBT_RATIO){
             // calculate the ETH needed to bring debt ratio to suitable levels
-            uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(address(this).balance).add(1); //+ 1 to tip it over the edge
+            uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool()).add(1); //+ 1 to tip it over the edge
             if (msg.value >= ethNeeded) { // Split into two fundings at different prices
                 _fund(msg.sender, ethNeeded);
                 _fund(msg.sender, msg.value.sub(ethNeeded));
@@ -92,15 +89,22 @@ contract USM is ERC20 {
      */
     function defund(uint fumAmount) external {
         require(fumAmount >= MIN_BURN_AMOUNT, "1 FUM minimum"); // TODO: Needed?
-        uint ethAmount = fumAmount.wadMul(fumPrice());
+        uint ethAmount = fumAmount.wadMul(fumPrice(Side.Sell));
         fum.burn(msg.sender, fumAmount);
         Address.sendValue(msg.sender, ethAmount);
-        // set latest fum price
-        _setLatestFumPrice();
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
     }
 
     /** PUBLIC FUNCTIONS **/
+
+    /**
+     * @notice Total amount of ETH in the pool (ie, in the contract)
+     *
+     * @return ETH pool
+     */
+    function ethPool() public view returns (uint) {
+        return address(this).balance;
+    }
 
     /**
      * @notice Calculate the amount of ETH in the buffer
@@ -108,8 +112,9 @@ contract USM is ERC20 {
      * @return ETH buffer
      */
     function ethBuffer() public view returns (int) {
-        int buffer = int(address(this).balance) - int(usmToEth(totalSupply()));
-        require(buffer <= int(address(this).balance), "Underflow error");
+        uint pool = ethPool();
+        int buffer = int(pool) - int(usmToEth(totalSupply()));
+        require(buffer <= int(pool), "Underflow error");
         return buffer;
     }
 
@@ -120,28 +125,29 @@ contract USM is ERC20 {
      * @return Debt ratio.
      */
     function debtRatio() public view returns (uint) {
-        if (address(this).balance == 0) {
+        uint pool = ethPool();
+        if (pool == 0) {
             return 0;
         }
-        return totalSupply().wadDiv(ethToUsm(address(this).balance));
+        return totalSupply().wadDiv(ethToUsm(pool));
     }
 
     /**
      * @notice Calculates the price of FUM using its total supply
      * and ETH buffer
      */
-    function fumPrice() public view returns (uint) {
+    function fumPrice(Side side) public view returns (uint) {
         uint fumTotalSupply = fum.totalSupply();
 
         if (fumTotalSupply == 0) {
             return usmToEth(WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in ETH terms)
         }
-        int buffer = ethBuffer();
-        // if we're underwater, use the last fum price
-        if (buffer <= 0 || debtRatio() > MAX_DEBT_RATIO) {
-            return latestFumPrice;
+        uint theoreticalFumPrice = uint(ethBuffer()).wadDiv(fumTotalSupply);
+        // if side == buy, floor the price at minFumBuyPrice
+        if ((side == Side.Buy) && (minFumBuyPrice > theoreticalFumPrice)) {
+            return minFumBuyPrice;
         }
-        return uint(buffer).wadDiv(fumTotalSupply);
+        return theoreticalFumPrice;
     }
 
     /**
@@ -169,22 +175,39 @@ contract USM is ERC20 {
     /** INTERNAL FUNCTIONS */
 
     /**
-     * @notice Set the latest fum price. Emits a LatestFumPriceChanged event.
+     * @notice Set the min fum price, based on the current oracle price and debt ratio. Emits a MinFumBuyPriceChanged event.
+     * @dev The logic for calculating a new minFumBuyPrice is as follows.  We want to set it to the FUM price, in ETH terms, at
+     * which debt ratio was exactly MAX_DEBT_RATIO.  So we can assume:
+     *
+     *     usmToEth(totalSupply()) / ethPool() = MAX_DEBT_RATIO, or in other words:
+     *     usmToEth(totalSupply()) = MAX_DEBT_RATIO * ethPool()
+     *
+     * And with this assumption, we calculate the FUM price (buffer / FUM qty) like so:
+     *
+     *     minFumBuyPrice = ethBuffer() / fum.totalSupply()
+     *                    = (ethPool() - usmToEth(totalSupply())) / fum.totalSupply()
+     *                    = (ethPool() - (MAX_DEBT_RATIO * ethPool())) / fum.totalSupply()
+     *                    = (1 - MAX_DEBT_RATIO) * ethPool() / fum.totalSupply()
      */
-    function _setLatestFumPrice() internal {
-        uint previous = latestFumPrice;
-        latestFumPrice = fumPrice();
-        emit LatestFumPriceChanged(previous, latestFumPrice);
+    function _updateMinFumBuyPrice() internal {
+        uint previous = minFumBuyPrice;
+        if (debtRatio() <= MAX_DEBT_RATIO) {                // We've dropped below (or were already below, whatev) max debt ratio
+            minFumBuyPrice = 0;                             // Clear mfbp
+        } else if (minFumBuyPrice == 0) {                   // We were < max debt ratio, but have now crossed above - so set mfbp
+            // See reasoning in @dev comment above
+            minFumBuyPrice = (WAD - MAX_DEBT_RATIO).wadMul(ethPool()).wadDiv(fum.totalSupply());
+        }
+
+        emit MinFumBuyPriceChanged(previous, minFumBuyPrice);
     }
 
     /**
      * @notice Funds the pool with ETH, minting FUM at its current price
      */
     function _fund(address to, uint ethIn) internal {
-        uint _fumPrice = fumPrice();
-        uint fumOut = ethIn.wadDiv(_fumPrice);
+        _updateMinFumBuyPrice();
+        uint fumOut = ethIn.wadDiv(fumPrice(Side.Buy));
         fum.mint(to, fumOut);
-        _setLatestFumPrice();
     }
 
     /**
