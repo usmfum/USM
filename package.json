@@ -33,7 +33,8 @@
     "prettier": "^2.0.5",
     "solhint": "^3.2.0",
     "solidity-coverage": "^0.7.9",
-    "truffle": "^5.1.39"
+    "truffle": "^5.1.39",
+    "truffle-flattener": "^1.5.0"
   },
   "dependencies": {
     "@chainlink/contracts": "0.0.9"
