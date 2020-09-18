@@ -4,8 +4,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
-import "@nomiclabs/buidler/console.sol";
 import "./oracles/IOracle.sol";
+// import "@nomiclabs/buidler/console.sol";
 
 /**
  * @title USM Stable Coin

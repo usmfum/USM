@@ -11,8 +11,8 @@ contract('USM - Internal functions', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
   let mockToken
 
-  const price = new BN('25000')
-  const shift = new BN('2')
+  const price = new BN('25000000000')
+  const shift = new BN('8')
   const ZERO = new BN('0')
   const WAD = new BN('1000000000000000000')
   const priceWAD = WAD.mul(price).div(new BN('10').pow(shift))

@@ -11,7 +11,7 @@ contract('TestOracle', (accounts) => {
   let oracle
 
   const price = '25000'
-  const decShift = '2'
+  const decShift = '8'
 
   beforeEach(async () => {
     oracle = await TestOracle.new(price, decShift, { from: deployer })
