@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.7;
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "./IUSM.sol";
 import "./external/IWETH9.sol";
 
 
 contract EthProxy {
+    using Address for address payable;
     IUSM public usm;
     IWETH9 public weth;
 
@@ -35,7 +37,7 @@ contract EthProxy {
         external {
         uint wethToWithdraw = usm.burn(msg.sender, address(this), usmToBurn);
         weth.withdraw(wethToWithdraw);
-        to.transfer(wethToWithdraw);
+        to.sendValue(wethToWithdraw);
     }
 
     /**
@@ -59,6 +61,6 @@ contract EthProxy {
     {
         uint wethToWithdraw = usm.defund(msg.sender, address(this), fumToBurn);
         weth.withdraw(wethToWithdraw);
-        to.transfer(wethToWithdraw);
+        to.sendValue(wethToWithdraw);
     }
 }
