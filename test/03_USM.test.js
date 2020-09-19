@@ -8,7 +8,7 @@ const FUM = artifacts.require('./FUM.sol')
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM', (accounts) => {
-  let [deployer, user] = accounts
+  let [deployer, user1, user2] = accounts
 
   const sides = { BUY: 0, SELL: 1 }
   const price = new BN('25000000000')
@@ -29,8 +29,8 @@ contract('USM', (accounts) => {
       usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
 
-      await weth.deposit({ from: user, value: WAD.mul(new BN('10')) })
-      await weth.approve(usm.address, WAD.mul(new BN('10')), { from: user })
+      await weth.deposit({ from: user1, value: WAD.mul(new BN('10')) })
+      await weth.approve(usm.address, WAD.mul(new BN('10')), { from: user1 })
     })
 
     describe('deployment', () => {
@@ -43,15 +43,15 @@ contract('USM', (accounts) => {
 
     describe('minting and burning', () => {
       it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(usm.mint(oneEth, { from: user }), 'Fund before minting')
+        await expectRevert(usm.mint(user1, user2, oneEth, { from: user1 }), 'Fund before minting')
       })
 
       it('allows minting FUM', async () => {
         const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
         const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
-        await usm.fund(oneEth, { from: user })
-        const fumBalance = (await fum.balanceOf(user)).toString()
+        await usm.fund(user1, user2, oneEth, { from: user1 })
+        const fumBalance = (await fum.balanceOf(user2)).toString()
         fumBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString()) // after funding we should have eth_price fum per eth passed in
 
         const newEthPool = (await weth.balanceOf(usm.address)).toString()
@@ -65,15 +65,15 @@ contract('USM', (accounts) => {
 
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await usm.fund(oneEth, { from: user })
+          await usm.fund(user1, user1, oneEth, { from: user1 })
         })
 
         it('allows minting USM', async () => {
           const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
           const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
-          await usm.mint(oneEth, { from: user })
-          const usmBalance = (await usm.balanceOf(user)).toString()
+          await usm.mint(user1, user2, oneEth, { from: user1 })
+          const usmBalance = (await usm.balanceOf(user2)).toString()
           usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString())
 
           const newFumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
@@ -85,54 +85,60 @@ contract('USM', (accounts) => {
         it("doesn't allow minting with less than MIN_ETH_AMOUNT", async () => {
           const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT()
           // TODO: assert MIN_ETH_AMOUNT > 0
-          await expectRevert(usm.mint(MIN_ETH_AMOUNT.sub(new BN('1')), { from: user }), '0.001 ETH minimum')
+          await expectRevert(usm.mint(user1, user2, MIN_ETH_AMOUNT.sub(new BN('1')), { from: user1 }), '0.001 ETH minimum')
         })
 
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await usm.mint(oneEth, { from: user })
+            await usm.mint(user1, user1, oneEth, { from: user1 })
           })
 
           it('allows burning FUM', async () => {
-            const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
-            const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
+            const fumBuyPrice = (await usm.fumPrice(sides.BUY))
+            const fumSellPrice = (await usm.fumPrice(sides.SELL))
 
-            const fumBalance = (await fum.balanceOf(user)).toString()
+            const fumBalance = (await fum.balanceOf(user1)).toString()
             const targetFumBalance = oneEth.mul(priceWAD).div(WAD) // see "allows minting FUM" above
             fumBalance.should.equal(targetFumBalance.toString())
 
             const debtRatio = (await usm.debtRatio()).toString()
             debtRatio.should.equal(WAD.div(new BN('2')).toString()) // debt ratio should be 50% before we defund
 
-            await usm.defund(priceWAD.mul(new BN('3')).div(new BN('4')), { from: user }) // defund 75% of our fum
-            const newFumBalance = (await fum.balanceOf(user)).toString()
+            const fumToBurn = priceWAD.mul(new BN('3')).div(new BN('4'))
+            await usm.defund(user1, user2, fumToBurn, { from: user1 }) // defund 75% of our fum
+            const newFumBalance = (await fum.balanceOf(user1)).toString()
             newFumBalance.should.equal(targetFumBalance.div(new BN('4')).toString()) // should be 25% of what it was
+
+            const newEthBalance = (await weth.balanceOf(user2)).toString()
+            newEthBalance.should.equal(fumToBurn.mul(fumSellPrice).div(WAD).toString())
 
             const newDebtRatio = (await usm.debtRatio()).toString()
             newDebtRatio.should.equal(WAD.mul(new BN('4')).div(new BN('5')).toString()) // debt ratio should now be 80%
 
             const newFumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
-            newFumBuyPrice.should.equal(fumBuyPrice) // Defunding doesn't change the fum price
+            newFumBuyPrice.should.equal(fumBuyPrice.toString()) // Defunding doesn't change the fum price
             const newFumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
-            newFumSellPrice.should.equal(fumSellPrice)
+            newFumSellPrice.should.equal(fumSellPrice.toString())
           })
 
           it("doesn't allow burning FUM if it would push debt ratio above MAX_DEBT_RATIO", async () => {
             await expectRevert(
-              usm.defund(priceWAD.mul(new BN('7')).div(new BN('8')), { from: user }), // try to defund 7/8 = 87.5% of our fum
+              usm.defund(user1, user2, priceWAD.mul(new BN('7')).div(new BN('8')), { from: user1 }), // try to defund 7/8 = 87.5% of our fum
               'Max debt ratio breach'
             )
           })
 
           it('allows burning USM', async () => {
-            const usmBalance = (await usm.balanceOf(user)).toString()
+            const usmBalance = (await usm.balanceOf(user1)).toString()
             const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
             const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
-            await usm.burn(usmBalance, { from: user })
-            const newUsmBalance = (await usm.balanceOf(user)).toString()
+            await usm.burn(user1, user2, usmBalance, { from: user1 })
+            const newUsmBalance = (await usm.balanceOf(user1)).toString()
             newUsmBalance.should.equal('0')
-            // TODO: Test the eth balance just went up. Try setting gas price to zero for an exact amount
+
+            const newEthBalance = (await weth.balanceOf(user2)).toString()
+            newEthBalance.should.equal((await usm.usmToEth(usmBalance)).toString())
 
             const newFumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
             newFumBuyPrice.should.equal(fumBuyPrice) // Burning doesn't change the fum price if buffer is 0
@@ -143,7 +149,7 @@ contract('USM', (accounts) => {
           it("doesn't allow burning USM with less than MIN_BURN_AMOUNT", async () => {
             const MIN_BURN_AMOUNT = await usm.MIN_BURN_AMOUNT()
             // TODO: assert MIN_BURN_AMOUNT > 0
-            await expectRevert(usm.burn(MIN_BURN_AMOUNT.sub(new BN('1')), { from: user }), '1 USM minimum')
+            await expectRevert(usm.burn(user1, user2, MIN_BURN_AMOUNT.sub(new BN('1')), { from: user1 }), '1 USM minimum')
           })
 
           it("doesn't allow burning USM if debt ratio under 100%", async () => {
@@ -155,7 +161,7 @@ contract('USM', (accounts) => {
             const newDebtRatio = (await usm.debtRatio()).toString()
             newDebtRatio.should.equal(WAD.mul(factor).toString())
 
-            await expectRevert(usm.burn(oneUsm, { from: user }), 'Debt ratio too high')
+            await expectRevert(usm.burn(user1, user2, oneUsm, { from: user1 }), 'Debt ratio too high')
           })
         })
       })

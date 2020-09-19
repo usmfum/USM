@@ -12,6 +12,8 @@ contract EthProxy {
     constructor(address usm_, address weth_) public {
         usm = IUSM(usm_); 
         weth = IWETH9(weth_);
+
+        weth.approve(address(usm), uint(-1));
     }
 
     /// @dev The WETH9 contract will send ether to EthProxy on `weth.withdraw` using this function.
@@ -29,9 +31,9 @@ contract EthProxy {
     /// Users must have called `controller.addDelegate(ethProxy.address)` to authorize EthProxy to act in their behalf.
     /// @param to Receiver of the obtained Eth
     /// @param usmToBurn Amount of USM to burn.
-    function burn(address payable to, uint256 usmToBurn)
+    function burn(address payable to, uint usmToBurn)
         external {
-        uint256 wethToWithdraw = usm.burn(msg.sender, address(this), usmToBurn);
+        uint wethToWithdraw = usm.burn(msg.sender, address(this), usmToBurn);
         weth.withdraw(wethToWithdraw);
         to.transfer(wethToWithdraw);
     }
@@ -55,7 +57,7 @@ contract EthProxy {
     function defund(address payable to, uint fumToBurn)
         external
     {
-        uint256 wethToWithdraw = usm.defund(msg.sender, address(this), fumToBurn);
+        uint wethToWithdraw = usm.defund(msg.sender, address(this), fumToBurn);
         weth.withdraw(wethToWithdraw);
         to.transfer(wethToWithdraw);
     }

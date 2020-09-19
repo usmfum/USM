@@ -47,7 +47,7 @@ contract USM is ERC20, Delegable {
      * @param ethIn Amount of wrapped Ether to use for minting USM.
      * @return USM minted
      */
-    function mint(address from, address to, uint256 ethIn)
+    function mint(address from, address to, uint ethIn)
         external
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
@@ -83,7 +83,7 @@ contract USM is ERC20, Delegable {
      * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
      * @param ethIn Amount of wrapped Ether to use for minting FUM.
      */
-    function fund(address from, address to, uint256 ethIn)
+    function fund(address from, address to, uint ethIn)
         external
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
