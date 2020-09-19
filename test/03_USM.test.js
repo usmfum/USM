@@ -1,8 +1,9 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 
+const TestOracle = artifacts.require('./TestOracle.sol')
+const WETH9 = artifacts.require('WETH9')
 const USM = artifacts.require('./USM.sol')
 const FUM = artifacts.require('./FUM.sol')
-const TestOracle = artifacts.require('./TestOracle.sol')
 
 require('chai').use(require('chai-as-promised')).should()
 
@@ -19,13 +20,17 @@ contract('USM', (accounts) => {
   const priceWAD = WAD.mul(price).div(new BN('10').pow(shift))
 
   describe('mints and burns a static amount', () => {
-    let oracle, usm
+    let oracle, weth, usm
 
     beforeEach(async () => {
       // Deploy contracts
       oracle = await TestOracle.new(price, shift, { from: deployer })
-      usm = await USM.new(oracle.address, { from: deployer })
+      weth = await WETH9.new({ from: deployer })
+      usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
+
+      await weth.deposit({ from: user, value: WAD.mul(new BN('10')) })
+      await weth.approve(usm.address, WAD.mul(new BN('10')), { from: user })
     })
 
     describe('deployment', () => {
@@ -38,18 +43,18 @@ contract('USM', (accounts) => {
 
     describe('minting and burning', () => {
       it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(usm.mint({ from: user, value: oneEth }), 'Fund before minting')
+        await expectRevert(usm.mint(oneEth, { from: user }), 'Fund before minting')
       })
 
       it('allows minting FUM', async () => {
         const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
         const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
-        await usm.fund({ from: user, value: oneEth })
+        await usm.fund(oneEth, { from: user })
         const fumBalance = (await fum.balanceOf(user)).toString()
         fumBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString()) // after funding we should have eth_price fum per eth passed in
 
-        const newEthPool = (await web3.eth.getBalance(usm.address)).toString()
+        const newEthPool = (await weth.balanceOf(usm.address)).toString()
         newEthPool.should.equal(oneEth.toString())
 
         const newFumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
@@ -60,14 +65,14 @@ contract('USM', (accounts) => {
 
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await usm.fund({ from: user, value: oneEth })
+          await usm.fund(oneEth, { from: user })
         })
 
         it('allows minting USM', async () => {
           const fumBuyPrice = (await usm.fumPrice(sides.BUY)).toString()
           const fumSellPrice = (await usm.fumPrice(sides.SELL)).toString()
 
-          await usm.mint({ from: user, value: oneEth })
+          await usm.mint(oneEth, { from: user })
           const usmBalance = (await usm.balanceOf(user)).toString()
           usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString())
 
@@ -80,12 +85,12 @@ contract('USM', (accounts) => {
         it("doesn't allow minting with less than MIN_ETH_AMOUNT", async () => {
           const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT()
           // TODO: assert MIN_ETH_AMOUNT > 0
-          await expectRevert(usm.mint({ from: user, value: MIN_ETH_AMOUNT.sub(new BN('1')) }), '0.001 ETH minimum')
+          await expectRevert(usm.mint(MIN_ETH_AMOUNT.sub(new BN('1')), { from: user }), '0.001 ETH minimum')
         })
 
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await usm.mint({ from: user, value: oneEth })
+            await usm.mint(oneEth, { from: user })
           })
 
           it('allows burning FUM', async () => {
