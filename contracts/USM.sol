@@ -17,6 +17,7 @@ contract USM is ERC20 {
     using WadMath for uint;
 
     address public oracle;
+    ERC20 public eth;
     FUM public fum;
     uint public minFumBuyPrice;                               // in units of ETH. default 0
 
@@ -32,21 +33,24 @@ contract USM is ERC20 {
     /**
      * @param oracle_ Address of the oracle
      */
-    constructor(address oracle_) public ERC20("Minimal USD", "USM") {
+    constructor(address oracle_, address eth_) public ERC20("Minimal USD", "USM") {
         fum = new FUM();
         oracle = oracle_;
+        eth = ERC20(eth_);
     }
 
     /** EXTERNAL FUNCTIONS **/
 
     /**
      * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
+     * @param ethIn Amount of wrapped Ether to use for minting USM.
      * @return USM minted
      */
-    function mint() external payable returns (uint) {
-        require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum");
+    function mint(uint256 ethIn) external returns (uint) {
+        require(eth.transferFrom(msg.sender, address(this), ethIn), "Eth transfer fail");
+        require(ethIn > MIN_ETH_AMOUNT, "0.001 ETH minimum");
         require(fum.totalSupply() > 0, "Fund before minting");
-        uint usmMinted = ethToUsm(msg.value);
+        uint usmMinted = ethToUsm(ethIn);
         _mint(msg.sender, usmMinted);
         return usmMinted;
     }
@@ -59,39 +63,41 @@ contract USM is ERC20 {
      */
     function burn(uint usmToBurn) external returns (uint) {
         require(usmToBurn >= MIN_BURN_AMOUNT, "1 USM minimum"); // TODO: Needed?
-        uint ethToSend = usmToEth(usmToBurn);
+        uint ethOut = usmToEth(usmToBurn);
         _burn(msg.sender, usmToBurn);
-        Address.sendValue(msg.sender, ethToSend); // TODO: We have a reentrancy risk here
+        require(eth.transfer(msg.sender, ethOut), "Eth transfer fail");
         require(debtRatio() <= WAD, "Debt ratio too high");
-        return (ethToSend);
+        return (ethOut);
     }
 
     /**
      * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
+     * @param ethIn Amount of wrapped Ether to use for minting FUM.
      */
-    function fund() external payable {
-        require(msg.value > MIN_ETH_AMOUNT, "0.001 ETH minimum"); // TODO: Needed?
+    function fund(uint256 ethIn) external {
+        require(eth.transferFrom(msg.sender, address(this), ethIn), "Eth transfer fail");
+        require(ethIn > MIN_ETH_AMOUNT, "0.001 ETH minimum"); // TODO: Needed?
         if(debtRatio() > MAX_DEBT_RATIO){
             // calculate the ETH needed to bring debt ratio to suitable levels
             uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool()).add(1); //+ 1 to tip it over the edge
-            if (msg.value >= ethNeeded) { // Split into two fundings at different prices
+            if (ethIn >= ethNeeded) { // Split into two fundings at different prices
                 _fund(msg.sender, ethNeeded);
-                _fund(msg.sender, msg.value.sub(ethNeeded));
+                _fund(msg.sender, ethIn.sub(ethNeeded));
                 return;
             } // Otherwise continue for funding the total at a single price
         }
-        _fund(msg.sender, msg.value);
+        _fund(msg.sender, ethIn);
     }
 
     /**
-     * @notice Defunds the pool by sending FUM out in exchange for equivalent ETH
-     * from the pool
+     * @notice Defunds the pool by sending FUM out in exchange for equivalent ETH from the pool
+     * @param fumToBurn Amount of FUM to burn.
      */
-    function defund(uint fumAmount) external {
-        require(fumAmount >= MIN_BURN_AMOUNT, "1 FUM minimum"); // TODO: Needed?
-        uint ethAmount = fumAmount.wadMul(fumPrice(Side.Sell));
-        fum.burn(msg.sender, fumAmount);
-        Address.sendValue(msg.sender, ethAmount);
+    function defund(uint fumToBurn) external {
+        require(fumToBurn >= MIN_BURN_AMOUNT, "1 FUM minimum"); // TODO: Needed?
+        uint ethOut = fumToBurn.wadMul(fumPrice(Side.Sell));
+        fum.burn(msg.sender, fumToBurn);
+        require(eth.transfer(msg.sender, ethOut), "Eth transfer fail");
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
     }
 
@@ -103,7 +109,7 @@ contract USM is ERC20 {
      * @return ETH pool
      */
     function ethPool() public view returns (uint) {
-        return address(this).balance;
+        return eth.balanceOf(address(this));
     }
 
     /**

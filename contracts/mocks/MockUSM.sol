@@ -13,7 +13,7 @@ import "@nomiclabs/buidler/console.sol";
  */
 contract MockUSM is USM {
 
-    constructor(address _oracle) public USM(_oracle) { }
+    constructor(address oracle_, address eth_) public USM(oracle_, eth_) { }
 
     function updateMinFumBuyPrice() public {
         _updateMinFumBuyPrice();
