@@ -11,7 +11,9 @@ contract EthProxy {
     IUSM public usm;
     IWETH9 public weth;
 
-    constructor(address usm_, address weth_) public {
+    constructor(address usm_, address weth_)
+        public
+    {
         usm = IUSM(usm_); 
         weth = IWETH9(weth_);
 
@@ -24,9 +26,10 @@ contract EthProxy {
     /// @dev Users use `mint` in EthProxy to post ETH to USM (amount = msg.value), which will be converted to Weth here.
     /// @param to Receiver of the minted USM
     function mint(address to)
-        external payable {
+        external payable returns (uint)
+    {
         weth.deposit{ value: msg.value }();
-        usm.mint(address(this), to, msg.value);
+        return usm.mint(address(this), to, msg.value);
     }
 
     /// @dev Users wishing to withdraw their Weth as ETH from USM should use this function.
@@ -34,10 +37,12 @@ contract EthProxy {
     /// @param to Receiver of the obtained Eth
     /// @param usmToBurn Amount of USM to burn.
     function burn(address payable to, uint usmToBurn)
-        external {
+        external returns (uint)
+    {
         uint wethToWithdraw = usm.burn(msg.sender, address(this), usmToBurn);
         weth.withdraw(wethToWithdraw);
         to.sendValue(wethToWithdraw);
+        return wethToWithdraw;
     }
 
     /**
@@ -45,10 +50,10 @@ contract EthProxy {
      * @param to Receiver of the obtained FUM
      */
     function fund(address to)
-        external payable
+        external payable returns (uint)
     {
         weth.deposit{ value: msg.value }();
-        usm.fund(address(this), to, msg.value);
+        return usm.fund(address(this), to, msg.value);
     }
 
     /**
@@ -57,10 +62,11 @@ contract EthProxy {
      * @param fumToBurn Amount of FUM to burn.
      */
     function defund(address payable to, uint fumToBurn)
-        external
+        external returns (uint)
     {
         uint wethToWithdraw = usm.defund(msg.sender, address(this), fumToBurn);
         weth.withdraw(wethToWithdraw);
         to.sendValue(wethToWithdraw);
+        return wethToWithdraw;
     }
 }
