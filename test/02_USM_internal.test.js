@@ -26,40 +26,40 @@ contract('USM - Internal functions', (accounts) => {
 
   describe('deployment', async () => {
     it('returns the correct price', async () => {
-      let oraclePrice = (await oracle.latestPrice()).toString()
-      oraclePrice.should.equal(price.toString())
+      let oraclePrice = (await oracle.latestPrice())
+      oraclePrice.toString().should.equal(price.toString())
     })
 
     it('returns the correct decimal shift', async () => {
-      let decimalshift = (await oracle.decimalShift()).toString()
-      decimalshift.should.equal(shift.toString())
+      let decimalshift = (await oracle.decimalShift())
+      decimalshift.toString().should.equal(shift.toString())
     })
   })
 
   describe('functionality', async () => {
     it('returns the oracle price in WAD', async () => {
-      let oraclePrice = (await mockToken.oraclePrice()).toString()
-      oraclePrice.should.equal(priceWAD.toString())
+      let oraclePrice = (await mockToken.oraclePrice())
+      oraclePrice.toString().should.equal(priceWAD.toString())
     })
 
     it('returns the value of eth in usm', async () => {
       const oneEth = WAD
       const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-      let usmAmount = (await mockToken.ethToUsm(oneEth)).toString()
-      usmAmount.should.equal(equivalentUSM.toString())
+      let usmAmount = (await mockToken.ethToUsm(oneEth))
+      usmAmount.toString().should.equal(equivalentUSM.toString())
     })
 
     it('returns the value of usm in eth', async () => {
       const oneUSM = WAD
       const equivalentEth = oneUSM.mul(WAD).div(priceWAD)
-      let ethAmount = (await mockToken.usmToEth(oneUSM.toString())).toString()
-      ethAmount.should.equal(equivalentEth.toString())
+      let ethAmount = (await mockToken.usmToEth(oneUSM.toString()))
+      ethAmount.toString().should.equal(equivalentEth.toString())
     })
 
     it('returns the debt ratio as zero', async () => {
       const ZERO = new BN('0')
-      let debtRatio = (await mockToken.debtRatio()).toString()
-      debtRatio.should.equal(ZERO.toString())
+      let debtRatio = (await mockToken.debtRatio())
+      debtRatio.toString().should.equal(ZERO.toString())
     })
   })
 })

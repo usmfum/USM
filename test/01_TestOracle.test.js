@@ -19,13 +19,13 @@ contract('TestOracle', (accounts) => {
 
   describe('deployment', async () => {
     it('returns the correct price', async () => {
-      let price = (await oracle.latestPrice()).toString()
-      price.should.equal(price)
+      let price = (await oracle.latestPrice())
+      price.toString().should.equal(price)
     })
 
     it('returns the correct decimal shift', async () => {
-      let shift = (await oracle.decimalShift()).toString()
-      shift.should.equal(decShift)
+      let shift = (await oracle.decimalShift())
+      shift.toString().should.equal(decShift)
     })
   })
 })

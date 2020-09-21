@@ -47,8 +47,8 @@ contract('USM - EthProxy', (accounts) => {
 
         await proxy.fund(user2, { from: user1, value: oneEth })
 
-        const newEthPool = (await weth.balanceOf(usm.address)).toString()
-        newEthPool.should.equal(oneEth.toString())
+        const newEthPool = (await weth.balanceOf(usm.address))
+        newEthPool.toString().should.equal(oneEth.toString())
       })
 
       describe('with existing FUM supply', () => {
@@ -58,8 +58,8 @@ contract('USM - EthProxy', (accounts) => {
 
         it('allows minting USM', async () => {
           await proxy.mint(user2, { from: user1, value: oneEth })
-          const usmBalance = (await usm.balanceOf(user2)).toString()
-          usmBalance.should.equal(oneEth.mul(priceWAD).div(WAD).toString())
+          const usmBalance = (await usm.balanceOf(user2))
+          usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).toString())
         })
 
         describe('with existing USM supply', () => {
@@ -72,8 +72,8 @@ contract('USM - EthProxy', (accounts) => {
             const startingBalance = await web3.eth.getBalance(user2)
 
             await proxy.defund(user2, priceWAD.mul(new BN('3')).div(new BN('4')), { from: user1 }) // defund 75% of our fum
-            const newFumBalance = (await fum.balanceOf(user1)).toString()
-            newFumBalance.should.equal(targetFumBalance.div(new BN('4')).toString()) // should be 25% of what it was
+            const newFumBalance = (await fum.balanceOf(user1))
+            newFumBalance.toString().should.equal(targetFumBalance.div(new BN('4')).toString()) // should be 25% of what it was
 
             expect(await web3.eth.getBalance(user2)).bignumber.gt(startingBalance)
           })
@@ -83,8 +83,8 @@ contract('USM - EthProxy', (accounts) => {
             const startingBalance = await web3.eth.getBalance(user2)
 
             await proxy.burn(user2, usmBalance, { from: user1 })
-            const newUsmBalance = (await usm.balanceOf(user1)).toString()
-            newUsmBalance.should.equal('0')
+            const newUsmBalance = (await usm.balanceOf(user1))
+            newUsmBalance.toString().should.equal('0')
 
             expect(await web3.eth.getBalance(user2)).bignumber.gt(startingBalance)
           })
