@@ -25,8 +25,6 @@ contract USM is IUSM, ERC20, Delegable {
     uint public minFumBuyPrice;                               // in units of ETH. default 0
 
     uint public constant WAD = 10 ** 18;
-    uint public constant MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
-    uint public constant MIN_BURN_AMOUNT = WAD;               // 1 USM
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
 
     /**
@@ -51,7 +49,6 @@ contract USM is IUSM, ERC20, Delegable {
         returns (uint)
     {
         require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
-        require(ethIn > MIN_ETH_AMOUNT, "0.001 ETH minimum");
         require(fum.totalSupply() > 0, "Fund before minting");
         uint usmMinted = ethToUsm(ethIn);
         _mint(to, usmMinted);
@@ -69,7 +66,6 @@ contract USM is IUSM, ERC20, Delegable {
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
-        require(usmToBurn >= MIN_BURN_AMOUNT, "1 USM minimum"); // TODO: Needed?
         uint ethOut = usmToEth(usmToBurn);
         _burn(from, usmToBurn);
         require(eth.transfer(to, ethOut), "Eth transfer fail");
@@ -87,7 +83,6 @@ contract USM is IUSM, ERC20, Delegable {
         returns (uint)
     {
         require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
-        require(ethIn > MIN_ETH_AMOUNT, "0.001 ETH minimum"); // TODO: Needed?
         if(debtRatio() > MAX_DEBT_RATIO){
             // calculate the ETH needed to bring debt ratio to suitable levels
             uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool()).add(1); //+ 1 to tip it over the edge
@@ -107,7 +102,6 @@ contract USM is IUSM, ERC20, Delegable {
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
-        require(fumToBurn >= MIN_BURN_AMOUNT, "1 FUM minimum"); // TODO: Needed?
         uint ethOut = fumToBurn.wadMul(fumPrice(Side.Sell));
         fum.burn(from, fumToBurn);
         require(eth.transfer(to, ethOut), "Eth transfer fail");

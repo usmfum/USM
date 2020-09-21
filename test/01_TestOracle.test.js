@@ -1,31 +1,27 @@
-const { BN, expectRevert } = require('@openzeppelin/test-helpers')
-
 const TestOracle = artifacts.require('./TestOracle.sol')
-
-const EVM_REVERT = 'VM Exception while processing transaction: revert'
 
 require('chai').use(require('chai-as-promised')).should()
 
 contract('TestOracle', (accounts) => {
-  const [deployer, user] = accounts
+  const [deployer] = accounts
   let oracle
 
   const price = '25000'
-  const decShift = '8'
+  const shift = '8'
 
   beforeEach(async () => {
-    oracle = await TestOracle.new(price, decShift, { from: deployer })
+    oracle = await TestOracle.new(price, shift, { from: deployer })
   })
 
   describe('deployment', async () => {
     it('returns the correct price', async () => {
-      let price = (await oracle.latestPrice())
-      price.toString().should.equal(price)
+      let oraclePrice = (await oracle.latestPrice())
+      oraclePrice.toString().should.equal(price)
     })
 
     it('returns the correct decimal shift', async () => {
-      let shift = (await oracle.decimalShift())
-      shift.toString().should.equal(decShift)
+      let oracleShift = (await oracle.decimalShift())
+      oracleShift.toString().should.equal(shift)
     })
   })
 })

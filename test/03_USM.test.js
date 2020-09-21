@@ -82,12 +82,6 @@ contract('USM', (accounts) => {
           newFumSellPrice.toString().should.equal(fumSellPrice.toString())
         })
 
-        it("doesn't allow minting with less than MIN_ETH_AMOUNT", async () => {
-          const MIN_ETH_AMOUNT = await usm.MIN_ETH_AMOUNT()
-          // TODO: assert MIN_ETH_AMOUNT > 0
-          await expectRevert(usm.mint(user1, user2, MIN_ETH_AMOUNT.sub(new BN('1')), { from: user1 }), '0.001 ETH minimum')
-        })
-
         describe('with existing USM supply', () => {
           beforeEach(async () => {
             await usm.mint(user1, user1, oneEth, { from: user1 })
@@ -144,12 +138,6 @@ contract('USM', (accounts) => {
             newFumBuyPrice.toString().should.equal(fumBuyPrice.toString()) // Burning doesn't change the fum price if buffer is 0
             const newFumSellPrice = (await usm.fumPrice(sides.SELL))
             newFumSellPrice.toString().should.equal(fumSellPrice.toString())
-          })
-
-          it("doesn't allow burning USM with less than MIN_BURN_AMOUNT", async () => {
-            const MIN_BURN_AMOUNT = await usm.MIN_BURN_AMOUNT()
-            // TODO: assert MIN_BURN_AMOUNT > 0
-            await expectRevert(usm.burn(user1, user2, MIN_BURN_AMOUNT.sub(new BN('1')), { from: user1 }), '1 USM minimum')
           })
 
           it("doesn't allow burning USM if debt ratio under 100%", async () => {
