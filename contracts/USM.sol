@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.7;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "delegable.sol/contracts/Delegable.sol";
+import "./IUSM.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
 import "./oracles/IOracle.sol";
@@ -12,7 +15,7 @@ import "./oracles/IOracle.sol";
  * @author Alex Roan (@alexroan)
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is ERC20 {
+contract USM is IUSM, ERC20, Delegable {
     using SafeMath for uint;
     using WadMath for uint;
 
@@ -22,13 +25,7 @@ contract USM is ERC20 {
     uint public minFumBuyPrice;                               // in units of ETH. default 0
 
     uint public constant WAD = 10 ** 18;
-    uint public constant MIN_ETH_AMOUNT = WAD / 1000;         // 0.001 ETH
-    uint public constant MIN_BURN_AMOUNT = WAD;               // 1 USM
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
-
-    enum Side {Buy, Sell}
-
-    event MinFumBuyPriceChanged(uint previous, uint latest);
 
     /**
      * @param oracle_ Address of the oracle
@@ -46,12 +43,15 @@ contract USM is ERC20 {
      * @param ethIn Amount of wrapped Ether to use for minting USM.
      * @return USM minted
      */
-    function mint(uint256 ethIn) external returns (uint) {
-        require(eth.transferFrom(msg.sender, address(this), ethIn), "Eth transfer fail");
-        require(ethIn > MIN_ETH_AMOUNT, "0.001 ETH minimum");
+    function mint(address from, address to, uint ethIn)
+        external override
+        onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint)
+    {
+        require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
         require(fum.totalSupply() > 0, "Fund before minting");
         uint usmMinted = ethToUsm(ethIn);
-        _mint(msg.sender, usmMinted);
+        _mint(to, usmMinted);
         return usmMinted;
     }
 
@@ -61,11 +61,14 @@ contract USM is ERC20 {
      * @param usmToBurn Amount of USM to burn.
      * @return ETH sent
      */
-    function burn(uint usmToBurn) external returns (uint) {
-        require(usmToBurn >= MIN_BURN_AMOUNT, "1 USM minimum"); // TODO: Needed?
+    function burn(address from, address to, uint usmToBurn)
+        external override
+        onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint)
+    {
         uint ethOut = usmToEth(usmToBurn);
-        _burn(msg.sender, usmToBurn);
-        require(eth.transfer(msg.sender, ethOut), "Eth transfer fail");
+        _burn(from, usmToBurn);
+        require(eth.transfer(to, ethOut), "Eth transfer fail");
         require(debtRatio() <= WAD, "Debt ratio too high");
         return (ethOut);
     }
@@ -74,31 +77,36 @@ contract USM is ERC20 {
      * @notice Funds the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over
      * @param ethIn Amount of wrapped Ether to use for minting FUM.
      */
-    function fund(uint256 ethIn) external {
-        require(eth.transferFrom(msg.sender, address(this), ethIn), "Eth transfer fail");
-        require(ethIn > MIN_ETH_AMOUNT, "0.001 ETH minimum"); // TODO: Needed?
+    function fund(address from, address to, uint ethIn)
+        external override
+        onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint)
+    {
+        require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
         if(debtRatio() > MAX_DEBT_RATIO){
             // calculate the ETH needed to bring debt ratio to suitable levels
             uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool()).add(1); //+ 1 to tip it over the edge
-            if (ethIn >= ethNeeded) { // Split into two fundings at different prices
-                _fund(msg.sender, ethNeeded);
-                _fund(msg.sender, ethIn.sub(ethNeeded));
-                return;
+            if (ethIn >= ethNeeded) { // Split into two fundings at different prices, and return the combined produced fum
+                return _fund(to, ethIn.sub(ethNeeded)).add(_fund(to, ethNeeded));
             } // Otherwise continue for funding the total at a single price
         }
-        _fund(msg.sender, ethIn);
+        return _fund(to, ethIn);
     }
 
     /**
      * @notice Defunds the pool by sending FUM out in exchange for equivalent ETH from the pool
      * @param fumToBurn Amount of FUM to burn.
      */
-    function defund(uint fumToBurn) external {
-        require(fumToBurn >= MIN_BURN_AMOUNT, "1 FUM minimum"); // TODO: Needed?
+    function defund(address from, address to, uint fumToBurn)
+        external override
+        onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint)
+    {
         uint ethOut = fumToBurn.wadMul(fumPrice(Side.Sell));
-        fum.burn(msg.sender, fumToBurn);
-        require(eth.transfer(msg.sender, ethOut), "Eth transfer fail");
+        fum.burn(from, fumToBurn);
+        require(eth.transfer(to, ethOut), "Eth transfer fail");
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
+        return (ethOut);
     }
 
     /** PUBLIC FUNCTIONS **/
@@ -108,7 +116,7 @@ contract USM is ERC20 {
      *
      * @return ETH pool
      */
-    function ethPool() public view returns (uint) {
+    function ethPool() public override view returns (uint) {
         return eth.balanceOf(address(this));
     }
 
@@ -117,7 +125,7 @@ contract USM is ERC20 {
      *
      * @return ETH buffer
      */
-    function ethBuffer() public view returns (int) {
+    function ethBuffer() public override view returns (int) {
         uint pool = ethPool();
         int buffer = int(pool) - int(usmToEth(totalSupply()));
         require(buffer <= int(pool), "Underflow error");
@@ -130,7 +138,7 @@ contract USM is ERC20 {
      *
      * @return Debt ratio.
      */
-    function debtRatio() public view returns (uint) {
+    function debtRatio() public override view returns (uint) {
         uint pool = ethPool();
         if (pool == 0) {
             return 0;
@@ -142,7 +150,7 @@ contract USM is ERC20 {
      * @notice Calculates the price of FUM using its total supply
      * and ETH buffer
      */
-    function fumPrice(Side side) public view returns (uint) {
+    function fumPrice(Side side) public override view returns (uint) {
         uint fumTotalSupply = fum.totalSupply();
 
         if (fumTotalSupply == 0) {
@@ -163,7 +171,7 @@ contract USM is ERC20 {
      * @param ethAmount The amount of ETH to convert.
      * @return The amount of USM.
      */
-    function ethToUsm(uint ethAmount) public view returns (uint) {
+    function ethToUsm(uint ethAmount) public override view returns (uint) {
         return _oraclePrice().wadMul(ethAmount);
     }
 
@@ -174,7 +182,7 @@ contract USM is ERC20 {
      * @param usmAmount The amount of USM to convert.
      * @return The amount of ETH.
      */
-    function usmToEth(uint usmAmount) public view returns (uint) {
+    function usmToEth(uint usmAmount) public override view returns (uint) {
         return usmAmount.wadDiv(_oraclePrice());
     }
 
@@ -210,10 +218,11 @@ contract USM is ERC20 {
     /**
      * @notice Funds the pool with ETH, minting FUM at its current price
      */
-    function _fund(address to, uint ethIn) internal {
+    function _fund(address to, uint ethIn) internal returns (uint) {
         _updateMinFumBuyPrice();
         uint fumOut = ethIn.wadDiv(fumPrice(Side.Buy));
         fum.mint(to, fumOut);
+        return fumOut;
     }
 
     /**
