@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.7;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "erc20permit/contracts/ERC20Permit.sol";
 
 /**
  * @title FUM Token
@@ -10,9 +10,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  *
  * @notice This should be owned by the stablecoin.
  */
-contract FUM is ERC20, Ownable {
+contract FUM is ERC20Permit, Ownable {
 
-    constructor() public ERC20("Minimal Funding", "FUM") {
+    constructor() public ERC20Permit("Minimal Funding", "FUM") {
     }
 
     /**

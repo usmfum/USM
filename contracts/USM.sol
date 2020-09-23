@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.7;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "delegable.sol/contracts/Delegable.sol";
+import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
@@ -15,12 +16,12 @@ import "./oracles/IOracle.sol";
  * @author Alex Roan (@alexroan)
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is IUSM, ERC20, Delegable {
+contract USM is IUSM, ERC20Permit, Delegable {
     using SafeMath for uint;
     using WadMath for uint;
 
     address public oracle;
-    ERC20 public eth;
+    IERC20 public eth;
     FUM public fum;
     uint public minFumBuyPrice;                               // in units of ETH. default 0
 
@@ -30,10 +31,10 @@ contract USM is IUSM, ERC20, Delegable {
     /**
      * @param oracle_ Address of the oracle
      */
-    constructor(address oracle_, address eth_) public ERC20("Minimal USD", "USM") {
+    constructor(address oracle_, address eth_) public ERC20Permit("Minimal USD", "USM") {
         fum = new FUM();
         oracle = oracle_;
-        eth = ERC20(eth_);
+        eth = IERC20(eth_);
     }
 
     /** EXTERNAL FUNCTIONS **/
