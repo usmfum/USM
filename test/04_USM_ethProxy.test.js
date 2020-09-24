@@ -6,7 +6,7 @@ const TestOracle = artifacts.require('./TestOracle.sol')
 const WETH9 = artifacts.require('WETH9')
 const USM = artifacts.require('./USM.sol')
 const FUM = artifacts.require('./FUM.sol')
-const EthProxy = artifacts.require('./EthProxy.sol')
+const Proxy = artifacts.require('./Proxy.sol')
 
 const burnSignature = id('burn(address,address,uint256)').slice(0, 10)
 const defundSignature = id('defund(address,address,uint256)').slice(0, 10)
@@ -14,7 +14,7 @@ MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
 require('chai').use(require('chai-as-promised')).should()
 
-contract('USM - EthProxy', (accounts) => {
+contract('USM - Proxy', (accounts) => {
   let [deployer, user1, user2] = accounts
 
   const sides = { BUY: 0, SELL: 1 }
@@ -35,7 +35,7 @@ contract('USM - EthProxy', (accounts) => {
       weth = await WETH9.new({ from: deployer })
       usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
-      proxy = await EthProxy.new(usm.address, weth.address, { from: deployer })
+      proxy = await Proxy.new(usm.address, weth.address, { from: deployer })
 
       await usm.addDelegate(proxy.address, burnSignature, MAX, { from: user1 })
       await usm.addDelegate(proxy.address, defundSignature, MAX, { from: user1 })

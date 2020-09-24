@@ -6,7 +6,7 @@ import "./IUSM.sol";
 import "./external/IWETH9.sol";
 
 
-contract EthProxy {
+contract Proxy {
     using Address for address payable;
     IUSM public usm;
     IWETH9 public weth;
@@ -20,10 +20,10 @@ contract EthProxy {
         weth.approve(address(usm), uint(-1));
     }
 
-    /// @dev The WETH9 contract will send ether to EthProxy on `weth.withdraw` using this function.
+    /// @dev The WETH9 contract will send ether to Proxy on `weth.withdraw` using this function.
     receive() external payable { }
 
-    /// @dev Users use `mint` in EthProxy to post ETH to USM (amount = msg.value), which will be converted to Weth here.
+    /// @dev Users use `mint` in Proxy to post ETH to USM (amount = msg.value), which will be converted to Weth here.
     /// @param to Receiver of the minted USM
     function mint(address to)
         external payable returns (uint)
@@ -33,7 +33,7 @@ contract EthProxy {
     }
 
     /// @dev Users wishing to withdraw their Weth as ETH from USM should use this function.
-    /// Users must have called `controller.addDelegate(ethProxy.address)` to authorize EthProxy to act in their behalf.
+    /// Users must have called `controller.addDelegate(Proxy.address)` to authorize Proxy to act in their behalf.
     /// @param to Receiver of the obtained Eth
     /// @param usmToBurn Amount of USM to burn.
     function burn(address payable to, uint usmToBurn)
