@@ -28,12 +28,15 @@ contract USM is IUSM, ERC20Permit, Delegable {
     address public oracle;
     IERC20 public eth;
     FUM public fum;
-    uint public minFumBuyPriceStored;                                   // in units of ETH. default 0
-    uint public minFumBuyPriceTimestamp;
-    uint public mintBurnAdjustmentStored = WAD;
-    uint public mintBurnAdjustmentTimestamp;
-    uint public fundDefundAdjustmentStored = WAD;
-    uint public fundDefundAdjustmentTimestamp;
+
+    struct TimedValue {
+        uint32 timestamp;
+        uint224 value;
+    }
+
+    TimedValue public minFumBuyPriceStored;
+    TimedValue public mintBurnAdjustmentStored = TimedValue({ timestamp: 0, value: uint224(WAD) });
+    TimedValue public fundDefundAdjustmentStored = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
     /**
      * @param oracle_ Address of the oracle
@@ -220,34 +223,34 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @notice The current min FUM buy price, equal to the stored value decayed by time since minFumBuyPriceTimestamp.
      */
     function minFumBuyPrice() public override view returns (uint) {
-        if (minFumBuyPriceStored == 0) {
+        if (minFumBuyPriceStored.value == 0) {
             return 0;
         }
-        uint numHalvings = WAD * (block.timestamp - minFumBuyPriceTimestamp) / MIN_FUM_BUY_PRICE_HALF_LIFE;
+        uint numHalvings = WAD * (block.timestamp - minFumBuyPriceStored.timestamp) / MIN_FUM_BUY_PRICE_HALF_LIFE;
         uint decayFactor = numHalvings.wadHalfExp();
-        return minFumBuyPriceStored.wadMul(decayFactor);
+        return uint256(minFumBuyPriceStored.value).wadMul(decayFactor);
     }
 
     /**
      * @notice The current mint-burn adjustment, equal to the stored value decayed by time since mintBurnAdjustmentTimestamp.
      */
     function mintBurnAdjustment() public override view returns (uint) {
-        uint numHalvings = WAD * (block.timestamp - mintBurnAdjustmentTimestamp) / BUY_SELL_ADJUSTMENTS_HALF_LIFE;
+        uint numHalvings = WAD * (block.timestamp - mintBurnAdjustmentStored.timestamp) / BUY_SELL_ADJUSTMENTS_HALF_LIFE;
         uint decayFactor = numHalvings.wadHalfExp(10);
         // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
         // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
         // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
-        return WAD + mintBurnAdjustmentStored.wadMul(decayFactor) - decayFactor;
+        return WAD + uint256(mintBurnAdjustmentStored.value).wadMul(decayFactor) - decayFactor;
     }
 
     /**
      * @notice The current fund-defund adjustment, equal to the stored value decayed by time since fundDefundAdjustmentTimestamp.
      */
     function fundDefundAdjustment() public override view returns (uint) {
-        uint numHalvings = WAD * (block.timestamp - fundDefundAdjustmentTimestamp) / BUY_SELL_ADJUSTMENTS_HALF_LIFE;
+        uint numHalvings = WAD * (block.timestamp - fundDefundAdjustmentStored.timestamp) / BUY_SELL_ADJUSTMENTS_HALF_LIFE;
         uint decayFactor = numHalvings.wadHalfExp(10);
-        return WAD + fundDefundAdjustmentStored.wadMul(decayFactor) - decayFactor;
+        return WAD + uint256(fundDefundAdjustmentStored.value).wadMul(decayFactor) - decayFactor;
     }
 
     /**
@@ -364,38 +367,47 @@ contract USM is IUSM, ERC20Permit, Delegable {
      *                    = (1 - MAX_DEBT_RATIO) * ethPool() / fum.totalSupply()
      */
     function _updateMinFumBuyPrice() internal {
-        uint previous = minFumBuyPriceStored;
+        uint previous = minFumBuyPriceStored.value;
         if (debtRatio() <= MAX_DEBT_RATIO) {                // We've dropped below (or were already below, whatev) max debt ratio
-            minFumBuyPriceStored = 0;                       // Clear mfbp
-        } else if (minFumBuyPriceStored == 0) {             // We were < max debt ratio, but have now crossed above - so set mfbp
+            minFumBuyPriceStored = TimedValue({             // Clear mfbp
+                timestamp: 0,
+                value: 0
+            });
+        } else if (previous == 0) {             // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
-            minFumBuyPriceStored = (WAD - MAX_DEBT_RATIO).wadMul(ethPool()).wadDiv(fum.totalSupply());
-            minFumBuyPriceTimestamp = block.timestamp;
+            minFumBuyPriceStored = TimedValue({
+                timestamp: uint32(block.timestamp),
+                value: uint224((WAD - MAX_DEBT_RATIO).wadMul(ethPool()).wadDiv(fum.totalSupply()))
+            });
         }
 
-        emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored);
+        emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
     }
 
     /**
      * @notice Updates the mint-burn adjustment factor, as of the current block time.
      */
     function _updateMintBurnAdjustment(uint adjustment) internal {
-        uint previous = mintBurnAdjustmentStored;
-        mintBurnAdjustmentStored = adjustment;
-        mintBurnAdjustmentTimestamp = block.timestamp;
+        uint previous = mintBurnAdjustmentStored.value;
+        mintBurnAdjustmentStored = TimedValue({             // Clear mfbp
+            timestamp: uint32(block.timestamp),
+            value: uint224(adjustment)
+        });
 
-        emit MintBurnAdjustmentChanged(previous, mintBurnAdjustmentStored);
+        emit MintBurnAdjustmentChanged(previous, mintBurnAdjustmentStored.value);
     }
 
     /**
      * @notice Updates the fund-defund adjustment factor, as of the current block time.
      */
     function _updateFundDefundAdjustment(uint adjustment) internal {
-        uint previous = fundDefundAdjustmentStored;
-        fundDefundAdjustmentStored = adjustment;
-        fundDefundAdjustmentTimestamp = block.timestamp;
+        uint previous = fundDefundAdjustmentStored.value;
+        fundDefundAdjustmentStored = TimedValue({             // Clear mfbp
+            timestamp: uint32(block.timestamp),
+            value: uint224(adjustment)
+        });
 
-        emit FundDefundAdjustmentChanged(previous, fundDefundAdjustmentStored);
+        emit FundDefundAdjustmentChanged(previous, fundDefundAdjustmentStored.value);
     }
 
     /**
