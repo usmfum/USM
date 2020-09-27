@@ -20,13 +20,20 @@ contract USM is IUSM, ERC20Permit, Delegable {
     using SafeMath for uint;
     using WadMath for uint;
 
+    uint public constant WAD = 10 ** 18;
+    uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                 // 80%
+    uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 24 * 60 * 60;    // 1 day
+    uint public constant BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60;           // 1 minute
+
     address public oracle;
     IERC20 public eth;
     FUM public fum;
-    uint public minFumBuyPrice;                               // in units of ETH. default 0
-
-    uint public constant WAD = 10 ** 18;
-    uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;       // 80%
+    uint public minFumBuyPriceStored;                                   // in units of ETH. default 0
+    uint public minFumBuyPriceTimestamp;
+    uint public mintBurnAdjustmentStored = WAD;
+    uint public mintBurnAdjustmentTimestamp;
+    uint public fundDefundAdjustmentStored = WAD;
+    uint public fundDefundAdjustmentTimestamp;
 
     /**
      * @param oracle_ Address of the oracle
@@ -49,11 +56,17 @@ contract USM is IUSM, ERC20Permit, Delegable {
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
-        require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
+        // First calculate:
         require(fum.totalSupply() > 0, "Fund before minting");
-        uint usmMinted = ethToUsm(ethIn);
-        _mint(to, usmMinted);
-        return usmMinted;
+        uint usmOut;
+        uint ethPoolGrowthFactor;
+        (usmOut, ethPoolGrowthFactor) = usmFromMint(ethIn);
+
+        // Then update state:
+        require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
+        _updateMintBurnAdjustment(mintBurnAdjustment().wadDiv(ethPoolGrowthFactor.wadMul(ethPoolGrowthFactor)));
+        _mint(to, usmOut);
+        return usmOut;
     }
 
     /**
@@ -67,11 +80,17 @@ contract USM is IUSM, ERC20Permit, Delegable {
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
-        uint ethOut = usmToEth(usmToBurn);
+        // First calculate:
+        uint ethOut;
+        uint ethPoolShrinkFactor;
+        (ethOut, ethPoolShrinkFactor) = ethFromBurn(usmToBurn);
+
+        // Then update state:
         _burn(from, usmToBurn);
+        _updateMintBurnAdjustment(mintBurnAdjustment().wadDiv(ethPoolShrinkFactor.wadMul(ethPoolShrinkFactor)));
         require(eth.transfer(to, ethOut), "Eth transfer fail");
         require(debtRatio() <= WAD, "Debt ratio too high");
-        return (ethOut);
+        return ethOut;
     }
 
     /**
@@ -83,15 +102,21 @@ contract USM is IUSM, ERC20Permit, Delegable {
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
+        // First refresh mfbp:
+        _updateMinFumBuyPrice();
+
+        // Then calculate:
+        uint fumOut;
+        uint ethPoolGrowthFactor;
+        (fumOut, ethPoolGrowthFactor) = fumFromFund(ethIn);
+
+        // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
-        if(debtRatio() > MAX_DEBT_RATIO){
-            // calculate the ETH needed to bring debt ratio to suitable levels
-            uint ethNeeded = usmToEth(totalSupply()).wadDiv(MAX_DEBT_RATIO).sub(ethPool()).add(1); //+ 1 to tip it over the edge
-            if (ethIn >= ethNeeded) { // Split into two fundings at different prices, and return the combined produced fum
-                return _fund(to, ethIn.sub(ethNeeded)).add(_fund(to, ethNeeded));
-            } // Otherwise continue for funding the total at a single price
+        if (ethPoolGrowthFactor != type(uint).max) {
+            _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolGrowthFactor.wadMul(ethPoolGrowthFactor)));
         }
-        return _fund(to, ethIn);
+        fum.mint(to, fumOut);
+        return fumOut;
     }
 
     /**
@@ -103,11 +128,17 @@ contract USM is IUSM, ERC20Permit, Delegable {
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
-        uint ethOut = fumToBurn.wadMul(fumPrice(Side.Sell));
+        // First calculate:
+        uint ethOut;
+        uint ethPoolShrinkFactor;
+        (ethOut, ethPoolShrinkFactor) = ethFromDefund(fumToBurn);
+
+        // Then update state:
         fum.burn(from, fumToBurn);
+        _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolShrinkFactor.wadMul(ethPoolShrinkFactor)));
         require(eth.transfer(to, ethOut), "Eth transfer fail");
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
-        return (ethOut);
+        return ethOut;
     }
 
     /** PUBLIC FUNCTIONS **/
@@ -148,8 +179,22 @@ contract USM is IUSM, ERC20Permit, Delegable {
     }
 
     /**
-     * @notice Calculates the price of FUM using its total supply
-     * and ETH buffer
+     * @notice Calculates the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding
+     */
+    function usmPrice(Side side) public override view returns (uint) {
+        uint price = usmToEth(WAD);
+        if (side == Side.Buy) {
+            price = price.wadMul(WAD.wadMax(mintBurnAdjustment()));
+            price = price.wadMul(WAD.wadMax(fundDefundAdjustment()));
+        } else {
+            price = price.wadMul(WAD.wadMin(mintBurnAdjustment()));
+            price = price.wadMul(WAD.wadMin(fundDefundAdjustment()));
+        }
+        return price;
+    }
+
+    /**
+     * @notice Calculates the *marginal* price of FUM (in ETH terms) - that is, of the next unit, before the price start sliding
      */
     function fumPrice(Side side) public override view returns (uint) {
         uint fumTotalSupply = fum.totalSupply();
@@ -157,12 +202,126 @@ contract USM is IUSM, ERC20Permit, Delegable {
         if (fumTotalSupply == 0) {
             return usmToEth(WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in ETH terms)
         }
-        uint theoreticalFumPrice = uint(ethBuffer()).wadDiv(fumTotalSupply);
-        // if side == buy, floor the price at minFumBuyPrice
-        if ((side == Side.Buy) && (minFumBuyPrice > theoreticalFumPrice)) {
-            return minFumBuyPrice;
+        int _ethBuffer = ethBuffer();
+        uint price = (_ethBuffer < 0 ? 0 : uint(_ethBuffer).wadDiv(fumTotalSupply));
+        if (side == Side.Buy) {
+            price = price.wadMul(WAD.wadMax(mintBurnAdjustment()));
+            price = price.wadMul(WAD.wadMax(fundDefundAdjustment()));
+            // Floor the buy price at minFumBuyPrice:
+            price = price.wadMax(minFumBuyPrice());
+        } else {
+            price = price.wadMul(WAD.wadMin(mintBurnAdjustment()));
+            price = price.wadMul(WAD.wadMin(fundDefundAdjustment()));
         }
-        return theoreticalFumPrice;
+        return price;
+    }
+
+    /**
+     * @notice The current min FUM buy price, equal to the stored value decayed by time since minFumBuyPriceTimestamp.
+     */
+    function minFumBuyPrice() public override view returns (uint) {
+        if (minFumBuyPriceStored == 0) {
+            return 0;
+        }
+        uint numHalvings = WAD * (block.timestamp - minFumBuyPriceTimestamp) / MIN_FUM_BUY_PRICE_HALF_LIFE;
+        uint decayFactor = numHalvings.wadHalfExp();
+        return minFumBuyPriceStored.wadMul(decayFactor);
+    }
+
+    /**
+     * @notice The current mint-burn adjustment, equal to the stored value decayed by time since mintBurnAdjustmentTimestamp.
+     */
+    function mintBurnAdjustment() public override view returns (uint) {
+        uint numHalvings = WAD * (block.timestamp - mintBurnAdjustmentTimestamp) / BUY_SELL_ADJUSTMENTS_HALF_LIFE;
+        uint decayFactor = numHalvings.wadHalfExp(10);
+        // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
+        // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
+        // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
+        // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
+        return WAD + mintBurnAdjustmentStored.wadMul(decayFactor) - decayFactor;
+    }
+
+    /**
+     * @notice The current fund-defund adjustment, equal to the stored value decayed by time since fundDefundAdjustmentTimestamp.
+     */
+    function fundDefundAdjustment() public override view returns (uint) {
+        uint numHalvings = WAD * (block.timestamp - fundDefundAdjustmentTimestamp) / BUY_SELL_ADJUSTMENTS_HALF_LIFE;
+        uint decayFactor = numHalvings.wadHalfExp(10);
+        return WAD + fundDefundAdjustmentStored.wadMul(decayFactor) - decayFactor;
+    }
+
+    /**
+     * @notice How much USM a minter currently gets back for ethIn ETH, accounting for adjustments and sliding prices.
+     *
+     * @param ethIn The amount of ETH passed to mint().
+     * @return The amount of USM, and the factor by which the ethPool grew (eg, 1.2 * WAD = 1.2x).
+     */
+    function usmFromMint(uint ethIn) public override view returns (uint, uint) {
+        // Mint USM at a sliding-up USM price (ie, at a sliding-down ETH price).  **BASIC RULE:** anytime pool_eth changes by
+        // factor k, eth_price changes by factor 1/k**2.  (Earlier versions of this logic scaled price by 1/k, not 1/k**2; but
+        // that results in calls to log()/exp().)
+        uint initialUsmPrice = usmPrice(Side.Buy);
+        uint _ethPool = ethPool();
+        uint ethPoolGrowthFactor = (_ethPool + ethIn).wadDiv(_ethPool);
+        // Math: this is an integral - sum of all USM minted at a sliding-down ETH price:
+        uint usmOut = _ethPool.wadDiv(initialUsmPrice).wadMul(WAD - WAD.wadDiv(ethPoolGrowthFactor));
+        return (usmOut, ethPoolGrowthFactor);
+    }
+
+    /**
+     * @notice How much ETH a burner currently gets from burning usmIn USM, accounting for adjustments and sliding prices.
+     *
+     * @param usmIn The amount of USM passed to burn().
+     * @return The amount of ETH, and the factor by which the ethPool shrank.
+     */
+    function ethFromBurn(uint usmIn) public override view returns (uint, uint) {
+        // Burn at a sliding-up price:
+        uint initialUsmPrice = usmPrice(Side.Sell);
+        uint _ethPool = ethPool();
+        // Math: this is an integral - sum of all USM burned at a sliding price.  Follows the same mathematical invariant as
+        // above: if pool_eth *= k, eth_price *= 1/k**2.
+        uint ethOut = WAD.wadDiv(WAD.wadDiv(_ethPool) + WAD.wadDiv(usmIn.wadMul(initialUsmPrice)));
+        uint ethPoolShrinkFactor = (_ethPool - ethOut).wadDiv(_ethPool);
+        return (ethOut, ethPoolShrinkFactor);
+    }
+
+    /**
+     * @notice How much FUM a funder currently gets back for ethIn ETH, accounting for adjustments and sliding prices.
+     *
+     * @param ethIn The amount of ETH passed to fund().
+     * @return The amount of FUM, and the factor by which the ethPool grew.
+     */
+    function fumFromFund(uint ethIn) public override view returns (uint, uint) {
+        // Create FUM at a sliding-up price:
+        uint initialFumPrice = fumPrice(Side.Buy);
+        uint _ethPool = ethPool();
+        uint ethPoolGrowthFactor;
+        uint fumOut;
+        if (_ethPool == 0 ) {
+            // This is our first ETH added, so an "ethPoolGrowthFactor" makes no sense - skip sliding-prices for this first call:
+            ethPoolGrowthFactor = type(uint).max;
+            fumOut = ethIn.wadDiv(initialFumPrice);
+        } else {
+            ethPoolGrowthFactor = (_ethPool + ethIn).wadDiv(_ethPool);
+            // Math: see closely analogous comment in mint_usm() above.
+            fumOut = _ethPool.wadDiv(initialFumPrice).wadMul(WAD - WAD.wadDiv(ethPoolGrowthFactor));
+        }
+        return (fumOut, ethPoolGrowthFactor);
+    }
+
+    /**
+     * @notice How much ETH a defunder currently gets back for fumIn FUM, accounting for adjustments and sliding prices.
+     *
+     * @param fumIn The amount of FUM passed to defund().
+     * @return The amount of ETH, and the factor by which the ethPool shrank.
+     */
+    function ethFromDefund(uint fumIn) public override view returns (uint, uint) {
+        uint initialFumPrice = fumPrice(Side.Sell);
+        uint _ethPool = ethPool();
+        // Math: see closely analogous comment in burn_usm() above.
+        uint ethOut = WAD.wadDiv(WAD.wadDiv(_ethPool) + WAD.wadDiv(fumIn.wadMul(initialFumPrice)));
+        uint ethPoolShrinkFactor = (_ethPool - ethOut).wadDiv(_ethPool);
+        return (ethOut, ethPoolShrinkFactor);
     }
 
     /**
@@ -205,25 +364,38 @@ contract USM is IUSM, ERC20Permit, Delegable {
      *                    = (1 - MAX_DEBT_RATIO) * ethPool() / fum.totalSupply()
      */
     function _updateMinFumBuyPrice() internal {
-        uint previous = minFumBuyPrice;
+        uint previous = minFumBuyPriceStored;
         if (debtRatio() <= MAX_DEBT_RATIO) {                // We've dropped below (or were already below, whatev) max debt ratio
-            minFumBuyPrice = 0;                             // Clear mfbp
-        } else if (minFumBuyPrice == 0) {                   // We were < max debt ratio, but have now crossed above - so set mfbp
+            minFumBuyPriceStored = 0;                       // Clear mfbp
+        } else if (minFumBuyPriceStored == 0) {             // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
-            minFumBuyPrice = (WAD - MAX_DEBT_RATIO).wadMul(ethPool()).wadDiv(fum.totalSupply());
+            minFumBuyPriceStored = (WAD - MAX_DEBT_RATIO).wadMul(ethPool()).wadDiv(fum.totalSupply());
+            minFumBuyPriceTimestamp = block.timestamp;
         }
 
-        emit MinFumBuyPriceChanged(previous, minFumBuyPrice);
+        emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored);
     }
 
     /**
-     * @notice Funds the pool with ETH, minting FUM at its current price
+     * @notice Updates the mint-burn adjustment factor, as of the current block time.
      */
-    function _fund(address to, uint ethIn) internal returns (uint) {
-        _updateMinFumBuyPrice();
-        uint fumOut = ethIn.wadDiv(fumPrice(Side.Buy));
-        fum.mint(to, fumOut);
-        return fumOut;
+    function _updateMintBurnAdjustment(uint adjustment) internal {
+        uint previous = mintBurnAdjustmentStored;
+        mintBurnAdjustmentStored = adjustment;
+        mintBurnAdjustmentTimestamp = block.timestamp;
+
+        emit MintBurnAdjustmentChanged(previous, mintBurnAdjustmentStored);
+    }
+
+    /**
+     * @notice Updates the fund-defund adjustment factor, as of the current block time.
+     */
+    function _updateFundDefundAdjustment(uint adjustment) internal {
+        uint previous = fundDefundAdjustmentStored;
+        fundDefundAdjustmentStored = adjustment;
+        fundDefundAdjustmentTimestamp = block.timestamp;
+
+        emit FundDefundAdjustmentChanged(previous, fundDefundAdjustmentStored);
     }
 
     /**
