@@ -17,6 +17,10 @@ contract('USM', (accounts) => {
     return x.mul(WAD).div(y);
   }
 
+  function wadDecay(adjustment, decayFactor) {
+    return WAD.add(wadMul(adjustment, decayFactor)).sub(decayFactor)
+  }
+
   const [deployer, user1, user2] = accounts
 
   const [TWO, THREE, FOUR, EIGHT, NINE, TEN, THOUSAND] =
@@ -139,7 +143,7 @@ contract('USM', (accounts) => {
           t1.toString().should.equal((t0 + timeDelay).toString())
           const fundDefundAdj4 = (await usm.fundDefundAdjustment())
           const decayFactor4 = WAD.div(EIGHT)
-          const targetFundDefundAdj4 = WAD.add(wadMul(fundDefundAdj3, decayFactor4)).sub(decayFactor4)
+          const targetFundDefundAdj4 = wadDecay(fundDefundAdj3, decayFactor4)
           fundDefundAdj4.divRound(TEN).toString().should.equal(targetFundDefundAdj4.divRound(TEN).toString())
         })
 
@@ -191,7 +195,7 @@ contract('USM', (accounts) => {
             t1.toString().should.equal((t0 + timeDelay).toString())
             const mintBurnAdj3 = (await usm.mintBurnAdjustment())
             const decayFactor3 = WAD.div(EIGHT)
-            const targetMintBurnAdj3 = WAD.add(wadMul(mintBurnAdj2, decayFactor3)).sub(decayFactor3)
+            const targetMintBurnAdj3 = wadDecay(mintBurnAdj2, decayFactor3)
             mintBurnAdj3.divRound(TEN).toString().should.equal(targetMintBurnAdj3.divRound(TEN).toString())
           })
 
