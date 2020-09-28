@@ -226,7 +226,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
         if (minFumBuyPriceStored.value == 0) {
             return 0;
         }
-        uint numHalvings = (block.timestamp - minFumBuyPriceStored.timestamp).wadDiv(MIN_FUM_BUY_PRICE_HALF_LIFE);
+        uint numHalvings = block.timestamp.sub(minFumBuyPriceStored.timestamp).wadDiv(MIN_FUM_BUY_PRICE_HALF_LIFE);
         uint decayFactor = numHalvings.wadHalfExp();
         return uint256(minFumBuyPriceStored.value).wadMul(decayFactor);
     }
@@ -235,22 +235,22 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @notice The current mint-burn adjustment, equal to the stored value decayed by time since mintBurnAdjustmentTimestamp.
      */
     function mintBurnAdjustment() public view returns (uint) {
-        uint numHalvings = (block.timestamp - mintBurnAdjustmentStored.timestamp).wadDiv(BUY_SELL_ADJUSTMENTS_HALF_LIFE);
+        uint numHalvings = block.timestamp.sub(mintBurnAdjustmentStored.timestamp).wadDiv(BUY_SELL_ADJUSTMENTS_HALF_LIFE);
         uint decayFactor = numHalvings.wadHalfExp(10);
         // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
         // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
         // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
-        return WAD + uint256(mintBurnAdjustmentStored.value).wadMul(decayFactor) - decayFactor;
+        return WAD.add(uint256(mintBurnAdjustmentStored.value).wadMul(decayFactor)).sub(decayFactor);
     }
 
     /**
      * @notice The current fund-defund adjustment, equal to the stored value decayed by time since fundDefundAdjustmentTimestamp.
      */
     function fundDefundAdjustment() public view returns (uint) {
-        uint numHalvings = (block.timestamp - fundDefundAdjustmentStored.timestamp).wadDiv(BUY_SELL_ADJUSTMENTS_HALF_LIFE);
+        uint numHalvings = block.timestamp.sub(fundDefundAdjustmentStored.timestamp).wadDiv(BUY_SELL_ADJUSTMENTS_HALF_LIFE);
         uint decayFactor = numHalvings.wadHalfExp(10);
-        return WAD + uint256(fundDefundAdjustmentStored.value).wadMul(decayFactor) - decayFactor;
+        return WAD.add(uint256(fundDefundAdjustmentStored.value).wadMul(decayFactor)).sub(decayFactor);
     }
 
     /**
@@ -265,9 +265,9 @@ contract USM is IUSM, ERC20Permit, Delegable {
         // that results in calls to log()/exp().)
         uint initialUsmPrice = usmPrice(Side.Buy);
         uint _ethPool = ethPool();
-        uint ethPoolGrowthFactor = (_ethPool + ethIn).wadDiv(_ethPool);
+        uint ethPoolGrowthFactor = _ethPool.add(ethIn).wadDiv(_ethPool);
         // Math: this is an integral - sum of all USM minted at a sliding-down ETH price:
-        uint usmOut = _ethPool.wadDiv(initialUsmPrice).wadMul(WAD - WAD.wadDiv(ethPoolGrowthFactor));
+        uint usmOut = _ethPool.wadDiv(initialUsmPrice).wadMul(WAD.sub(WAD.wadDiv(ethPoolGrowthFactor)));
         return (usmOut, ethPoolGrowthFactor);
     }
 
@@ -283,8 +283,8 @@ contract USM is IUSM, ERC20Permit, Delegable {
         uint _ethPool = ethPool();
         // Math: this is an integral - sum of all USM burned at a sliding price.  Follows the same mathematical invariant as
         // above: if pool_eth *= k, eth_price *= 1/k**2.
-        uint ethOut = WAD.wadDiv(WAD.wadDiv(_ethPool) + WAD.wadDiv(usmIn.wadMul(initialUsmPrice)));
-        uint ethPoolShrinkFactor = (_ethPool - ethOut).wadDiv(_ethPool);
+        uint ethOut = WAD.wadDiv(WAD.wadDiv(_ethPool).add(WAD.wadDiv(usmIn.wadMul(initialUsmPrice))));
+        uint ethPoolShrinkFactor = _ethPool.sub(ethOut).wadDiv(_ethPool);
         return (ethOut, ethPoolShrinkFactor);
     }
 
@@ -305,9 +305,9 @@ contract USM is IUSM, ERC20Permit, Delegable {
             ethPoolGrowthFactor = type(uint).max;
             fumOut = ethIn.wadDiv(initialFumPrice);
         } else {
-            ethPoolGrowthFactor = (_ethPool + ethIn).wadDiv(_ethPool);
+            ethPoolGrowthFactor = _ethPool.add(ethIn).wadDiv(_ethPool);
             // Math: see closely analogous comment in mint_usm() above.
-            fumOut = _ethPool.wadDiv(initialFumPrice).wadMul(WAD - WAD.wadDiv(ethPoolGrowthFactor));
+            fumOut = _ethPool.wadDiv(initialFumPrice).wadMul(WAD.sub(WAD.wadDiv(ethPoolGrowthFactor)));
         }
         return (fumOut, ethPoolGrowthFactor);
     }
@@ -322,8 +322,8 @@ contract USM is IUSM, ERC20Permit, Delegable {
         uint initialFumPrice = fumPrice(Side.Sell);
         uint _ethPool = ethPool();
         // Math: see closely analogous comment in burn_usm() above.
-        uint ethOut = WAD.wadDiv(WAD.wadDiv(_ethPool) + WAD.wadDiv(fumIn.wadMul(initialFumPrice)));
-        uint ethPoolShrinkFactor = (_ethPool - ethOut).wadDiv(_ethPool);
+        uint ethOut = WAD.wadDiv(WAD.wadDiv(_ethPool).add(WAD.wadDiv(fumIn.wadMul(initialFumPrice))));
+        uint ethPoolShrinkFactor = _ethPool.sub(ethOut).wadDiv(_ethPool);
         return (ethOut, ethPoolShrinkFactor);
     }
 
@@ -377,7 +377,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
             // See reasoning in @dev comment above
             minFumBuyPriceStored = TimedValue({
                 timestamp: uint32(block.timestamp),
-                value: uint224((WAD - MAX_DEBT_RATIO).wadMul(ethPool()).wadDiv(fum.totalSupply()))
+                value: uint224(WAD.sub(MAX_DEBT_RATIO).wadMul(ethPool()).wadDiv(fum.totalSupply()))
             });
         }
 
