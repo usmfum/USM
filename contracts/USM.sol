@@ -67,7 +67,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
 
         // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
-        _updateMintBurnAdjustment(mintBurnAdjustment().wadDiv(ethPoolGrowthFactor.wadMul(ethPoolGrowthFactor)));
+        _updateMintBurnAdjustment(mintBurnAdjustment().wadDiv(ethPoolGrowthFactor.wadSquared()));
         _mint(to, usmOut);
         return usmOut;
     }
@@ -90,7 +90,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
 
         // Then update state:
         _burn(from, usmToBurn);
-        _updateMintBurnAdjustment(mintBurnAdjustment().wadDiv(ethPoolShrinkFactor.wadMul(ethPoolShrinkFactor)));
+        _updateMintBurnAdjustment(mintBurnAdjustment().wadDiv(ethPoolShrinkFactor.wadSquared()));
         require(eth.transfer(to, ethOut), "Eth transfer fail");
         require(debtRatio() <= WAD, "Debt ratio too high");
         return ethOut;
@@ -116,7 +116,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
         // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
         if (ethPoolGrowthFactor != type(uint).max) {
-            _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolGrowthFactor.wadMul(ethPoolGrowthFactor)));
+            _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolGrowthFactor.wadSquared()));
         }
         fum.mint(to, fumOut);
         return fumOut;
@@ -138,7 +138,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
 
         // Then update state:
         fum.burn(from, fumToBurn);
-        _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolShrinkFactor.wadMul(ethPoolShrinkFactor)));
+        _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolShrinkFactor.wadSquared()));
         require(eth.transfer(to, ethOut), "Eth transfer fail");
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
         return ethOut;
@@ -151,7 +151,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      *
      * @return ETH pool
      */
-    function ethPool() public override view returns (uint) {
+    function ethPool() public view returns (uint) {
         return eth.balanceOf(address(this));
     }
 
@@ -160,7 +160,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      *
      * @return ETH buffer
      */
-    function ethBuffer() public override view returns (int) {
+    function ethBuffer() public view returns (int) {
         uint pool = ethPool();
         int buffer = int(pool) - int(usmToEth(totalSupply()));
         require(buffer <= int(pool), "Underflow error");
@@ -173,7 +173,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      *
      * @return Debt ratio.
      */
-    function debtRatio() public override view returns (uint) {
+    function debtRatio() public view returns (uint) {
         uint pool = ethPool();
         if (pool == 0) {
             return 0;
@@ -184,7 +184,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     /**
      * @notice Calculates the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding
      */
-    function usmPrice(Side side) public override view returns (uint) {
+    function usmPrice(Side side) public view returns (uint) {
         uint price = usmToEth(WAD);
         if (side == Side.Buy) {
             price = price.wadMul(WAD.wadMax(mintBurnAdjustment()));
@@ -199,7 +199,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     /**
      * @notice Calculates the *marginal* price of FUM (in ETH terms) - that is, of the next unit, before the price start sliding
      */
-    function fumPrice(Side side) public override view returns (uint) {
+    function fumPrice(Side side) public view returns (uint) {
         uint fumTotalSupply = fum.totalSupply();
 
         if (fumTotalSupply == 0) {
@@ -222,7 +222,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     /**
      * @notice The current min FUM buy price, equal to the stored value decayed by time since minFumBuyPriceTimestamp.
      */
-    function minFumBuyPrice() public override view returns (uint) {
+    function minFumBuyPrice() public view returns (uint) {
         if (minFumBuyPriceStored.value == 0) {
             return 0;
         }
@@ -234,7 +234,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     /**
      * @notice The current mint-burn adjustment, equal to the stored value decayed by time since mintBurnAdjustmentTimestamp.
      */
-    function mintBurnAdjustment() public override view returns (uint) {
+    function mintBurnAdjustment() public view returns (uint) {
         uint numHalvings = (block.timestamp - mintBurnAdjustmentStored.timestamp).wadDiv(BUY_SELL_ADJUSTMENTS_HALF_LIFE);
         uint decayFactor = numHalvings.wadHalfExp(10);
         // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
@@ -247,7 +247,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     /**
      * @notice The current fund-defund adjustment, equal to the stored value decayed by time since fundDefundAdjustmentTimestamp.
      */
-    function fundDefundAdjustment() public override view returns (uint) {
+    function fundDefundAdjustment() public view returns (uint) {
         uint numHalvings = (block.timestamp - fundDefundAdjustmentStored.timestamp).wadDiv(BUY_SELL_ADJUSTMENTS_HALF_LIFE);
         uint decayFactor = numHalvings.wadHalfExp(10);
         return WAD + uint256(fundDefundAdjustmentStored.value).wadMul(decayFactor) - decayFactor;
@@ -259,7 +259,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @param ethIn The amount of ETH passed to mint().
      * @return The amount of USM, and the factor by which the ethPool grew (eg, 1.2 * WAD = 1.2x).
      */
-    function usmFromMint(uint ethIn) public override view returns (uint, uint) {
+    function usmFromMint(uint ethIn) public view returns (uint, uint) {
         // Mint USM at a sliding-up USM price (ie, at a sliding-down ETH price).  **BASIC RULE:** anytime pool_eth changes by
         // factor k, eth_price changes by factor 1/k**2.  (Earlier versions of this logic scaled price by 1/k, not 1/k**2; but
         // that results in calls to log()/exp().)
@@ -277,7 +277,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @param usmIn The amount of USM passed to burn().
      * @return The amount of ETH, and the factor by which the ethPool shrank.
      */
-    function ethFromBurn(uint usmIn) public override view returns (uint, uint) {
+    function ethFromBurn(uint usmIn) public view returns (uint, uint) {
         // Burn at a sliding-up price:
         uint initialUsmPrice = usmPrice(Side.Sell);
         uint _ethPool = ethPool();
@@ -294,7 +294,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @param ethIn The amount of ETH passed to fund().
      * @return The amount of FUM, and the factor by which the ethPool grew.
      */
-    function fumFromFund(uint ethIn) public override view returns (uint, uint) {
+    function fumFromFund(uint ethIn) public view returns (uint, uint) {
         // Create FUM at a sliding-up price:
         uint initialFumPrice = fumPrice(Side.Buy);
         uint _ethPool = ethPool();
@@ -318,7 +318,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @param fumIn The amount of FUM passed to defund().
      * @return The amount of ETH, and the factor by which the ethPool shrank.
      */
-    function ethFromDefund(uint fumIn) public override view returns (uint, uint) {
+    function ethFromDefund(uint fumIn) public view returns (uint, uint) {
         uint initialFumPrice = fumPrice(Side.Sell);
         uint _ethPool = ethPool();
         // Math: see closely analogous comment in burn_usm() above.
@@ -334,7 +334,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @param ethAmount The amount of ETH to convert.
      * @return The amount of USM.
      */
-    function ethToUsm(uint ethAmount) public override view returns (uint) {
+    function ethToUsm(uint ethAmount) public view returns (uint) {
         return _oraclePrice().wadMul(ethAmount);
     }
 
@@ -345,7 +345,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @param usmAmount The amount of USM to convert.
      * @return The amount of ETH.
      */
-    function usmToEth(uint usmAmount) public override view returns (uint) {
+    function usmToEth(uint usmAmount) public view returns (uint) {
         return usmAmount.wadDiv(_oraclePrice());
     }
 
