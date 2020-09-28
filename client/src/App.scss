@@ -1,0 +1,28 @@
+@import "node_modules/bootstrap/scss/bootstrap";
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+html {
+    height: 100%;
+    body {
+        font-family: 'Press Start 2P', cursive !important;
+        height: 100%;
+        #root {
+            height: 100%;
+            .border-thick {
+                border: 0.25rem solid black !important;
+                .nav-tabs {
+                    border-bottom: none;
+                    .nav-item {
+                        &:focus{
+                            outline: none;
+                        }
+                    }
+                }
+            }
+            a {
+                border: 0.125rem solid black !important;
+                border-radius: 0;
+            }
+        }
+    }
+}
