@@ -112,31 +112,35 @@ contract('USM', (accounts) => {
         // in the contract, which go to FUM holders.  Calculating the increase would be a bit of work, but one simple check we can
         // apply is, fundDefundAdjustment = 4 should mean the FUM buy price is now 4x the FUM sell price:
         fumBuyPrice3.toString().should.equal(wadMul(fumSellPrice3, fundDefundAdj3).toString())
-
-        // Check that fundDefundAdjustment decays properly (well, approximately) over time:
-        // - Our adjustment was previously 4: see targetFundDefundAdj3 above.
-        // - Use timeMachine to move forward 180 secs = 3 min.
-        // - Since USM.BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60 (1 min), 3 min should mean a decay of ~1/8.
-        // - The way our "time decay towards 1" approximation works, decaying 4 by ~1/8 should yield 1 + (4 * 1/8) - 1/8 = 1.375.
-        //   (See comment in USM.mintBurnAdjustment().)
-        // - And finally - since our decay's exponentiation is approximate (WadMath.wadHalfExp()), don't compare fundDefundAdj4 to
-        //   targetFundDefundAdj4 *exactly*, but instead first round both to the nearest multiple of 10 (via divRound(10)).
-        const block0 = (await web3.eth.getBlockNumber())
-        const t0 = (await web3.eth.getBlock(block0)).timestamp
-        const timeDelay = 3 * 60
-        await timeMachine.advanceTimeAndBlock(timeDelay)
-        const block1 = (await web3.eth.getBlockNumber())
-        const t1 = (await web3.eth.getBlock(block1)).timestamp
-        t1.toString().should.equal((t0 + timeDelay).toString())
-        const fundDefundAdj4 = (await usm.fundDefundAdjustment())
-        const decayFactor4 = WAD.div(EIGHT)
-        const targetFundDefundAdj4 = WAD.add(wadMul(fundDefundAdj3, decayFactor4)).sub(decayFactor4)
-        fundDefundAdj4.divRound(TEN).toString().should.equal(targetFundDefundAdj4.divRound(TEN).toString())
       })
 
       describe("with existing FUM supply", () => {
         beforeEach(async () => {
           await usm.fund(user1, user1, oneEth, { from: user1 })
+        })
+
+        it("decays fundDefundAdjustment over time", async () => {
+          // Check that fundDefundAdjustment decays properly (well, approximately) over time:
+          // - Our adjustment was previously 4: see targetFundDefundAdj3 above.
+          // - Use timeMachine to move forward 180 secs = 3 min.
+          // - Since USM.BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60 (1 min), 3 min should mean a decay of ~1/8.
+          // - The way our "time decay towards 1" approximation works, decaying 4 by ~1/8 should yield 1 + (4 * 1/8) - 1/8 = 1.375.
+          //   (See comment in USM.mintBurnAdjustment().)
+          // - And finally - since our decay's exponentiation is approximate (WadMath.wadHalfExp()), don't compare fundDefundAdj4 to
+          //   targetFundDefundAdj4 *exactly*, but instead first round both to the nearest multiple of 10 (via divRound(10)).
+          const fundDefundAdj3 = (await usm.fundDefundAdjustment())
+
+          const block0 = (await web3.eth.getBlockNumber())
+          const t0 = (await web3.eth.getBlock(block0)).timestamp
+          const timeDelay = 3 * 60
+          await timeMachine.advanceTimeAndBlock(timeDelay)
+          const block1 = (await web3.eth.getBlockNumber())
+          const t1 = (await web3.eth.getBlock(block1)).timestamp
+          t1.toString().should.equal((t0 + timeDelay).toString())
+          const fundDefundAdj4 = (await usm.fundDefundAdjustment())
+          const decayFactor4 = WAD.div(EIGHT)
+          const targetFundDefundAdj4 = WAD.add(wadMul(fundDefundAdj3, decayFactor4)).sub(decayFactor4)
+          fundDefundAdj4.divRound(TEN).toString().should.equal(targetFundDefundAdj4.divRound(TEN).toString())
         })
 
         it("allows minting USM", async () => {
@@ -160,31 +164,35 @@ contract('USM', (accounts) => {
           // now have mintBurnAdjustment applied (since both adjustments apply to both USM and FUM price!), ie, be 1/4 buy price.
           // (Recall that mint() affects FUM *sell* price because minting (buying USM) and selling FUM are both "short ETH" ops.)
           fumSellPrice2.toString().should.equal(wadMul(fumBuyPrice2, mintBurnAdj2).toString())
-
-          // Check that mintBurnAdjustment decays properly (well, approximately) over time:
-          // - Our adjustment was previously 1/4: see mintBurnAdj2 above.
-          // - Use timeMachine to move forward 180 secs = 3 min.
-          // - Since USM.BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60 (1 min), 3 min should mean a decay of ~1/8.
-          // - The way our "time decay towards 1" approximation works, decaying 1/4 by ~1/8 should yield 1 + (1/4 * 1/8) - 1/8 = 0.90625.
-          //   (See comment in USM.mintBurnAdjustment().)
-          // - And finally - since our decay's exponentiation is approximate (WadMath.wadHalfExp()), don't compare mintBurnAdj3 to
-          //   targetMintBurnAdj3 *exactly*, but instead first round both to the nearest multiple of 10 (via divRound(10)).
-          const block0 = (await web3.eth.getBlockNumber())
-          const t0 = (await web3.eth.getBlock(block0)).timestamp
-          const timeDelay = 3 * 60
-          await timeMachine.advanceTimeAndBlock(timeDelay)
-          const block1 = (await web3.eth.getBlockNumber())
-          const t1 = (await web3.eth.getBlock(block1)).timestamp
-          t1.toString().should.equal((t0 + timeDelay).toString())
-          const mintBurnAdj3 = (await usm.mintBurnAdjustment())
-          const decayFactor3 = WAD.div(EIGHT)
-          const targetMintBurnAdj3 = WAD.add(wadMul(mintBurnAdj2, decayFactor3)).sub(decayFactor3)
-          mintBurnAdj3.divRound(TEN).toString().should.equal(targetMintBurnAdj3.divRound(TEN).toString())
         })
 
         describe("with existing USM supply", () => {
           beforeEach(async () => {
             await usm.mint(user1, user1, oneEth, { from: user1 })
+          })
+
+          it("decays mintBurnAdjustment over time", async () => {
+            // Check that mintBurnAdjustment decays properly (well, approximately) over time:
+            // - Our adjustment was previously 1/4: see mintBurnAdj2 above.
+            // - Use timeMachine to move forward 180 secs = 3 min.
+            // - Since USM.BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60 (1 min), 3 min should mean a decay of ~1/8.
+            // - The way our "time decay towards 1" approximation works, decaying 1/4 by ~1/8 should yield 1 + (1/4 * 1/8) - 1/8 = 0.90625.
+            //   (See comment in USM.mintBurnAdjustment().)
+            // - And finally - since our decay's exponentiation is approximate (WadMath.wadHalfExp()), don't compare mintBurnAdj3 to
+            //   targetMintBurnAdj3 *exactly*, but instead first round both to the nearest multiple of 10 (via divRound(10)).
+            const mintBurnAdj2 = (await usm.mintBurnAdjustment())
+
+            const block0 = (await web3.eth.getBlockNumber())
+            const t0 = (await web3.eth.getBlock(block0)).timestamp
+            const timeDelay = 3 * 60
+            await timeMachine.advanceTimeAndBlock(timeDelay)
+            const block1 = (await web3.eth.getBlockNumber())
+            const t1 = (await web3.eth.getBlock(block1)).timestamp
+            t1.toString().should.equal((t0 + timeDelay).toString())
+            const mintBurnAdj3 = (await usm.mintBurnAdjustment())
+            const decayFactor3 = WAD.div(EIGHT)
+            const targetMintBurnAdj3 = WAD.add(wadMul(mintBurnAdj2, decayFactor3)).sub(decayFactor3)
+            mintBurnAdj3.divRound(TEN).toString().should.equal(targetMintBurnAdj3.divRound(TEN).toString())
           })
 
           it("allows burning FUM", async () => {
@@ -298,24 +306,24 @@ contract('USM', (accounts) => {
             const fumSupply = (await fum.totalSupply())
             const targetMinFumBuyPrice2 = wadDiv(wadMul(WAD.sub(MAX_DEBT_RATIO), ethPool), fumSupply)
 
-	    // Make one tiny call to fund(), just to actually trigger the internal call to _updateMinFumBuyPrice():
+            // Make one tiny call to fund(), just to actually trigger the internal call to _updateMinFumBuyPrice():
             await usm.fund(user1, user1, oneEth.div(THOUSAND), { from: user1 })
 
             const minFumBuyPrice2 = (await usm.minFumBuyPrice())
             minFumBuyPrice2.toString().should.equal(targetMinFumBuyPrice2.toString())
 
-	    // Now move forward a few days, and check that minFumBuyPrice decays by the appropriate factor:
-	    const block0 = (await web3.eth.getBlockNumber())
-	    const t0 = (await web3.eth.getBlock(block0)).timestamp
-	    const timeDelay = 3 * DAY
-	    await timeMachine.advanceTimeAndBlock(timeDelay)
-	    const block1 = (await web3.eth.getBlockNumber())
-	    const t1 = (await web3.eth.getBlock(block1)).timestamp
-	    t1.toString().should.equal((t0 + timeDelay).toString())
+            // Now move forward a few days, and check that minFumBuyPrice decays by the appropriate factor:
+            const block0 = (await web3.eth.getBlockNumber())
+            const t0 = (await web3.eth.getBlock(block0)).timestamp
+            const timeDelay = 3 * DAY
+            await timeMachine.advanceTimeAndBlock(timeDelay)
+            const block1 = (await web3.eth.getBlockNumber())
+            const t1 = (await web3.eth.getBlock(block1)).timestamp
+            t1.toString().should.equal((t0 + timeDelay).toString())
             const minFumBuyPrice3 = (await usm.minFumBuyPrice())
-	    const decayFactor3 = WAD.div(EIGHT)
-	    const targetMinFumBuyPrice3 = wadMul(minFumBuyPrice2, decayFactor3)
-	    minFumBuyPrice3.toString().should.equal(targetMinFumBuyPrice3.toString())
+            const decayFactor3 = WAD.div(EIGHT)
+            const targetMinFumBuyPrice3 = wadMul(minFumBuyPrice2, decayFactor3)
+            minFumBuyPrice3.toString().should.equal(targetMinFumBuyPrice3.toString())
             //console.log("MFBP 2: " + minFumBuyPrice + ", " + targetMinFumBuyPrice2 + ", " + minFumBuyPrice2 + ", " + targetMinFumBuyPrice3 + ", " + minFumBuyPrice3)
           })
         })
