@@ -66,7 +66,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
         (usmOut, ethPoolGrowthFactor) = usmFromMint(ethIn);
 
         // Then update state:
-        require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
+        require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
         _updateMintBurnAdjustment(mintBurnAdjustment().wadDiv(ethPoolGrowthFactor.wadSquared()));
         _mint(to, usmOut);
         return usmOut;
@@ -91,7 +91,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
         // Then update state:
         _burn(from, usmToBurn);
         _updateMintBurnAdjustment(mintBurnAdjustment().wadDiv(ethPoolShrinkFactor.wadSquared()));
-        require(eth.transfer(to, ethOut), "Eth transfer fail");
+        require(eth.transfer(to, ethOut), "ETH transfer fail");
         require(debtRatio() <= WAD, "Debt ratio too high");
         return ethOut;
     }
@@ -114,7 +114,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
         (fumOut, ethPoolGrowthFactor) = fumFromFund(ethIn);
 
         // Then update state:
-        require(eth.transferFrom(from, address(this), ethIn), "Eth transfer fail");
+        require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
         if (ethPoolGrowthFactor != type(uint).max) {
             _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolGrowthFactor.wadSquared()));
         }
@@ -139,7 +139,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
         // Then update state:
         fum.burn(from, fumToBurn);
         _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolShrinkFactor.wadSquared()));
-        require(eth.transfer(to, ethOut), "Eth transfer fail");
+        require(eth.transfer(to, ethOut), "ETH transfer fail");
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
         return ethOut;
     }
@@ -168,8 +168,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     }
 
     /**
-     * @notice Calculate debt ratio of the current Eth pool amount and outstanding USM
-     * (the amount of USM in total supply).
+     * @notice Calculate debt ratio: ratio of the outstanding USM (amount of USM in total supply), to the current ETH pool amount.
      *
      * @return Debt ratio.
      */
@@ -205,8 +204,8 @@ contract USM is IUSM, ERC20Permit, Delegable {
         if (fumTotalSupply == 0) {
             return usmToEth(WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in ETH terms)
         }
-        int _ethBuffer = ethBuffer();
-        uint price = (_ethBuffer < 0 ? 0 : uint(_ethBuffer).wadDiv(fumTotalSupply));
+        int buffer = ethBuffer();
+        uint price = (buffer < 0 ? 0 : uint(buffer).wadDiv(fumTotalSupply));
         if (side == Side.Buy) {
             price = price.wadMul(WAD.wadMax(mintBurnAdjustment()));
             price = price.wadMul(WAD.wadMax(fundDefundAdjustment()));
@@ -260,14 +259,14 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @return The amount of USM, and the factor by which the ethPool grew (eg, 1.2 * WAD = 1.2x).
      */
     function usmFromMint(uint ethIn) public view returns (uint, uint) {
-        // Mint USM at a sliding-up USM price (ie, at a sliding-down ETH price).  **BASIC RULE:** anytime pool_eth changes by
-        // factor k, eth_price changes by factor 1/k**2.  (Earlier versions of this logic scaled price by 1/k, not 1/k**2; but
-        // that results in calls to log()/exp().)
+        // Mint USM at a sliding-up USM price (ie, at a sliding-down ETH price).  **BASIC RULE:** anytime ethPool() changes by
+        // factor k, ETH price changes by factor 1/k**2 (ie, USM price, in ETH terms, changes by factor k**2).  (Earlier versions
+        // of this logic scaled ETH price by 1/k, not 1/k**2; but that results in gas-heavy calls to log()/exp().)
         uint initialUsmPrice = usmPrice(Side.Buy);
-        uint _ethPool = ethPool();
-        uint ethPoolGrowthFactor = _ethPool.add(ethIn).wadDiv(_ethPool);
+        uint pool = ethPool();
+        uint ethPoolGrowthFactor = pool.add(ethIn).wadDiv(pool);
         // Math: this is an integral - sum of all USM minted at a sliding-down ETH price:
-        uint usmOut = _ethPool.wadDiv(initialUsmPrice).wadMul(WAD.sub(WAD.wadDiv(ethPoolGrowthFactor)));
+        uint usmOut = pool.wadDiv(initialUsmPrice).wadMul(WAD.sub(WAD.wadDiv(ethPoolGrowthFactor)));
         return (usmOut, ethPoolGrowthFactor);
     }
 
@@ -280,11 +279,11 @@ contract USM is IUSM, ERC20Permit, Delegable {
     function ethFromBurn(uint usmIn) public view returns (uint, uint) {
         // Burn at a sliding-up price:
         uint initialUsmPrice = usmPrice(Side.Sell);
-        uint _ethPool = ethPool();
+        uint pool = ethPool();
         // Math: this is an integral - sum of all USM burned at a sliding price.  Follows the same mathematical invariant as
-        // above: if pool_eth *= k, eth_price *= 1/k**2.
-        uint ethOut = WAD.wadDiv(WAD.wadDiv(_ethPool).add(WAD.wadDiv(usmIn.wadMul(initialUsmPrice))));
-        uint ethPoolShrinkFactor = _ethPool.sub(ethOut).wadDiv(_ethPool);
+        // above: if ethPool() *= k, ETH price *= 1/k**2, ie, USM price in ETH terms *= k**2.
+        uint ethOut = WAD.wadDiv(WAD.wadDiv(pool).add(WAD.wadDiv(usmIn.wadMul(initialUsmPrice))));
+        uint ethPoolShrinkFactor = pool.sub(ethOut).wadDiv(pool);
         return (ethOut, ethPoolShrinkFactor);
     }
 
@@ -297,17 +296,17 @@ contract USM is IUSM, ERC20Permit, Delegable {
     function fumFromFund(uint ethIn) public view returns (uint, uint) {
         // Create FUM at a sliding-up price:
         uint initialFumPrice = fumPrice(Side.Buy);
-        uint _ethPool = ethPool();
+        uint pool = ethPool();
         uint ethPoolGrowthFactor;
         uint fumOut;
-        if (_ethPool == 0 ) {
+        if (pool == 0 ) {
             // This is our first ETH added, so an "ethPoolGrowthFactor" makes no sense - skip sliding-prices for this first call:
             ethPoolGrowthFactor = type(uint).max;
             fumOut = ethIn.wadDiv(initialFumPrice);
         } else {
-            ethPoolGrowthFactor = _ethPool.add(ethIn).wadDiv(_ethPool);
-            // Math: see closely analogous comment in mint_usm() above.
-            fumOut = _ethPool.wadDiv(initialFumPrice).wadMul(WAD.sub(WAD.wadDiv(ethPoolGrowthFactor)));
+            ethPoolGrowthFactor = pool.add(ethIn).wadDiv(pool);
+            // Math: see closely analogous comment in usmFromMint() above.
+            fumOut = pool.wadDiv(initialFumPrice).wadMul(WAD.sub(WAD.wadDiv(ethPoolGrowthFactor)));
         }
         return (fumOut, ethPoolGrowthFactor);
     }
@@ -320,10 +319,10 @@ contract USM is IUSM, ERC20Permit, Delegable {
      */
     function ethFromDefund(uint fumIn) public view returns (uint, uint) {
         uint initialFumPrice = fumPrice(Side.Sell);
-        uint _ethPool = ethPool();
-        // Math: see closely analogous comment in burn_usm() above.
-        uint ethOut = WAD.wadDiv(WAD.wadDiv(_ethPool).add(WAD.wadDiv(fumIn.wadMul(initialFumPrice))));
-        uint ethPoolShrinkFactor = _ethPool.sub(ethOut).wadDiv(_ethPool);
+        uint pool = ethPool();
+        // Math: see closely analogous comment in ethFromBurn() above.
+        uint ethOut = WAD.wadDiv(WAD.wadDiv(pool).add(WAD.wadDiv(fumIn.wadMul(initialFumPrice))));
+        uint ethPoolShrinkFactor = pool.sub(ethOut).wadDiv(pool);
         return (ethOut, ethPoolShrinkFactor);
     }
 
@@ -352,7 +351,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     /** INTERNAL FUNCTIONS */
 
     /**
-     * @notice Set the min fum price, based on the current oracle price and debt ratio. Emits a MinFumBuyPriceChanged event.
+     * @notice Set the min FUM price, based on the current oracle price and debt ratio. Emits a MinFumBuyPriceChanged event.
      * @dev The logic for calculating a new minFumBuyPrice is as follows.  We want to set it to the FUM price, in ETH terms, at
      * which debt ratio was exactly MAX_DEBT_RATIO.  So we can assume:
      *
@@ -373,7 +372,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
                 timestamp: 0,
                 value: 0
             });
-        } else if (previous == 0) {             // We were < max debt ratio, but have now crossed above - so set mfbp
+        } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
             minFumBuyPriceStored = TimedValue({
                 timestamp: uint32(block.timestamp),
