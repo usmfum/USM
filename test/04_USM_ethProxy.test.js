@@ -15,16 +15,25 @@ MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - EthProxy', (accounts) => {
-  let [deployer, user1, user2] = accounts
+  function wadMul(x, y) {
+    return x.mul(y).div(WAD);
+  }
+
+  function wadDiv(x, y) {
+    return x.mul(WAD).div(y);
+  }
+
+  const [deployer, user1, user2] = accounts
+
+  const [TWO, EIGHT, TEN] =
+        [2, 8, 10].map(function (n) { return new BN(n) })
+  const WAD = new BN('1000000000000000000')
 
   const sides = { BUY: 0, SELL: 1 }
   const price = new BN('25000000000')
-  const shift = new BN('8')
-  const ZERO = new BN('0')
-  const WAD = new BN('1000000000000000000')
+  const shift = EIGHT
   const oneEth = WAD
-  const oneUsm = WAD
-  const priceWAD = WAD.mul(price).div(new BN('10').pow(shift))
+  const priceWAD = wadDiv(price, TEN.pow(shift))
 
   describe('mints and burns a static amount', () => {
     let oracle, weth, usm, proxy
@@ -43,12 +52,15 @@ contract('USM - EthProxy', (accounts) => {
 
     describe('minting and burning', () => {
 
+      // See 03_USM.test.js for the original versions of all these (copy-&-pasted and simplified) tests.
       it('allows minting FUM', async () => {
+        const fumBuyPrice = (await usm.fumPrice(sides.BUY))
+        const fumSellPrice = (await usm.fumPrice(sides.SELL))
+        fumBuyPrice.toString().should.equal(fumSellPrice.toString())
 
         await proxy.fund(user2, { from: user1, value: oneEth })
-
-        const newEthPool = (await weth.balanceOf(usm.address))
-        newEthPool.toString().should.equal(oneEth.toString())
+        const ethPool2 = (await weth.balanceOf(usm.address))
+        ethPool2.toString().should.equal(oneEth.toString())
       })
 
       describe('with existing FUM supply', () => {
@@ -58,8 +70,11 @@ contract('USM - EthProxy', (accounts) => {
 
         it('allows minting USM', async () => {
           await proxy.mint(user2, { from: user1, value: oneEth })
-          const usmBalance = (await usm.balanceOf(user2))
-          usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).toString())
+          const ethPool2 = (await weth.balanceOf(usm.address))
+          ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
+
+          const usmBalance2 = (await usm.balanceOf(user2))
+          usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD).div(TWO).toString())
         })
 
         describe('with existing USM supply', () => {
@@ -68,25 +83,40 @@ contract('USM - EthProxy', (accounts) => {
           })
 
           it('allows burning FUM', async () => {
-            const targetFumBalance = oneEth.mul(priceWAD).div(WAD) // see "allows minting FUM" above
-            const startingBalance = await web3.eth.getBalance(user2)
+            const ethPool = (await usm.ethPool())
+            const fumSellPrice = (await usm.fumPrice(sides.SELL))
 
-            await proxy.defund(user2, priceWAD.mul(new BN('3')).div(new BN('4')), { from: user1 }) // defund 75% of our fum
-            const newFumBalance = (await fum.balanceOf(user1))
-            newFumBalance.toString().should.equal(targetFumBalance.div(new BN('4')).toString()) // should be 25% of what it was
+            const user1FumBalance = (await fum.balanceOf(user1))
+            const user2EthBalance = new BN(await web3.eth.getBalance(user2))
+            const targetUser1FumBalance = wadMul(oneEth, priceWAD) // see "allows minting FUM" above
+            user1FumBalance.toString().should.equal(targetUser1FumBalance.toString())
 
-            expect(await web3.eth.getBalance(user2)).bignumber.gt(startingBalance)
+            const fumToBurn = priceWAD.div(TWO)
+            await proxy.defund(user2, fumToBurn, { from: user1 })
+            const user1FumBalance2 = (await fum.balanceOf(user1))
+            user1FumBalance2.toString().should.equal(user1FumBalance.sub(fumToBurn).toString())
+
+            const user2EthBalance2 = new BN(await web3.eth.getBalance(user2))
+            const ethOut = user2EthBalance2.sub(user2EthBalance)
+            const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(fumToBurn, fumSellPrice))))
+            ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
           })
 
           it('allows burning USM', async () => {
-            const usmBalance = (await usm.balanceOf(user1)).toString()
-            const startingBalance = await web3.eth.getBalance(user2)
+            const ethPool = (await usm.ethPool())
+            const usmSellPrice = (await usm.usmPrice(sides.SELL))
 
-            await proxy.burn(user2, usmBalance, { from: user1 })
-            const newUsmBalance = (await usm.balanceOf(user1))
-            newUsmBalance.toString().should.equal('0')
+            const user2EthBalance = new BN(await web3.eth.getBalance(user2))
 
-            expect(await web3.eth.getBalance(user2)).bignumber.gt(startingBalance)
+            const usmToBurn = (await usm.balanceOf(user1))
+            await proxy.burn(user2, usmToBurn, { from: user1 })
+            const user1UsmBalance2 = (await usm.balanceOf(user1))
+            user1UsmBalance2.toString().should.equal('0')
+
+            const user2EthBalance2 = new BN(await web3.eth.getBalance(user2))
+            const ethOut = user2EthBalance2.sub(user2EthBalance)
+            const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(usmToBurn, usmSellPrice))))
+            ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
           })
         })
       })
