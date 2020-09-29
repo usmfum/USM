@@ -6,6 +6,9 @@ html {
     body {
         font-family: 'Press Start 2P', cursive !important;
         height: 100%;
+        #connect-button {
+            max-width: 20%;
+        }
         #root {
             height: 100%;
             .border-thick {

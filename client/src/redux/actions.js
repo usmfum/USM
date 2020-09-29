@@ -5,6 +5,13 @@ export function web3Loaded(web3) {
     }
 }
 
+export function accountLoaded(account) {
+    return {
+        type: 'ACCOUNT_LOADED',
+        account
+    }
+}
+
 export function mintEthValue(value) {
     return {
         type: 'MINT_ETH_VALUE',

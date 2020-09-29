@@ -1,19 +1,23 @@
 import React, { Component } from 'react';
 import {connect} from 'react-redux';
-import {Button, Col, Container, Form, Row, Tab, Tabs} from "react-bootstrap";
+import {Button, Col, Container, Form, Navbar, Row, Tab, Tabs} from "react-bootstrap";
 import './App.scss';
-import { setMintEthValue } from './redux/interactions';
-import { mintEthValueSelector, mintUsmValueSelector } from './redux/selectors';
+import { loadWeb3, setMintEthValue } from './redux/interactions';
+import { accountSelector, mintEthValueSelector, mintUsmValueSelector, web3Selector } from './redux/selectors';
 
 class App extends Component {
 
 	render() {
-		const {dispatch, mintEthValue} = this.props;
+		const {dispatch, connected, account, mintUsmValue} = this.props;
 
 		const changeMintEthValue = (e) => setMintEthValue(dispatch, e.target.value);
+		const connectWeb3 = (e) => loadWeb3(dispatch);
 
 		return (
 			<Container className="h-100">
+				<header className="fixed-top d-relative">
+					<Button id="connect-button" className="float-right text-truncate" onClick={connectWeb3}>{(connected == null) ? "Connect" : account}</Button>
+				</header>
 				<Row className="h-100 justify-content-center align-items-center d-flex">
 					<Col xs="8" sm="6" md="4" className="text-center border border-thick">
 						<Tabs fill className="py-2 ">
@@ -27,7 +31,7 @@ class App extends Component {
 												<Form.Control onChange={changeMintEthValue} type="number" min="0" step=".01" placeholder="ETH" />
 											</Form.Group>
 											<Form.Group>
-												<Form.Control value={mintEthValue} type="number" min="0" step=".01" placeholder="USM" />
+												<Form.Control value={mintUsmValue} type="number" min="0" step=".01" placeholder="USM" />
 											</Form.Group>
 											<Button type="submit" variant="primary">Go</Button>
 										</Form>
@@ -85,6 +89,8 @@ class App extends Component {
 
 function mapStateToProps(state){
 	return {
+		connected: web3Selector(state),
+		account: accountSelector(state),
 		mintUsmValue: mintUsmValueSelector(state)
 	}
 }

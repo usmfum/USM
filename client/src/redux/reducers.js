@@ -4,6 +4,8 @@ function web3(state = {}, action) {
     switch (action.type) {
         case "WEB3_LOADED":
             return { ...state, web3: action.web3}
+        case "ACCOUNT_LOADED":
+            return { ...state, account: action.account}
         default:
             return state;
     }
