@@ -19,8 +19,14 @@ html {
                     }
                 }
             }
-            a {
+            a, input {
                 border: 0.125rem solid black !important;
+                border-radius: 0;
+                &:focus {
+                    box-shadow: none;
+                }
+            }
+            button {
                 border-radius: 0;
             }
         }
