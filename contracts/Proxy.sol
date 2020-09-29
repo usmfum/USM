@@ -27,7 +27,7 @@ contract Proxy {
     /// @dev The WETH9 contract will send ether to Proxy on `weth.withdraw` using this function.
     receive() external payable { }
 
-    /// @dev Users use `mint` in Proxy to post ETH to USM (amount = msg.value), which will be converted to Weth here.
+    /// @dev Users use `mintWithEth` in Proxy to post ETH to USM (amount = msg.value), which will be converted to Weth here.
     /// @param to Receiver of the minted USM
     /// @param minUsmOut Minimum accepted USM for a successful mint.
     function mintWithEth(address to, uint minUsmOut)
@@ -131,5 +131,35 @@ contract Proxy {
         uint ethOut = usm.defund(msg.sender, to, fumToBurn);
         require(ethOut >= minEthOut, "Limit not reached");
         return ethOut;
+    }
+
+    // -------------------
+    // USM <-> FUM
+    // -------------------
+
+    /// @dev Sell FUM for USM.
+    /// @param to Receiver of the minted USM
+    /// @param fumIn Amount of FUM sold.
+    /// @param minUsmOut Minimum accepted USM for the FUM sold.
+    function sellFumForUsm(address to, uint fumIn, uint minUsmOut)
+        external returns (uint)
+    {
+        uint ethOut = usm.defund(msg.sender, address(this), fumIn);
+        uint usmOut = usm.mint(address(this), to, ethOut);
+        require(usmOut >= minUsmOut, "Limit not reached");
+        return usmOut;
+    }
+
+    /// @dev Sell USM for FUM
+    /// @param to Receiver of the minted FUM
+    /// @param usmIn Amount of USM sold.
+    /// @param minFumOut Minimum accepted FUM for the USM sold.
+    function sellUsmForFum(address to, uint usmIn, uint minFumOut)
+        external returns (uint)
+    {
+        uint ethOut = usm.burn(address(this), to, usmIn);
+        uint fumOut = usm.fund(msg.sender, address(this), ethOut);
+        require(fumOut >= minFumOut, "Limit not reached");
+        return fumOut;
     }
 }
