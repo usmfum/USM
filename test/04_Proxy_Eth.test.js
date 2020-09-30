@@ -94,7 +94,7 @@ contract('USM - Proxy - Eth', (accounts) => {
 
           it('does not burn FUM if minimum not reached', async () => {
             await expectRevert(
-              proxy.burnForEth(user2, priceWAD.mul(new BN('3')).div(new BN('4')), MAX, { from: user1 }),
+              proxy.defundForEth(user2, priceWAD.mul(new BN('3')).div(new BN('4')), MAX, { from: user1 }),
               "Limit not reached",
             )
           })    
