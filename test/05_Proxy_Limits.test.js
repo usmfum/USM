@@ -73,7 +73,7 @@ contract('USM - Proxy - Limits', (accounts) => {
         it('allows minting USM', async () => {
           await proxy.mint(user2, oneEth, 0, { from: user1 })
           const usmBalance = (await usm.balanceOf(user2))
-          usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).toString())
+          usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).div(new BN('2')).toString())
         })
 
         it('does not mint USM if minimum not reached', async () => {
@@ -101,7 +101,7 @@ contract('USM - Proxy - Limits', (accounts) => {
 
           it('does not burn FUM if minimum not reached', async () => {
             await expectRevert(
-              proxy.burn(user2, priceWAD.mul(new BN('3')).div(new BN('4')), MAX, { from: user1 }),
+              proxy.defund(user2, priceWAD.mul(new BN('3')).div(new BN('4')), MAX, { from: user1 }),
               "Limit not reached",
             )
           })    
