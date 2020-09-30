@@ -20,10 +20,6 @@ contract MockUSM is USM {
         _updateMinFumBuyPrice();
     }
 
-    function internalFund(address to, uint ethIn) public {
-        _fund(to, ethIn);
-    }
-
     function oraclePrice() public view returns (uint) {
         return _oraclePrice();
     }
