@@ -13,6 +13,10 @@ contract('USM', (accounts) => {
     return x.mul(y).div(WAD);
   }
 
+  function wadSquared(x) {
+    return x.mul(x).div(WAD);
+  }
+
   function wadDiv(x, y) {
     return x.mul(WAD).div(y);
   }
@@ -21,10 +25,14 @@ contract('USM', (accounts) => {
     return WAD.add(wadMul(adjustment, decayFactor)).sub(decayFactor)
   }
 
-  const [deployer, user1, user2] = accounts
+  function shouldEqualApprox(x, y, precision) {
+    x.sub(y).abs().should.be.bignumber.lte(precision)
+  }
 
-  const [TWO, THREE, FOUR, EIGHT, NINE, TEN, THOUSAND] =
-        [2, 3, 4, 8, 9, 10, 1000].map(function (n) { return new BN(n) })
+  const [deployer, user1, user2, user3] = accounts
+
+  const [ONE, TWO, THREE, FOUR, EIGHT, TEN, HUNDRED, THOUSAND] =
+        [1, 2, 3, 4, 8, 10, 100, 1000].map(function (n) { return new BN(n) })
   const WAD = new BN('1000000000000000000')
 
   const sides = { BUY: 0, SELL: 1 }
@@ -32,13 +40,14 @@ contract('USM', (accounts) => {
   const shift = EIGHT
   const oneEth = WAD
   const oneUsm = WAD
+  const oneFum = WAD
   const MINUTE = 60
   const HOUR = 60 * MINUTE
   const DAY = 24 * HOUR
   const priceWAD = wadDiv(price, TEN.pow(shift))
 
   describe("mints and burns a static amount", () => {
-    let oracle, weth, usm
+    let oracle, weth, usm, totalEthToFund, totalEthToMint, bitOfEth
 
     beforeEach(async () => {
       // Deploy contracts
@@ -47,8 +56,17 @@ contract('USM', (accounts) => {
       usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
 
-      await weth.deposit({ from: user1, value: oneEth.mul(TEN) })
-      await weth.approve(usm.address, oneEth.mul(TEN), { from: user1 })
+      totalEthToFund = oneEth.mul(FOUR)
+      await weth.deposit({ from: user1, value: totalEthToFund })
+      await weth.approve(usm.address, totalEthToFund, { from: user1 })
+
+      totalEthToMint = oneEth.mul(TEN)
+      await weth.deposit({ from: user2, value: totalEthToMint })
+      await weth.approve(usm.address, totalEthToMint, { from: user2 })
+
+      bitOfEth = oneEth.div(THOUSAND)
+      await weth.deposit({ from: user3, value: bitOfEth })
+      await weth.approve(usm.address, bitOfEth, { from: user3 })
 
       let snapshot = await timeMachine.takeSnapshot()
       snapshotId = snapshot['result']
@@ -70,7 +88,7 @@ contract('USM', (accounts) => {
 
     describe("minting and burning", () => {
       it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(usm.mint(user1, user2, oneEth, { from: user1 }), "Fund before minting")
+        await expectRevert(usm.mint(user2, user1, oneEth, { from: user2 }), "Fund before minting")
       })
 
       it("allows minting FUM", async () => {
@@ -78,14 +96,15 @@ contract('USM', (accounts) => {
         const fumSellPrice = (await usm.fumPrice(sides.SELL))
         fumBuyPrice.toString().should.equal(fumSellPrice.toString()) // We should start with the buy & sell FUM prices equal
 
-        await usm.fund(user1, user2, oneEth, { from: user1 })
-        const ethPool2 = (await weth.balanceOf(usm.address))
-        ethPool2.toString().should.equal(oneEth.toString())
+        const ethIn = totalEthToFund.div(TWO) // pass in half of the WETH to fund() here, the other half below
+        await usm.fund(user1, user2, ethIn, { from: user1 })
+        const ethPool2 = (await usm.ethPool())
+        ethPool2.toString().should.equal(ethIn.toString())
 
         const fumBalance2 = (await fum.balanceOf(user2))
-        // The very first call to fund() is special: the initial price of $1 is used for the full trade, no sliding prices.  So
+        // The very first call to fund() is special: the initial price of $1 is used for the full trade, no sliding price.  So
         // 1 ETH @ $250 should buy 250 FUM:
-        fumBalance2.toString().should.equal(wadMul(oneEth, priceWAD).toString())
+        fumBalance2.toString().should.equal(wadMul(ethIn, priceWAD).toString())
 
         const fundDefundAdj2 = (await usm.fundDefundAdjustment())
         fundDefundAdj2.toString().should.equal(WAD.toString()) // First call to fund() doesn't move the fundDefundAdjustment
@@ -95,15 +114,15 @@ contract('USM', (accounts) => {
         const fumSellPrice2 = (await usm.fumPrice(sides.SELL))
         fumSellPrice2.toString().should.equal(fumSellPrice.toString())
 
-        await usm.fund(user1, user2, oneEth, { from: user1 })
-        const ethPool3 = (await weth.balanceOf(usm.address))
-        ethPool3.toString().should.equal(oneEth.mul(TWO).toString())
+        await usm.fund(user1, user2, ethIn, { from: user1 }) // pass in the second half of user1's WETH
+        const ethPool3 = (await usm.ethPool())
+        ethPool3.toString().should.equal(ethIn.mul(TWO).toString())
 
         const fumBalance3 = (await fum.balanceOf(user2))
         // Calls to fund() after the first start using sliding prices.  In particular, following the math in USM.fumFromFund(),
-        // with the second call here 2xing the pool (1 ETH -> 2) and the initial FUM price of $1 = 0.004 ETH, the FUM added should
-        // be 1 (current ETH pool) / 0.004 * (1 - 1 / 2) = 125, ie, the user's FUM balance should increase by a factor of 3/2:
-        fumBalance3.toString().should.equal(wadMul(oneEth, priceWAD).mul(THREE).div(TWO).toString())
+        // with the second call here 2xing the (W)ETH pool and the initial FUM price of $1 = 0.004 ETH, the FUM added should be
+        // (current ETH pool) / 0.004 * (1 - 1 / 2), ie, the user's FUM balance should increase by a factor of 3/2:
+        fumBalance3.toString().should.equal(wadMul(ethIn, priceWAD).mul(THREE).div(TWO).toString())
 
         const fundDefundAdj3 = (await usm.fundDefundAdjustment())
         // We've 2x'd the ETH pool, which according to the adjustment math in USM.fund(), should 4x the fundDefundAdjustment:
@@ -120,7 +139,7 @@ contract('USM', (accounts) => {
 
       describe("with existing FUM supply", () => {
         beforeEach(async () => {
-          await usm.fund(user1, user1, oneEth, { from: user1 })
+          await usm.fund(user1, user2, totalEthToFund, { from: user1 })
         })
 
         it("decays fundDefundAdjustment over time", async () => {
@@ -136,31 +155,41 @@ contract('USM', (accounts) => {
 
           const block0 = (await web3.eth.getBlockNumber())
           const t0 = (await web3.eth.getBlock(block0)).timestamp
-          const timeDelay = 3 * 60
+          const timeDelay = 3 * MINUTE
           await timeMachine.advanceTimeAndBlock(timeDelay)
           const block1 = (await web3.eth.getBlockNumber())
           const t1 = (await web3.eth.getBlock(block1)).timestamp
           t1.toString().should.equal((t0 + timeDelay).toString())
           const fundDefundAdj4 = (await usm.fundDefundAdjustment())
-          const decayFactor4 = WAD.div(EIGHT)
+          const decayFactor4 = wadDiv(ONE, EIGHT)
           const targetFundDefundAdj4 = wadDecay(fundDefundAdj3, decayFactor4)
-          fundDefundAdj4.divRound(TEN).toString().should.equal(targetFundDefundAdj4.divRound(TEN).toString())
+          shouldEqualApprox(fundDefundAdj4, targetFundDefundAdj4, TEN)
         })
 
         it("allows minting USM", async () => {
-          await usm.mint(user1, user2, oneEth, { from: user1 })
-          const ethPool2 = (await weth.balanceOf(usm.address))
-          ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
+          const ethPool = (await usm.ethPool())
+          ethPool.toString().should.equal(totalEthToFund.toString())
 
-          const usmBalance2 = (await usm.balanceOf(user2))
-          // Verify that sliding prices are working: this mirrors the sliding FUM prices above - see the math in USM.usmFromMint(),
-          // with mint() here 2xing the pool (1 ETH from fund() earlier -> 2) and the initial USM price of $1 = 0.004 ETH, the USM
-          // added should be 1 (current ETH pool) / 0.004 * (1 - 1 / 2) = 125 (ie, the ETH price $250 / 2):
-          usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD).div(TWO).toString())
+          const mintBurnAdj = (await usm.mintBurnAdjustment())
+          mintBurnAdj.toString().should.equal(WAD.toString()) // Before our first mint()/burn(), mintBurnAdjustment should be 1
+
+          await usm.mint(user2, user1, totalEthToMint, { from: user2 })
+          const ethPool2 = (await usm.ethPool())
+          ethPool2.toString().should.equal(totalEthToFund.add(totalEthToMint).toString())
+
+          const usmBalance2 = (await usm.balanceOf(user1))
+          // Verify that sliding prices are working - this mirrors the sliding FUM price above.  Per the math in
+          // USM.usmFromMint(), with mint() here increasing the ETH pool by a factor of f = (fund ETH + mint ETH) / fund ETH, and
+          // the initial USM price of $1 = 0.004 ETH = 1 / $250, the USM added should be ETH pool * 250 * (1 - f):
+          const poolIncreaseFactor = wadDiv(ethPool2, ethPool)
+          const targetUsmBalance2 = wadMul(wadMul(ethPool, priceWAD), WAD.sub(wadDiv(WAD, poolIncreaseFactor)))
+          usmBalance2.toString().should.equal(targetUsmBalance2.toString())
 
           const mintBurnAdj2 = (await usm.mintBurnAdjustment())
-          // We've 2x'd the ETH pool, which according to the adjustment math in USM.mint(), should 0.25x the mintBurnAdjustment:
-          mintBurnAdj2.toString().should.equal(WAD.div(FOUR).toString())
+          // According to the adjustment math in USM.mint(), if the ETH pool has changed by factor f, the mintBurnAdjustment
+          // should now be 1/(f**2):
+          const targetMintBurnAdj2 = wadDiv(WAD, wadSquared(poolIncreaseFactor))
+          shouldEqualApprox(mintBurnAdj2, targetMintBurnAdj2, TEN)
 
           const fumBuyPrice2 = (await usm.fumPrice(sides.BUY))
           const fumSellPrice2 = (await usm.fumPrice(sides.SELL))
@@ -172,7 +201,7 @@ contract('USM', (accounts) => {
 
         describe("with existing USM supply", () => {
           beforeEach(async () => {
-            await usm.mint(user1, user1, oneEth, { from: user1 })
+            await usm.mint(user2, user1, totalEthToMint, { from: user2 })
           })
 
           it("decays mintBurnAdjustment over time", async () => {
@@ -188,44 +217,48 @@ contract('USM', (accounts) => {
 
             const block0 = (await web3.eth.getBlockNumber())
             const t0 = (await web3.eth.getBlock(block0)).timestamp
-            const timeDelay = 3 * 60
+            const timeDelay = 3 * MINUTE
             await timeMachine.advanceTimeAndBlock(timeDelay)
             const block1 = (await web3.eth.getBlockNumber())
             const t1 = (await web3.eth.getBlock(block1)).timestamp
             t1.toString().should.equal((t0 + timeDelay).toString())
             const mintBurnAdj3 = (await usm.mintBurnAdjustment())
-            const decayFactor3 = WAD.div(EIGHT)
+            const decayFactor3 = wadDiv(ONE, EIGHT)
             const targetMintBurnAdj3 = wadDecay(mintBurnAdj2, decayFactor3)
-            mintBurnAdj3.divRound(TEN).toString().should.equal(targetMintBurnAdj3.divRound(TEN).toString())
+            shouldEqualApprox(mintBurnAdj3, targetMintBurnAdj3, TEN)
           })
 
           it("allows burning FUM", async () => {
             const ethPool = (await usm.ethPool())
+            const targetEthPool = totalEthToFund.add(totalEthToMint) // Should be the total of ETH added: one fund() + one fund()
+            ethPool.toString().should.equal(targetEthPool.toString())
+
             const fumSellPrice = (await usm.fumPrice(sides.SELL))
 
-            const fumBalance = (await fum.balanceOf(user1))
-            const targetFumBalance = wadMul(oneEth, priceWAD) // see "allows minting FUM" above
+            const fumBalance = (await fum.balanceOf(user2))
+            const targetFumBalance = wadMul(totalEthToFund, priceWAD) // see "allows minting FUM"/"with existing FUM supply" above
             fumBalance.toString().should.equal(targetFumBalance.toString())
 
             const debtRatio = (await usm.debtRatio())
-            debtRatio.toString().should.equal(WAD.div(FOUR).toString()) // debt ratio should be 25% before we defund
+            const usmSupply = (await usm.totalSupply())
+            const targetDebtRatio = wadDiv(usmSupply, wadMul(ethPool, priceWAD))
+            shouldEqualApprox(debtRatio, targetDebtRatio, TEN)
 
-            const fumToBurn = priceWAD.div(TWO)
-            await usm.defund(user1, user2, fumToBurn, { from: user1 }) // defund 50% of our FUM
-            const fumBalance2 = (await fum.balanceOf(user1))
+            const fumToBurn = fumBalance.div(FOUR) // defund 25% of our FUM
+            await usm.defund(user2, user1, fumToBurn, { from: user2 })
+            const fumBalance2 = (await fum.balanceOf(user2))
             fumBalance2.toString().should.equal(fumBalance.sub(fumToBurn).toString())
 
-            const ethOut = (await weth.balanceOf(user2))
+            const ethOut = (await weth.balanceOf(user1))
             // Calculate targetEthOut using the math in USM.ethFromDefund():
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(fumToBurn, fumSellPrice))))
             // Compare approximately (to nearest multiple of 10) - may be a bit off due to rounding:
-            ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
+            shouldEqualApprox(ethOut, targetEthOut, TEN)
 
             const debtRatio2 = (await usm.debtRatio())
-            // Debt ratio should now be the 0.5 ETH's worth of USM, divided by the total left in the pool:
-            const usmSupply = (await usm.totalSupply())
-            const targetDebtRatio2 = wadDiv(wadDiv(usmSupply, priceWAD), ethPool.sub(ethOut))
-            debtRatio2.toString().should.equal(targetDebtRatio2.toString())
+            // Debt ratio should now be the same USM-value as in targetDebtRatio above, divided by a reduced total ETH pool:
+            const targetDebtRatio2 = wadDiv(usmSupply, wadMul(ethPool.sub(ethOut), priceWAD))
+            shouldEqualApprox(debtRatio2, targetDebtRatio2, TEN)
 
             // Several other checks we could do here:
             // - The change (decrease, since we've sold FUM) in fundDefundAdjustment
@@ -235,31 +268,36 @@ contract('USM', (accounts) => {
 
           it("doesn't allow burning FUM if it would push debt ratio above MAX_DEBT_RATIO", async () => {
             const MAX_DEBT_RATIO = (await usm.MAX_DEBT_RATIO())
-            // Keep defunding most of our remaining FUM until we push debt ratio > MAX_DEBT_RATIO.  We have to defund repeatedly
-            // because if we try to defund all in one shot (ie, without waiting for fundDefundAdjustment to decay back to 1), the
-            // sliding FUM price means we don't actually go underwater.  This is by design - sliding prices keep us above water!
-
             const debtRatio0 = (await usm.debtRatio())
-            debtRatio0.toString().should.equal(WAD.div(FOUR).toString()) // Should start at exactly 25.0%
-            const fumBalance0 = (await fum.balanceOf(user1))
+            const price0 = (await oracle.latestPrice())
 
-            await timeMachine.advanceTimeAndBlock(3600)
-            await usm.defund(user1, user2, fumBalance0.mul(NINE).div(TEN), { from: user1 }) // defund 90% of our FUM
+            // Move price to get debt ratio just *below* MAX.  Eg, if debt ratio is currently 156%, increasing the price by
+            // (156% / 79%%) should bring debt ratio to just about 79%:
+            const targetDebtRatio1 = MAX_DEBT_RATIO.sub(WAD.div(HUNDRED)) // Eg, 80% - 1% = 79%
+            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1)
+            const targetPrice1 = wadMul(price0, priceChangeFactor1)
+            await oracle.setPrice(targetPrice1)
+            const price1 = (await oracle.latestPrice())
+            price1.toString().should.equal(targetPrice1.toString())
             const debtRatio1 = (await usm.debtRatio())
-            debtRatio1.divRound(WAD.div(THOUSAND)).toString().should.equal('419') // Should be approx 41.9%
-            const fumBalance1 = (await fum.balanceOf(user1))
+            debtRatio1.should.be.bignumber.lt(MAX_DEBT_RATIO)
 
-            await timeMachine.advanceTimeAndBlock(3600)
-            await usm.defund(user1, user2, fumBalance1.mul(NINE).div(TEN), { from: user1 }) // defund 90% of our FUM
+            // Now this tiny defund() should succeed:
+            await usm.defund(user2, user1, oneFum, { from: user2 })
             const debtRatio2 = (await usm.debtRatio())
-            debtRatio2.divRound(WAD.div(THOUSAND)).toString().should.equal('638') // Should be approx 63.8%
-            const fumBalance2 = (await fum.balanceOf(user1))
 
-            await timeMachine.advanceTimeAndBlock(3600)
-            await expectRevert(
-              usm.defund(user1, user2, fumBalance2.mul(NINE).div(TEN), { from: user1 }), // try to defund 90% of our FUM - but should fail now
-              "Max debt ratio breach"
-            )
+            // Next, similarly move price to get debt ratio just *above* MAX:
+            const targetDebtRatio3 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
+            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
+            const targetPrice3 = wadMul(price1, priceChangeFactor3)
+            await oracle.setPrice(targetPrice3)
+            const price3 = (await oracle.latestPrice())
+            price3.toString().should.equal(targetPrice3.toString())
+            const debtRatio3 = (await usm.debtRatio())
+            debtRatio3.should.be.bignumber.gt(MAX_DEBT_RATIO)
+
+            // And now defund() should fail:
+            await expectRevert(usm.defund(user2, user1, oneFum, { from: user2 }), "Max debt ratio breach")
           })
 
           it("allows burning USM", async () => {
@@ -275,43 +313,66 @@ contract('USM', (accounts) => {
             // Calculate targetEthOut using the math in USM.ethFromBurn():
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(usmToBurn, usmSellPrice))))
             // Compare approximately (to nearest multiple of 10) - may be a bit off due to rounding:
-            ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
+            shouldEqualApprox(ethOut, targetEthOut, TEN)
 
             const debtRatio2 = (await usm.debtRatio())
             debtRatio2.toString().should.equal('0') // debt ratio should be 0% - we burned all the debt!
           })
 
           it("doesn't allow burning USM if debt ratio over 100%", async () => {
-            const debtRatio = (await usm.debtRatio())
-            debtRatio.toString().should.equal(WAD.div(FOUR).toString())
+            const debtRatio0 = (await usm.debtRatio())
+            const price0 = (await oracle.latestPrice())
 
-            const priceDecreaseFactor = EIGHT
-            await oracle.setPrice(price.div(priceDecreaseFactor)) // Reducing the ETH price pushes up the debt ratio
+            // Move price to get debt ratio just *below* 100%:
+            const targetDebtRatio1 = WAD.mul(HUNDRED.sub(ONE)).div(HUNDRED) // 99%
+            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1)
+            const targetPrice1 = wadMul(price0, priceChangeFactor1)
+            await oracle.setPrice(targetPrice1)
+            const price1 = (await oracle.latestPrice())
+            price1.toString().should.equal(targetPrice1.toString())
+            const debtRatio1 = (await usm.debtRatio())
+            debtRatio1.should.be.bignumber.lt(WAD)
+
+            // Now this tiny burn() should succeed:
+            await usm.burn(user1, user2, oneUsm, { from: user1 })
             const debtRatio2 = (await usm.debtRatio())
-            debtRatio2.toString().should.equal(debtRatio.mul(priceDecreaseFactor).toString())
 
+            // Next, similarly move price to get debt ratio just *above* 100%:
+            const targetDebtRatio3 = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
+            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
+            const targetPrice3 = wadMul(price1, priceChangeFactor3)
+            await oracle.setPrice(targetPrice3)
+            const price3 = (await oracle.latestPrice())
+            price3.toString().should.equal(targetPrice3.toString())
+            const debtRatio3 = (await usm.debtRatio())
+            debtRatio3.should.be.bignumber.gt(WAD)
+
+            // And now the same burn() should fail:
             await expectRevert(usm.burn(user1, user2, oneUsm, { from: user1 }), "Debt ratio too high")
           })
 
           it("reduces minFumBuyPrice over time", async () => {
-            const debtRatio = (await usm.debtRatio())
-            debtRatio.toString().should.equal(WAD.div(FOUR).toString())
-            const minFumBuyPrice = (await usm.minFumBuyPrice())
-            minFumBuyPrice.toString().should.equal('0')
+            const MAX_DEBT_RATIO = (await usm.MAX_DEBT_RATIO())
+            const debtRatio0 = (await usm.debtRatio())
+            const price0 = (await oracle.latestPrice())
 
-            const priceDecreaseFactor = EIGHT
-            await oracle.setPrice(price.div(priceDecreaseFactor)) // Reducing the ETH price pushes up the debt ratio
-            const debtRatio2 = (await usm.debtRatio())
-            debtRatio2.toString().should.equal(debtRatio.mul(priceDecreaseFactor).toString())
+            // Move price to get debt ratio just *above* MAX:
+            const targetDebtRatio1 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
+            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1)
+            const targetPrice1 = wadMul(price0, priceChangeFactor1)
+            await oracle.setPrice(targetPrice1)
+            const price1 = (await oracle.latestPrice())
+            price1.toString().should.equal(targetPrice1.toString())
+            const debtRatio1 = (await usm.debtRatio())
+            debtRatio1.should.be.bignumber.gt(MAX_DEBT_RATIO)
 
             // Calculate targetMinFumBuyPrice using the math in USM._updateMinFumBuyPrice():
-            const MAX_DEBT_RATIO = (await usm.MAX_DEBT_RATIO())
             const ethPool = (await usm.ethPool())
             const fumSupply = (await fum.totalSupply())
             const targetMinFumBuyPrice2 = wadDiv(wadMul(WAD.sub(MAX_DEBT_RATIO), ethPool), fumSupply)
 
             // Make one tiny call to fund(), just to actually trigger the internal call to _updateMinFumBuyPrice():
-            await usm.fund(user1, user1, oneEth.div(THOUSAND), { from: user1 })
+            await usm.fund(user3, user3, bitOfEth, { from: user3 })
 
             const minFumBuyPrice2 = (await usm.minFumBuyPrice())
             minFumBuyPrice2.toString().should.equal(targetMinFumBuyPrice2.toString())
@@ -325,7 +386,7 @@ contract('USM', (accounts) => {
             const t1 = (await web3.eth.getBlock(block1)).timestamp
             t1.toString().should.equal((t0 + timeDelay).toString())
             const minFumBuyPrice3 = (await usm.minFumBuyPrice())
-            const decayFactor3 = WAD.div(EIGHT)
+            const decayFactor3 = wadDiv(ONE, EIGHT)
             const targetMinFumBuyPrice3 = wadMul(minFumBuyPrice2, decayFactor3)
             minFumBuyPrice3.toString().should.equal(targetMinFumBuyPrice3.toString())
             //console.log("MFBP 2: " + minFumBuyPrice + ", " + targetMinFumBuyPrice2 + ", " + minFumBuyPrice2 + ", " + targetMinFumBuyPrice3 + ", " + minFumBuyPrice3)
