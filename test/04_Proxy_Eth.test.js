@@ -6,15 +6,14 @@ const TestOracle = artifacts.require('./TestOracle.sol')
 const WETH9 = artifacts.require('WETH9')
 const USM = artifacts.require('./USM.sol')
 const FUM = artifacts.require('./FUM.sol')
-const EthProxy = artifacts.require('./EthProxy.sol')
+const Proxy = artifacts.require('./Proxy.sol')
 
 const burnSignature = id('burn(address,address,uint256)').slice(0, 10)
 const defundSignature = id('defund(address,address,uint256)').slice(0, 10)
-MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
 require('chai').use(require('chai-as-promised')).should()
 
-contract('USM - EthProxy', (accounts) => {
+contract('USM - Proxy - Eth', (accounts) => {
   function wadMul(x, y) {
     return x.mul(y).div(WAD);
   }
@@ -25,13 +24,14 @@ contract('USM - EthProxy', (accounts) => {
 
   const [deployer, user1, user2] = accounts
 
-  const [TWO, EIGHT, TEN] =
-        [2, 8, 10].map(function (n) { return new BN(n) })
+  const [ZERO, TWO, EIGHT, TEN] =
+        [0, 2, 8, 10].map(function (n) { return new BN(n) })
   const WAD = new BN('1000000000000000000')
 
   const sides = { BUY: 0, SELL: 1 }
   const price = new BN('25000000000')
   const shift = EIGHT
+  const MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
   const oneEth = WAD
   const priceWAD = wadDiv(price, TEN.pow(shift))
 
@@ -44,7 +44,7 @@ contract('USM - EthProxy', (accounts) => {
       weth = await WETH9.new({ from: deployer })
       usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
-      proxy = await EthProxy.new(usm.address, weth.address, { from: deployer })
+      proxy = await Proxy.new(usm.address, weth.address, { from: deployer })
 
       await usm.addDelegate(proxy.address, burnSignature, MAX, { from: user1 })
       await usm.addDelegate(proxy.address, defundSignature, MAX, { from: user1 })
@@ -58,18 +58,25 @@ contract('USM - EthProxy', (accounts) => {
         const fumSellPrice = (await usm.fumPrice(sides.SELL))
         fumBuyPrice.toString().should.equal(fumSellPrice.toString())
 
-        await proxy.fund(user2, { from: user1, value: oneEth })
+        await proxy.fundWithEth(user2, 0, { from: user1, value: oneEth })
         const ethPool2 = (await weth.balanceOf(usm.address))
         ethPool2.toString().should.equal(oneEth.toString())
       })
 
+      it('does not mint FUM if minimum not reached', async () => {
+        await expectRevert(
+          proxy.fundWithEth(user2, MAX, { from: user1, value: oneEth }),
+          "Limit not reached",
+        )
+      })
+
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await proxy.fund(user1, { from: user1, value: oneEth })
+          await proxy.fundWithEth(user1, 0, { from: user1, value: oneEth })
         })
 
         it('allows minting USM', async () => {
-          await proxy.mint(user2, { from: user1, value: oneEth })
+          await proxy.mintWithEth(user2, 0, { from: user1, value: oneEth })
           const ethPool2 = (await weth.balanceOf(usm.address))
           ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
 
@@ -77,9 +84,16 @@ contract('USM - EthProxy', (accounts) => {
           usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD).div(TWO).toString())
         })
 
+        it('does not mint USM if minimum not reached', async () => {
+          await expectRevert(
+            proxy.mintWithEth(user2, MAX, { from: user1, value: oneEth }),
+            "Limit not reached",
+          )
+        })  
+
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await proxy.mint(user1, { from: user1, value: oneEth })
+            await proxy.mintWithEth(user1, 0, { from: user1, value: oneEth })
           })
 
           it('allows burning FUM', async () => {
@@ -92,7 +106,7 @@ contract('USM - EthProxy', (accounts) => {
             user1FumBalance.toString().should.equal(targetUser1FumBalance.toString())
 
             const fumToBurn = priceWAD.div(TWO)
-            await proxy.defund(user2, fumToBurn, { from: user1 })
+            await proxy.defundForEth(user2, fumToBurn, 0, { from: user1 })
             const user1FumBalance2 = (await fum.balanceOf(user1))
             user1FumBalance2.toString().should.equal(user1FumBalance.sub(fumToBurn).toString())
 
@@ -102,6 +116,16 @@ contract('USM - EthProxy', (accounts) => {
             ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
           })
 
+          it('does not burn FUM if minimum not reached', async () => {
+            const fumBalance = (await fum.balanceOf(user1))
+
+            await expectRevert(
+              // Defunding the full balance would fail (violate MAX_DEBT_RATIO), so just defund half:
+              proxy.defundForEth(user2, fumBalance.div(TWO), MAX, { from: user1 }),
+              "Limit not reached",
+            )
+          })    
+
           it('allows burning USM', async () => {
             const ethPool = (await usm.ethPool())
             const usmSellPrice = (await usm.usmPrice(sides.SELL))
@@ -109,7 +133,7 @@ contract('USM - EthProxy', (accounts) => {
             const user2EthBalance = new BN(await web3.eth.getBalance(user2))
 
             const usmToBurn = (await usm.balanceOf(user1))
-            await proxy.burn(user2, usmToBurn, { from: user1 })
+            await proxy.burnForEth(user2, usmToBurn, 0, { from: user1 })
             const user1UsmBalance2 = (await usm.balanceOf(user1))
             user1UsmBalance2.toString().should.equal('0')
 
@@ -118,6 +142,15 @@ contract('USM - EthProxy', (accounts) => {
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(usmToBurn, usmSellPrice))))
             ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
           })
+
+          it('does not burn USM if minimum not reached', async () => {
+            const usmBalance = (await usm.balanceOf(user1))
+
+            await expectRevert(
+              proxy.burnForEth(user2, usmBalance, MAX, { from: user1 }),
+              "Limit not reached",
+            )
+          })    
         })
       })
     })
