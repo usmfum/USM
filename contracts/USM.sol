@@ -42,12 +42,19 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @param oracle_ Address of the oracle
      */
     constructor(address oracle_, address eth_) public ERC20Permit("Minimal USD", "USM") {
-        fum = new FUM();
+        fum = new FUM(address(this));
         oracle = oracle_;
         eth = IERC20(eth_);
     }
 
     /** EXTERNAL FUNCTIONS **/
+
+    /**
+     * @notice Direct ether transfers to this contract are disallowed.
+     */
+    receive () external payable {
+        revert("Don't send ether here");
+    }
 
     /**
      * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
@@ -145,6 +152,15 @@ contract USM is IUSM, ERC20Permit, Delegable {
     }
 
     /** PUBLIC FUNCTIONS **/
+
+    /**
+     * @notice Regular transfer, disallowing transfers to this contract.
+     */
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        require(recipient != address(this) && recipient != address(fum), "Don't transfer here");
+        _transfer(_msgSender(), recipient, amount);
+        return true;
+    }
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract)
