@@ -84,8 +84,8 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      */
     function migrate(address holder) external returns (uint, uint, uint) {
         require(
-            v2 != address(0),
-            "Migration contract not set"
+            msg.sender == v2,
+            "Only callable by migration contract"
         );
         require(
             migrationStart <= block.timestamp,
@@ -93,7 +93,7 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
         );
         require(
             delegates[holder][msg.sender][msg.sig] > block.timestamp,
-            "Only callable by migration contract"
+            "Holder didn't delegate"
         );
         
         uint usmAmount = this.balanceOf(holder);
