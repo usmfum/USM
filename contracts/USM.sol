@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.7;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "delegable.sol/contracts/Delegable.sol";
@@ -16,7 +17,7 @@ import "./oracles/IOracle.sol";
  * @author Alex Roan (@alexroan)
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is IUSM, ERC20Permit, Delegable {
+contract USM is IUSM, ERC20Permit, Delegable, Ownable {
     using SafeMath for uint;
     using WadMath for uint;
 
@@ -25,6 +26,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 24 * 60 * 60;    // 1 day
     uint public constant BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60;           // 1 minute
 
+    address public v2;
     address public oracle;
     IERC20 public eth;
     FUM public fum;
@@ -41,13 +43,46 @@ contract USM is IUSM, ERC20Permit, Delegable {
     /**
      * @param oracle_ Address of the oracle
      */
-    constructor(address oracle_, address eth_) public ERC20Permit("Minimal USD", "USM") {
+    constructor(address oracle_, address eth_) public ERC20Permit("Minimal USD", "USM") Ownable() {
         fum = new FUM();
         oracle = oracle_;
         eth = IERC20(eth_);
     }
 
     /** EXTERNAL FUNCTIONS **/
+
+    /**
+     * @dev Privileged function to set a contract to migrate funds to without fees
+     * @param v2_ Address of the contract to execute the migration
+     */
+    function setV2(address v2_) public onlyOwner {
+        v2 = v2_;
+    }
+
+    /**
+     * @dev Burn the usm and fum holdings for a given account, transferring the equivalent eth to the v2 contract.
+     * This function can only be executed by a delegate of the holder, possibly the v2 contract.
+     * The holder must have given permission by calling usm.addDelegate(delegate, keccak256(migrate(address))))
+     * @param holder Address of the holder to migrate
+     */
+    function migrate(address holder) external returns (uint, uint, uint) {
+        require(
+            delegates[holder][msg.sender][msg.sig] > block.timestamp,
+            "Only callable by migration contract"
+        );
+        
+        uint usmAmount = balanceOf(holder);
+        uint fumAmount = balanceOf(holder);
+
+        int buffer = ethBuffer();
+        uint fumPrice = (buffer < 0 ? 0 : uint(buffer).wadDiv(fum.totalSupply()));
+        
+        uint ethAmount = usmToEth(usmAmount).add(fumAmount.wadMul(fumPrice));
+
+        _burn(holder, usmAmount);
+        fum.burn(holder, fumAmount);
+        eth.transfer(v2, ethAmount);
+    }
 
     /**
      * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
