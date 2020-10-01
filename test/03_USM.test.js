@@ -90,13 +90,6 @@ contract('USM', (accounts) => {
         const fumSellPrice = (await usm.fumPrice(sides.SELL))
         shouldEqual(fumSellPrice, targetFumPrice)
       })
-
-      it("refuses ether transfers", async () => {
-        await expectRevert(
-          web3.eth.sendTransaction({ from: user1, to: usm.address, value: 1 }),
-          "Don't send ether here"
-        )
-      })
     })
 
     describe("minting and burning", () => {

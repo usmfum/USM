@@ -50,13 +50,6 @@ contract USM is IUSM, ERC20Permit, Delegable {
     /** EXTERNAL FUNCTIONS **/
 
     /**
-     * @notice Direct ether transfers to this contract are disallowed.
-     */
-    receive () external payable {
-        revert("Don't send ether here");
-    }
-
-    /**
      * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
      * @param ethIn Amount of wrapped Ether to use for minting USM.
      * @return USM minted
