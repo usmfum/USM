@@ -5,6 +5,16 @@ import { selectUsmForm, setMintEthValue, setMintUsmValue } from './redux/actions
 import { loadWeb3 } from './redux/interactions';
 import { accountSelector, mintEthValueSelector, mintUsmValueSelector, selectedUsmFormSelector, web3Selector } from './redux/selectors';
 
+// TODO:
+// - Connect Web3modal with Metamask and Authereum only to start with
+// - Move USM Mint form into component class
+// - Initialize Proxy Contract and USM on connect
+// - Update expected USM from mint using USM functions
+// - Mint successfully
+// - Add Burn Form
+// - Add Fum Fund
+// - Add Fum Defund
+
 class App extends Component {
 
 	printUsmMint(props, changeMintEthValue, changeMintUsmValue) {
