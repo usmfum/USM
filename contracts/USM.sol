@@ -26,10 +26,12 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 24 * 60 * 60;    // 1 day
     uint public constant BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60;           // 1 minute
 
-    address public v2;
     address public oracle;
     IERC20 public eth;
     FUM public fum;
+
+    address public v2;
+    uint public timelock;
 
     struct TimedValue {
         uint32 timestamp;
@@ -57,6 +59,7 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      */
     function setV2(address v2_) public onlyOwner {
         v2 = v2_;
+        timelock = block.timestamp + (48 * 60 *60);
     }
 
     /**
@@ -66,6 +69,10 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      * @param holder Address of the holder to migrate
      */
     function migrate(address holder) external returns (uint, uint, uint) {
+        require(
+            timelock <= block.timestamp,
+            "Only callable after the timelock"
+        );
         require(
             delegates[holder][msg.sender][msg.sig] > block.timestamp,
             "Only callable by migration contract"
