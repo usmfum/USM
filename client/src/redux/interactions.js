@@ -15,8 +15,3 @@ export const loadWallet = async (dispatch, web3) => {
     dispatch(accountLoaded(account));
     return account;
 }
-
-export const setMintEthValue = async (dispatch, value) => {
-    dispatch(mintEthValue(value));
-    return value;
-}

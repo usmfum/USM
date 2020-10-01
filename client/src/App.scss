@@ -1,4 +1,4 @@
-@import "node_modules/bootstrap/scss/bootstrap";
+@import "../node_modules/nes.css/css/nes.css";
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 html {
@@ -6,31 +6,14 @@ html {
     body {
         font-family: 'Press Start 2P', cursive !important;
         height: 100%;
-        #connect-button {
-            max-width: 20%;
-        }
         #root {
             height: 100%;
-            .border-thick {
-                border: 0.25rem solid black !important;
-                .nav-tabs {
-                    border-bottom: none;
-                    .nav-item {
-                        &:focus{
-                            outline: none;
-                        }
-                    }
+            #usm-container{
+                width: 60%;
+
+                .nes-field{
+                    margin: 1rem;
                 }
-            }
-            a, input {
-                border: 0.125rem solid black !important;
-                border-radius: 0;
-                &:focus {
-                    box-shadow: none;
-                }
-            }
-            button {
-                border-radius: 0;
             }
         }
     }
