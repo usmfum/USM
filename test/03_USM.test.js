@@ -154,6 +154,20 @@ contract('USM', (accounts) => {
           await usm.fund(user1, user2, totalEthToFund, { from: user1 })
         })
 
+        it("reverts fum transfers to the usm contract", async () => {
+          await expectRevert(
+            fum.transfer(usm.address, 1),
+            "Don't transfer here"
+          )
+        })
+
+        it("reverts fum transfers to the fum contract", async () => {
+          await expectRevert(
+            fum.transfer(fum.address, 1),
+            "Don't transfer here"
+          )
+        })
+
         it("decays fundDefundAdjustment over time", async () => {
           // Check that fundDefundAdjustment decays properly (well, approximately) over time:
           // - Our adjustment was previously 4: see targetFundDefundAdj3 above.
@@ -215,7 +229,7 @@ contract('USM', (accounts) => {
           shouldEqual(fumSellPrice2, targetFumSellPrice2)
         })
 
-        describe.only("with existing USM supply", () => {
+        describe("with existing USM supply", () => {
           let ethPool, fumSellPrice, usmSellPrice
           let MAX_DEBT_RATIO, debtRatio0, price0
 
@@ -228,6 +242,20 @@ contract('USM', (accounts) => {
             MAX_DEBT_RATIO = (await usm.MAX_DEBT_RATIO())
             debtRatio0 = (await usm.debtRatio())
             price0 = (await oracle.latestPrice())
+          })
+
+          it("reverts usm transfers to the usm contract", async () => {
+            await expectRevert(
+              usm.transfer(usm.address, 1),
+              "Don't transfer here"
+            )
+          })
+  
+          it("reverts usm transfers to the fum contract", async () => {
+            await expectRevert(
+              usm.transfer(fum.address, 1),
+              "Don't transfer here"
+            )
           })
 
           it("decays mintBurnAdjustment over time", async () => {
