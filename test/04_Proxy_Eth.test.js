@@ -100,18 +100,18 @@ contract('USM - Proxy - Eth', (accounts) => {
             const ethPool = (await usm.ethPool())
             const fumSellPrice = (await usm.fumPrice(sides.SELL))
 
-            const userFumBalance = (await fum.balanceOf(user1))
-            const userEthBalance = new BN(await web3.eth.getBalance(user1))
-            const targetUserFumBalance = wadMul(oneEth, priceWAD) // see "allows minting FUM" above
-            userFumBalance.toString().should.equal(targetUserFumBalance.toString())
+            const fumBalance = (await fum.balanceOf(user1))
+            const ethBalance = new BN(await web3.eth.getBalance(user1))
+            const targetFumBalance = wadMul(oneEth, priceWAD) // see "allows minting FUM" above
+            fumBalance.toString().should.equal(targetFumBalance.toString())
 
             const fumToBurn = priceWAD.div(TWO)
             await proxy.defundForEth(fumToBurn, 0, { from: user1, gasPrice: 0 }) // Don't use eth on gas
-            const userFumBalance2 = (await fum.balanceOf(user1))
-            userFumBalance2.toString().should.equal(userFumBalance.sub(fumToBurn).toString())
+            const fumBalance2 = (await fum.balanceOf(user1))
+            fumBalance2.toString().should.equal(fumBalance.sub(fumToBurn).toString())
 
-            const userEthBalance2 = new BN(await web3.eth.getBalance(user1))
-            const ethOut = userEthBalance2.sub(userEthBalance)
+            const ethBalance2 = new BN(await web3.eth.getBalance(user1))
+            const ethOut = ethBalance2.sub(ethBalance)
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(fumToBurn, fumSellPrice))))
             ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
           })
@@ -130,15 +130,15 @@ contract('USM - Proxy - Eth', (accounts) => {
             const ethPool = (await usm.ethPool())
             const usmSellPrice = (await usm.usmPrice(sides.SELL))
 
-            const userEthBalance = new BN(await web3.eth.getBalance(user1))
+            const ethBalance = new BN(await web3.eth.getBalance(user1))
 
             const usmToBurn = (await usm.balanceOf(user1))
             await proxy.burnForEth(usmToBurn, 0, { from: user1, gasPrice: 0})
             const userUsmBalance2 = (await usm.balanceOf(user1))
             userUsmBalance2.toString().should.equal('0')
 
-            const userEthBalance2 = new BN(await web3.eth.getBalance(user1))
-            const ethOut = userEthBalance2.sub(userEthBalance)
+            const ethBalance2 = new BN(await web3.eth.getBalance(user1))
+            const ethOut = ethBalance2.sub(ethBalance)
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(usmToBurn, usmSellPrice))))
             ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
           })
