@@ -52,7 +52,7 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      * @param oracle_ Address of the oracle
      */
     constructor(address oracle_, address eth_) public ERC20Permit("Minimal USD", "USM") Ownable() {
-        fum = new FUM();
+        fum = new FUM(address(this));
         oracle = oracle_;
         eth = IERC20(eth_);
     }
@@ -209,6 +209,15 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
     }
 
     /** PUBLIC FUNCTIONS **/
+
+    /**
+     * @notice Regular transfer, disallowing transfers to this contract.
+     */
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        require(recipient != address(this) && recipient != address(fum), "Don't transfer here");
+        _transfer(_msgSender(), recipient, amount);
+        return true;
+    }
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract)
