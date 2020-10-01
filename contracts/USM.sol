@@ -78,8 +78,8 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
             "Only callable by migration contract"
         );
         
-        uint usmAmount = balanceOf(holder);
-        uint fumAmount = balanceOf(holder);
+        uint usmAmount = this.balanceOf(holder);
+        uint fumAmount = fum.balanceOf(holder);
 
         int buffer = ethBuffer();
         uint fumPrice = (buffer < 0 ? 0 : uint(buffer).wadDiv(fum.totalSupply()));
