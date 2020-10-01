@@ -215,7 +215,7 @@ contract('USM', (accounts) => {
           shouldEqual(fumSellPrice2, targetFumSellPrice2)
         })
 
-        describe.only("with existing USM supply", () => {
+        describe("with existing USM supply", () => {
           let ethPool, fumSellPrice, usmSellPrice
           let MAX_DEBT_RATIO, debtRatio0, price0
 

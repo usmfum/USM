@@ -31,7 +31,8 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
     FUM public fum;
 
     address public v2;
-    uint public timelock;
+    uint public migrationStart;
+    uint public pauseEnd;
 
     struct TimedValue {
         uint32 timestamp;
@@ -41,6 +42,11 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
     TimedValue public minFumBuyPriceStored;
     TimedValue public mintBurnAdjustmentStored = TimedValue({ timestamp: 0, value: uint224(WAD) });
     TimedValue public fundDefundAdjustmentStored = TimedValue({ timestamp: 0, value: uint224(WAD) });
+
+    modifier notPaused() {
+        require(block.timestamp > pauseEnd, "USM is paused");
+        _;
+    }
 
     /**
      * @param oracle_ Address of the oracle
@@ -54,12 +60,20 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
     /** EXTERNAL FUNCTIONS **/
 
     /**
+     * @dev Privileged function to pause mint/burn/fund/defund for 7 days. Can only be used once.
+     */
+    function pause() public onlyOwner {
+        require(pauseEnd == 0, "Can only be paused once");
+        pauseEnd = block.timestamp + (7 * 24 * 60 *60);
+    }
+
+    /**
      * @dev Privileged function to set a contract to migrate funds to without fees
      * @param v2_ Address of the contract to execute the migration
      */
     function setV2(address v2_) public onlyOwner {
         v2 = v2_;
-        timelock = block.timestamp + (48 * 60 *60);
+        migrationStart = block.timestamp + (48 * 60 *60);
     }
 
     /**
@@ -70,8 +84,12 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      */
     function migrate(address holder) external returns (uint, uint, uint) {
         require(
-            timelock <= block.timestamp,
-            "Only callable after the timelock"
+            v2 != address(0),
+            "Migration contract not set"
+        );
+        require(
+            migrationStart <= block.timestamp,
+            "Only callable after the migrationStart"
         );
         require(
             delegates[holder][msg.sender][msg.sig] > block.timestamp,
@@ -98,6 +116,7 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      */
     function mint(address from, address to, uint ethIn)
         external override
+        notPaused
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
@@ -122,6 +141,7 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      */
     function burn(address from, address to, uint usmToBurn)
         external override
+        notPaused
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
@@ -144,6 +164,7 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      */
     function fund(address from, address to, uint ethIn)
         external override
+        notPaused
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
@@ -170,6 +191,7 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      */
     function defund(address from, address to, uint fumToBurn)
         external override
+        notPaused
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint)
     {
