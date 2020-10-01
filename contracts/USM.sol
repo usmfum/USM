@@ -82,7 +82,7 @@ contract USM is IUSM, ERC20Permit, Delegable, Ownable {
      * The holder must have given permission by calling usm.addDelegate(delegate, keccak256(migrate(address))))
      * @param holder Address of the holder to migrate
      */
-    function migrate(address holder) external returns (uint, uint, uint) {
+    function export(address holder) external returns (uint, uint, uint) {
         require(
             msg.sender == v2,
             "Only callable by migration contract"
