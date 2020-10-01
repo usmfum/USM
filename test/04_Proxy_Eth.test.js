@@ -58,60 +58,60 @@ contract('USM - Proxy - Eth', (accounts) => {
         const fumSellPrice = (await usm.fumPrice(sides.SELL))
         fumBuyPrice.toString().should.equal(fumSellPrice.toString())
 
-        await proxy.fundWithEth(user2, 0, { from: user1, value: oneEth })
+        await proxy.fundWithEth(0, { from: user1, value: oneEth })
         const ethPool2 = (await weth.balanceOf(usm.address))
         ethPool2.toString().should.equal(oneEth.toString())
       })
 
       it('does not mint FUM if minimum not reached', async () => {
         await expectRevert(
-          proxy.fundWithEth(user2, MAX, { from: user1, value: oneEth }),
+          proxy.fundWithEth(MAX, { from: user1, value: oneEth }),
           "Limit not reached",
         )
       })
 
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await proxy.fundWithEth(user1, 0, { from: user1, value: oneEth })
+          await proxy.fundWithEth(0, { from: user1, value: oneEth })
         })
 
         it('allows minting USM', async () => {
-          await proxy.mintWithEth(user2, 0, { from: user1, value: oneEth })
+          await proxy.mintWithEth(0, { from: user1, value: oneEth })
           const ethPool2 = (await weth.balanceOf(usm.address))
           ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
 
-          const usmBalance2 = (await usm.balanceOf(user2))
+          const usmBalance2 = (await usm.balanceOf(user1))
           usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD).div(TWO).toString())
         })
 
         it('does not mint USM if minimum not reached', async () => {
           await expectRevert(
-            proxy.mintWithEth(user2, MAX, { from: user1, value: oneEth }),
+            proxy.mintWithEth(MAX, { from: user1, value: oneEth }),
             "Limit not reached",
           )
         })  
 
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await proxy.mintWithEth(user1, 0, { from: user1, value: oneEth })
+            await proxy.mintWithEth(0, { from: user1, value: oneEth })
           })
 
           it('allows burning FUM', async () => {
             const ethPool = (await usm.ethPool())
             const fumSellPrice = (await usm.fumPrice(sides.SELL))
 
-            const user1FumBalance = (await fum.balanceOf(user1))
-            const user2EthBalance = new BN(await web3.eth.getBalance(user2))
-            const targetUser1FumBalance = wadMul(oneEth, priceWAD) // see "allows minting FUM" above
-            user1FumBalance.toString().should.equal(targetUser1FumBalance.toString())
+            const userFumBalance = (await fum.balanceOf(user1))
+            const userEthBalance = new BN(await web3.eth.getBalance(user1))
+            const targetUserFumBalance = wadMul(oneEth, priceWAD) // see "allows minting FUM" above
+            userFumBalance.toString().should.equal(targetUserFumBalance.toString())
 
             const fumToBurn = priceWAD.div(TWO)
-            await proxy.defundForEth(user2, fumToBurn, 0, { from: user1 })
-            const user1FumBalance2 = (await fum.balanceOf(user1))
-            user1FumBalance2.toString().should.equal(user1FumBalance.sub(fumToBurn).toString())
+            await proxy.defundForEth(fumToBurn, 0, { from: user1, gasPrice: 0 }) // Don't use eth on gas
+            const userFumBalance2 = (await fum.balanceOf(user1))
+            userFumBalance2.toString().should.equal(userFumBalance.sub(fumToBurn).toString())
 
-            const user2EthBalance2 = new BN(await web3.eth.getBalance(user2))
-            const ethOut = user2EthBalance2.sub(user2EthBalance)
+            const userEthBalance2 = new BN(await web3.eth.getBalance(user1))
+            const ethOut = userEthBalance2.sub(userEthBalance)
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(fumToBurn, fumSellPrice))))
             ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
           })
@@ -121,7 +121,7 @@ contract('USM - Proxy - Eth', (accounts) => {
 
             await expectRevert(
               // Defunding the full balance would fail (violate MAX_DEBT_RATIO), so just defund half:
-              proxy.defundForEth(user2, fumBalance.div(TWO), MAX, { from: user1 }),
+              proxy.defundForEth(fumBalance.div(TWO), MAX, { from: user1 }),
               "Limit not reached",
             )
           })    
@@ -130,15 +130,15 @@ contract('USM - Proxy - Eth', (accounts) => {
             const ethPool = (await usm.ethPool())
             const usmSellPrice = (await usm.usmPrice(sides.SELL))
 
-            const user2EthBalance = new BN(await web3.eth.getBalance(user2))
+            const userEthBalance = new BN(await web3.eth.getBalance(user1))
 
             const usmToBurn = (await usm.balanceOf(user1))
-            await proxy.burnForEth(user2, usmToBurn, 0, { from: user1 })
-            const user1UsmBalance2 = (await usm.balanceOf(user1))
-            user1UsmBalance2.toString().should.equal('0')
+            await proxy.burnForEth(usmToBurn, 0, { from: user1, gasPrice: 0})
+            const userUsmBalance2 = (await usm.balanceOf(user1))
+            userUsmBalance2.toString().should.equal('0')
 
-            const user2EthBalance2 = new BN(await web3.eth.getBalance(user2))
-            const ethOut = user2EthBalance2.sub(user2EthBalance)
+            const userEthBalance2 = new BN(await web3.eth.getBalance(user1))
+            const ethOut = userEthBalance2.sub(userEthBalance)
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(usmToBurn, usmSellPrice))))
             ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
           })
@@ -147,7 +147,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             const usmBalance = (await usm.balanceOf(user1))
 
             await expectRevert(
-              proxy.burnForEth(user2, usmBalance, MAX, { from: user1 }),
+              proxy.burnForEth(usmBalance, MAX, { from: user1 }),
               "Limit not reached",
             )
           })    
