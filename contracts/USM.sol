@@ -25,7 +25,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 24 * 60 * 60;    // 1 day
     uint public constant BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60;           // 1 minute
 
-    address public oracle;
+    IOracle public oracle;
     IERC20 public eth;
     FUM public fum;
 
@@ -43,7 +43,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      */
     constructor(address oracle_, address eth_) public ERC20Permit("Minimal USD", "USM") {
         fum = new FUM(address(this));
-        oracle = oracle_;
+        oracle = IOracle(oracle_);
         eth = IERC20(eth_);
     }
 
@@ -424,7 +424,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
      * @return price
      */
     function _oraclePrice() internal view returns (uint) {
-        // Needs a convertDecimal(IOracle(oracle).decimalShift(), UNIT) function.
-        return IOracle(oracle).latestPrice().wadDiv(10 ** IOracle(oracle).decimalShift());
+        // Needs a convertDecimal(oracle.decimalShift(), UNIT) function.
+        return oracle.latestPrice().wadDiv(10 ** oracle.decimalShift());
     }
 }
