@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import {connect} from 'react-redux';
+import FUM from './FUM';
 import { setToken } from './redux/actions';
 import { selectedTokenSelector } from './redux/selectors';
 import USM from './USM';
@@ -32,7 +33,7 @@ class USMFUM extends Component {
                         </label>
                     </div>
                 </div>
-                {selectedToken === "USM" ? <USM /> : "FUM GOES HERE"}
+                {selectedToken === "USM" ? <USM /> : <FUM />}
             </>
         )
     }
