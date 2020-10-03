@@ -10,13 +10,18 @@ html {
             height: 100%;
             padding: 0 2rem;
             margin: 0 2rem;
-            .row {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 1rem 0;
-                .nes-field{
-                    margin: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            .container{
+                .row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 1rem 0;
+                    .nes-field{
+                        margin: 1rem;
+                    }
                 }
             }
         }

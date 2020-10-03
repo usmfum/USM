@@ -19,11 +19,15 @@ class USMFUM extends Component {
                         <p className="title">Token</p>
                         <p>Choose the token you'd like to interact with.</p>
                         <label>
-                            <input onChange={changeSelectedToken} type="radio" className="nes-radio" value="USM" name="token" />
+                            <input onChange={changeSelectedToken} 
+                                checked={selectedToken === "USM"}
+                                type="radio" className="nes-radio" value="USM" name="token" />
                             <span>USM</span>
                         </label>
                         <label>
-                            <input onChange={changeSelectedToken} type="radio" className="nes-radio" value="FUM" name="token" />
+                            <input onChange={changeSelectedToken} 
+                                checked={selectedToken === "FUM"}
+                                type="radio" className="nes-radio" value="FUM" name="token" />
                             <span>FUM</span>
                         </label>
                     </div>

@@ -21,10 +21,9 @@ class App extends Component {
 		const {dispatch, loggedIn} = this.props;
 
 		return (
-			<>
-
+			<div className="container">
 				{loggedIn === false ? <Connection /> : <USMFUM />}
-			</>
+			</div>
 		);
 	}
 }
