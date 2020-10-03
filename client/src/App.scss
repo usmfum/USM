@@ -8,12 +8,13 @@ html {
         height: 100%;
         #root {
             height: 100%;
-            #usm-container{
-                width: 60%;
-
-                .nes-field{
-                    margin: 1rem;
-                }
+            padding: 0 2rem;
+            margin: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            .nes-field{
+                margin: 1rem;
             }
         }
     }

@@ -1,21 +1,48 @@
-export function selectUsmForm(mintOrRedeem){
+export function loggingIn(){
     return {
-        type: 'USM_FORM_SELECTED',
-        mintOrRedeem
+        type: 'LOGGING_IN'
     }
 }
 
-export function web3Loaded(web3) {
+export function loggedIn(web3){
     return {
-        type: 'WEB3_LOADED',
+        type: 'LOGGED_IN',
         web3
     }
 }
 
-export function accountLoaded(account) {
+export function loginFailed(error){
+    return {
+        type: 'LOGIN_FAILED',
+        error
+    }
+}
+
+export function accountLoaded(account){
     return {
         type: 'ACCOUNT_LOADED',
         account
+    }
+}
+
+export function balanceLoaded(balance){
+    return {
+        type: 'BALANCE_LOADED',
+        balance
+    }
+}
+
+export function setNetwork(network){
+    return {
+        type: 'NETWORK_LOADED',
+        network
+    }
+}
+
+export function selectUsmForm(mintOrRedeem){
+    return {
+        type: 'USM_FORM_SELECTED',
+        mintOrRedeem
     }
 }
 

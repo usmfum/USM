@@ -1,11 +1,19 @@
 import {combineReducers} from 'redux';
 
-function web3(state = {}, action) {
+function account(state = {}, action) {
     switch (action.type) {
-        case "WEB3_LOADED":
-            return { ...state, web3: action.web3}
-        case "ACCOUNT_LOADED":
-            return { ...state, account: action.account}
+        case 'LOGGING_IN':
+            return { ...state, loggingIn: true, loggedIn: false, error: false}
+        case 'LOGGED_IN':
+            return { ...state, loggingIn: false, loggedIn: true, web3: action.web3 }
+        case 'LOGIN_FAILED':
+            return { ...state, loggingIn: false, loggedIn: false, error: action.error}
+        case 'ACCOUNT_LOADED':
+            return { ...state, account: action.account }
+        case 'BALANCE_LOADED':
+            return { ...state, balance: action.balance }
+        case 'NETWORK_LOADED':
+            return { ...state, network: action.network }
         default:
             return state;
     }
@@ -25,7 +33,7 @@ function display(state = {}, action) {
 }
 
 const rootReducer = new combineReducers({
-    web3, display
+    account, display
 });
 
 export default rootReducer;
