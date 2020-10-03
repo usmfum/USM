@@ -39,6 +39,13 @@ export function setNetwork(network){
     }
 }
 
+export function setToken(token){
+    return {
+        type: 'TOKEN_SELECTED',
+        token
+    }
+}
+
 export function selectUsmForm(mintOrRedeem){
     return {
         type: 'USM_FORM_SELECTED',

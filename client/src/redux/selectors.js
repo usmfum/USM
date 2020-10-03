@@ -24,6 +24,9 @@ const network = state => get(state, 'account.network', null);
 export const networkSelector = createSelector(network, w => w);
 
 // Display
+const selectedToken = state => get(state, 'display.selectedToken', "USM");
+export const selectedTokenSelector = createSelector(selectedToken, v => v);
+
 const selectedUsmForm = state => get(state, 'display.selectedUsmForm', "usm_mint");
 export const selectedUsmFormSelector = createSelector(selectedUsmForm, v => v);
 

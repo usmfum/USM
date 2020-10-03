@@ -10,10 +10,12 @@ class Connection extends Component
         const connectWeb3 = (e) => loadWeb3(dispatch);
 
         return (
-            <div id="connection-container" className="nes-container with-title is-centered">
-                <p className="title">Connect</p>
-                <p>Connect your Ethereum wallet</p>
-                <button onClick={connectWeb3} type="button" className="nes-btn is-primary">Connect</button>				
+            <div className="row">
+                <div id="connection-container" className="nes-container with-title is-centered">
+                    <p className="title">Connect</p>
+                    <p>Connect your Ethereum wallet</p>
+                    <button onClick={connectWeb3} type="button" className="nes-btn is-primary">Connect</button>				
+                </div>
             </div>
         );
     }

@@ -21,6 +21,8 @@ function account(state = {}, action) {
 
 function display(state = {}, action) {
     switch (action.type) {
+        case 'TOKEN_SELECTED':
+            return { ...state, selectedToken: action.token }
         case 'USM_FORM_SELECTED':
             return { ...state, selectedUsmForm: action.mintOrRedeem }
         case "MINT_ETH_VALUE":
