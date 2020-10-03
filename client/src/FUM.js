@@ -8,7 +8,7 @@ class FUM extends Component {
     printFumFund(props) {
 
 		return (
-			<div id="fund-fum-container" className="nes-container with-title">
+			<div id="fund-fum-container" className="nes-container is-rounded with-title">
 				<p className="title">Fund</p>
 				<form id="fund-fum-form" className="">
 					<div className="nes-field is-inline">
@@ -32,7 +32,7 @@ class FUM extends Component {
         
         return (
             <div className="row">
-                <div id="usm-container" className="nes-container with-title is-centered">
+                <div id="usm-container" className="nes-container with-title is-rounded is-centered">
                     <p className="title">FUM</p>
                     <button type="button" className="nes-btn is-success">Fund</button>
                     <button type="button" className="nes-btn is-error">Defund</button>

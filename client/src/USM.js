@@ -9,7 +9,7 @@ class USM extends Component {
 		const {mintUsmValue, mintEthValue} = props;
 
 		return (
-			<div id="mint-usm-container" className="nes-container with-title">
+			<div id="mint-usm-container" className="nes-container is-rounded with-title">
 				<p className="title">Mint</p>
 				<form id="mint-usm-form" className="">
 					<div className="nes-field is-inline">
@@ -43,7 +43,7 @@ class USM extends Component {
         
         return (
             <div className="row">
-                <div id="usm-container" className="nes-container with-title is-centered">
+                <div id="usm-container" className="nes-container with-title is-rounded is-centered">
                     <p className="title">USM</p>
                     <button onClick={() => usmForm(USM_MINT)} type="button" className="nes-btn is-success">Mint</button>
                     <button onClick={() => usmForm(USM_REDEEM)} type="button" className="nes-btn is-error">Redeem</button>

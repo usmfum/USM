@@ -16,9 +16,8 @@ class USMFUM extends Component {
         return (
             <>
                 <div className="row">
-                    <div id="token-container" className="nes-container with-title is-centered">
+                    <div id="token-container" className="nes-container with-title is-rounded is-centered">
                         <p className="title">Token</p>
-                        <p>Choose the token you'd like to interact with.</p>
                         <label>
                             <input onChange={changeSelectedToken} 
                                 checked={selectedToken === "USM"}

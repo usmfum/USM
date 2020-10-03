@@ -11,7 +11,7 @@ class Connection extends Component
 
         return (
             <div className="row">
-                <div id="connection-container" className="nes-container with-title is-centered">
+                <div id="connection-container" className="nes-container with-title is-rounded is-centered">
                     <p className="title">Connect</p>
                     <p>Connect your Ethereum wallet</p>
                     <button onClick={connectWeb3} type="button" className="nes-btn is-primary">Connect</button>				
