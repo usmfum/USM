@@ -31,33 +31,48 @@ contract USMFuzzing {
     /// Any function that is public will be run as a test, with random values assigned to each parameter
     function testMintAndBurnEthValue(uint ethIn) public { // To exclude a function from testing, make it internal
         weth.mint(ethIn);
-        uint valueBefore = usm.usmToEth(usm.totalSupply());
+        int valueBefore = usmValue() + fumValue();
         uint usmOut = usm.mint(address(this), address(this), ethIn);
-        uint valueMiddle = usm.usmToEth(usm.totalSupply());
+        int valueMiddle = usmValue() + fumValue();
 
-        // assert(valueBefore + ethIn == valueMiddle); // The value in eth of the USM supply increased by as much as the eth that went in
+        assert(valueBefore + toInt(ethIn) == valueMiddle); // The value in eth of the USM supply increased by as much as the eth that went in
 
         uint ethOut = usm.burn(address(this), address(this), usmOut);
-        uint valueAfter = usm.usmToEth(usm.totalSupply());
+        int valueAfter = usmValue() + fumValue();
 
-        assert(ethOut == ethIn); // Minting and then burning USM is neutral in eth terms in absence of oracle changes
-        // assert(valueBefore == valueAfter); // The value in eth of the USM supply decreased by as much as the value in eth of the USM that was burnt
+        assert(ethOut <= ethIn); // Minting and then burning USM should never produce an Eth profit
+        assert(valueBefore == valueAfter); // The value in eth of the USM supply decreased by as much as the value in eth of the USM that was burnt
     }
 
     /// @dev Test minting USM increases the value of the system by the same amount as Eth provided, and that burning does the inverse.
     /// Any function that is public will be run as a test, with random values assigned to each parameter
     function testFundAndDefundEthValue(uint ethIn) public { // To exclude a function from testing, make it internal
         weth.mint(ethIn);
-        uint valueBefore =  usm.fumPrice(IUSM.Side.Buy).wadMul(fum.totalSupply());
+        int valueBefore = fumValue();
         uint fumOut = usm.fund(address(this), address(this), ethIn);
-        uint valueMiddle = usm.fumPrice(IUSM.Side.Buy).wadMul(fum.totalSupply());
+        int valueMiddle = fumValue();
 
-        // assert(valueBefore + ethIn == valueMiddle); // The value in eth of the FUM supply increased by as much as the eth that went in
+        assert(valueBefore + toInt(ethIn) == valueMiddle); // The value in eth of the FUM supply increased by as much as the eth that went in
 
         uint ethOut = usm.defund(address(this), address(this), fumOut);
-        uint valueAfter = usm.fumPrice(IUSM.Side.Buy).wadMul(fum.totalSupply());
+        int valueAfter = fumValue();
 
-        assert(ethOut <= ethIn); // Minting and then burning FUM is neutral or losses value in eth terms in absence of oracle changes
-        // assert(valueBefore == valueAfter); // The value in eth of the FUM supply decreased by as much as the value in eth of the FUM that was burnt
+        assert(ethOut <= ethIn); // Funding and then defunding FUM should never produce an Eth profit, despite fee distribution
+        assert(valueBefore == valueAfter); // The value in eth of the FUM supply decreased by as much as the value in eth of the FUM that was burnt
+    }
+
+    function fumValue() internal view returns(int) {
+        int b = usm.ethBuffer();
+        uint s = fum.totalSupply();
+        return (b > 0 && s > 0) ? b / toInt(s) : 0;
+    }
+
+    function usmValue() internal view returns(int) {
+        return toInt(usm.usmToEth(usm.totalSupply()));
+    }
+
+    function toInt(uint x) internal pure returns(int) {
+        require(x < (type(uint).max)/2);
+        return int(x);
     }
 }
