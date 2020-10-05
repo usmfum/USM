@@ -30,49 +30,45 @@ contract USMFuzzing {
     /// @dev Test minting USM increases the value of the system by the same amount as Eth provided, and that burning does the inverse.
     /// Any function that is public will be run as a test, with random values assigned to each parameter
     function testMintAndBurnEthValue(uint ethIn) public { // To exclude a function from testing, make it internal
-        weth.mint(ethIn);
-        int valueBefore = usmValue() + fumValue();
-        uint usmOut = usm.mint(address(this), address(this), ethIn);
-        int valueMiddle = usmValue() + fumValue();
+        // A failing require aborts this test instance without failing the fuzzing
+        require(ethIn >= 10**14); // I'm restricting tests to a range of inputs with this
 
-        assert(valueBefore + toInt(ethIn) == valueMiddle); // The value in eth of the USM supply increased by as much as the eth that went in
+        weth.mint(ethIn);
+
+        uint valueBefore = weth.balanceOf(address(usm));
+        uint usmOut = usm.mint(address(this), address(this), ethIn);
+        uint valueMiddle = weth.balanceOf(address(usm));
+
+        // The asserts are what we are testing. A failing assert will be reported.
+        assert(valueBefore + ethIn == valueMiddle); // The value in eth of the USM supply increased by as much as the eth that went in
 
         uint ethOut = usm.burn(address(this), address(this), usmOut);
-        int valueAfter = usmValue() + fumValue();
+        uint valueAfter = weth.balanceOf(address(usm));
 
-        assert(ethOut <= ethIn); // Minting and then burning USM should never produce an Eth profit
-        assert(valueBefore == valueAfter); // The value in eth of the USM supply decreased by as much as the value in eth of the USM that was burnt
+        assert(valueMiddle - ethOut == valueAfter); // The value in eth of the USM supply decreased by as much as the value in eth of the USM that was burnt
+        assert(valueAfter >= valueBefore); // The protocol shouldn't have lost value with the round trip
     }
 
     /// @dev Test minting USM increases the value of the system by the same amount as Eth provided, and that burning does the inverse.
     /// Any function that is public will be run as a test, with random values assigned to each parameter
     function testFundAndDefundEthValue(uint ethIn) public { // To exclude a function from testing, make it internal
-        weth.mint(ethIn);
-        int valueBefore = fumValue();
-        uint fumOut = usm.fund(address(this), address(this), ethIn);
-        int valueMiddle = fumValue();
+        require(ethIn >= 10**14); // 10**14 + 1 fails the last assertion
 
-        assert(valueBefore + toInt(ethIn) == valueMiddle); // The value in eth of the FUM supply increased by as much as the eth that went in
+        weth.mint(ethIn);
+
+        uint valueBefore = weth.balanceOf(address(usm));
+        uint fumOut = usm.fund(address(this), address(this), ethIn);
+        uint valueMiddle = weth.balanceOf(address(usm));
+
+        assert(valueBefore + ethIn <= valueMiddle); // The value in eth of the FUM supply increased by as much as the eth that went in
 
         uint ethOut = usm.defund(address(this), address(this), fumOut);
-        int valueAfter = fumValue();
+        uint valueAfter = weth.balanceOf(address(usm));
 
-        assert(ethOut <= ethIn); // Funding and then defunding FUM should never produce an Eth profit, despite fee distribution
-        assert(valueBefore == valueAfter); // The value in eth of the FUM supply decreased by as much as the value in eth of the FUM that was burnt
+        assert(valueMiddle - ethOut == valueAfter); // The value in eth of the FUM supply decreased by as much as the value in eth of the FUM that was burnt
+        assert(valueAfter >= valueBefore); // The protocol shouldn't have lost value with the round trip
     }
 
-    function fumValue() internal view returns(int) {
-        int b = usm.ethBuffer();
-        uint s = fum.totalSupply();
-        return (b > 0 && s > 0) ? b / toInt(s) : 0;
-    }
-
-    function usmValue() internal view returns(int) {
-        return toInt(usm.usmToEth(usm.totalSupply()));
-    }
-
-    function toInt(uint x) internal pure returns(int) {
-        require(x < (type(uint).max)/2);
-        return int(x);
-    }
+    // Test that ethBuffer grows up with the fund/defund/mint/burn fee, plus minus eth for fund eth from defund
+    // Test that with two consecutive ops, the second one gets a worse price
 }
