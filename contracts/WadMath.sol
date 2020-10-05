@@ -70,7 +70,7 @@ library WadMath {
         z = n % 2 != 0 ? x : WAD;
 
         for (n /= 2; n != 0; n /= 2) {
-            x = wadMul(x, x);
+            x = wadSquared(x);
 
             if (n % 2 != 0) {
                 z = wadMul(z, x);

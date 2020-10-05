@@ -9,16 +9,30 @@ const FUM = artifacts.require('./FUM.sol')
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM', (accounts) => {
+  const [deployer, user1, user2, user3] = accounts
+  const [ONE, TWO, THREE, FOUR, EIGHT, TEN, HUNDRED, THOUSAND, WAD] =
+        [1, 2, 3, 4, 8, 10, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
+  const sides = { BUY: 0, SELL: 1 }
+  const price = new BN('25000000000')
+  const shift = EIGHT
+  const oneEth = WAD
+  const oneUsm = WAD
+  const oneFum = WAD
+  const MINUTE = 60
+  const HOUR = 60 * MINUTE
+  const DAY = 24 * HOUR
+  const priceWAD = wadDiv(price, TEN.pow(shift))
+
   function wadMul(x, y) {
-    return x.mul(y).div(WAD);
+    return ((x.mul(y)).add(WAD.div(TWO))).div(WAD)
   }
 
   function wadSquared(x) {
-    return x.mul(x).div(WAD);
+    return wadMul(x, x)
   }
 
   function wadDiv(x, y) {
-    return x.mul(WAD).div(y);
+    return ((x.mul(WAD)).add(y.div(TWO))).div(y)
   }
 
   function wadDecay(adjustment, decayFactor) {
@@ -32,23 +46,6 @@ contract('USM', (accounts) => {
   function shouldEqualApprox(x, y, precision) {
     x.sub(y).abs().should.be.bignumber.lte(precision)
   }
-
-  const [deployer, user1, user2, user3] = accounts
-
-  const [ONE, TWO, THREE, FOUR, EIGHT, TEN, HUNDRED, THOUSAND] =
-        [1, 2, 3, 4, 8, 10, 100, 1000].map(function (n) { return new BN(n) })
-  const WAD = new BN('1000000000000000000')
-
-  const sides = { BUY: 0, SELL: 1 }
-  const price = new BN('25000000000')
-  const shift = EIGHT
-  const oneEth = WAD
-  const oneUsm = WAD
-  const oneFum = WAD
-  const MINUTE = 60
-  const HOUR = 60 * MINUTE
-  const DAY = 24 * HOUR
-  const priceWAD = wadDiv(price, TEN.pow(shift))
 
   describe("mints and burns a static amount", () => {
     let oracle, weth, usm, totalEthToFund, totalEthToMint, bitOfEth
@@ -176,7 +173,7 @@ contract('USM', (accounts) => {
           // - The way our "time decay towards 1" approximation works, decaying 4 by ~1/8 should yield 1 + (4 * 1/8) - 1/8 = 1.375.
           //   (See comment in USM.mintBurnAdjustment().)
           // - And finally - since our decay's exponentiation is approximate (WadMath.wadHalfExp()), don't compare fundDefundAdj4 to
-          //   targetFundDefundAdj4 *exactly*, but instead first round both to the nearest multiple of 10 (via divRound(10)).
+          //   targetFundDefundAdj4 *exactly*, but instead to within some reasonable error (eg, 10).
           const fundDefundAdj3 = (await usm.fundDefundAdjustment())
 
           const block0 = (await web3.eth.getBlockNumber())
@@ -218,7 +215,7 @@ contract('USM', (accounts) => {
           // According to the adjustment math in USM.mint(), if the ETH pool has changed by factor f, the mintBurnAdjustment
           // should now be 1/(f**2):
           const targetMintBurnAdj2 = wadDiv(WAD, wadSquared(poolIncreaseFactor))
-          shouldEqualApprox(mintBurnAdj2, targetMintBurnAdj2, TEN)
+          shouldEqual(mintBurnAdj2, targetMintBurnAdj2)
 
           const fumBuyPrice2 = (await usm.fumPrice(sides.BUY))
           const fumSellPrice2 = (await usm.fumPrice(sides.SELL))
@@ -266,7 +263,7 @@ contract('USM', (accounts) => {
             // - The way our "time decay towards 1" approximation works, decaying 1/4 by ~1/8 should yield 1 + (1/4 * 1/8) - 1/8 = 0.90625.
             //   (See comment in USM.mintBurnAdjustment().)
             // - And finally - since our decay's exponentiation is approximate (WadMath.wadHalfExp()), don't compare mintBurnAdj3 to
-            //   targetMintBurnAdj3 *exactly*, but instead first round both to the nearest multiple of 10 (via divRound(10)).
+            //   targetMintBurnAdj3 *exactly*, but instead to within some reasonable error (eg, 10).
             const mintBurnAdj2 = (await usm.mintBurnAdjustment())
             
             const block0 = (await web3.eth.getBlockNumber())
@@ -295,7 +292,7 @@ contract('USM', (accounts) => {
             const debtRatio = (await usm.debtRatio())
             const usmSupply = (await usm.totalSupply())
             const targetDebtRatio = wadDiv(usmSupply, wadMul(ethPool, priceWAD))
-            shouldEqualApprox(debtRatio, targetDebtRatio, TEN)
+            shouldEqual(debtRatio, targetDebtRatio)
 
             const fumToBurn = fumBalance.div(FOUR) // defund 25% of our FUM
 
@@ -308,13 +305,12 @@ contract('USM', (accounts) => {
             const ethOut = (await weth.balanceOf(user1))
             // Calculate targetEthOut using the math in USM.ethFromDefund():
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(fumToBurn, fumSellPrice))))
-            // Compare approximately (to nearest multiple of 10) - may be a bit off due to rounding:
-            shouldEqualApprox(ethOut, targetEthOut, TEN)
+            shouldEqual(ethOut, targetEthOut)
 
             const debtRatio2 = (await usm.debtRatio())
             // Debt ratio should now be the same USM-value as in targetDebtRatio above, divided by a reduced total ETH pool:
             const targetDebtRatio2 = wadDiv(usmSupply, wadMul(ethPool.sub(ethOut), priceWAD))
-            shouldEqualApprox(debtRatio2, targetDebtRatio2, TEN)
+            shouldEqual(debtRatio2, targetDebtRatio2)
 
             // Several other checks we could do here:
             // - The change (decrease, since we've sold FUM) in fundDefundAdjustment
@@ -365,8 +361,7 @@ contract('USM', (accounts) => {
             const ethOut = (await weth.balanceOf(user2))
             // Calculate targetEthOut using the math in USM.ethFromBurn():
             const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(usmToBurn, usmSellPrice))))
-            // Compare approximately (to nearest multiple of 10) - may be a bit off due to rounding:
-            shouldEqualApprox(ethOut, targetEthOut, TEN)
+            shouldEqual(ethOut, targetEthOut)
 
             const debtRatio2 = (await usm.debtRatio())
             shouldEqual(debtRatio2, 0) // debt ratio should be 0% - we burned all the debt!
