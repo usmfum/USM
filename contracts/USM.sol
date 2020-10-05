@@ -20,6 +20,12 @@ contract USM is IUSM, ERC20Permit, Delegable {
     using SafeMath for uint;
     using WadMath for uint;
 
+    enum Side {Buy, Sell}
+
+    event MinFumBuyPriceChanged(uint previous, uint latest);
+    event MintBurnAdjustmentChanged(uint previous, uint latest);
+    event FundDefundAdjustmentChanged(uint previous, uint latest);
+
     uint public constant WAD = 10 ** 18;
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                 // 80%
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 24 * 60 * 60;    // 1 day
