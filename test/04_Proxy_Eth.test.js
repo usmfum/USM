@@ -29,6 +29,7 @@ contract('USM - Proxy - Eth', (accounts) => {
   const WAD = new BN('1000000000000000000')
 
   const sides = { BUY: 0, SELL: 1 }
+  const ethTypes = { ETH: 0, WETH: 1 }
   const price = new BN('25000000000')
   const shift = EIGHT
   const MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
@@ -58,25 +59,25 @@ contract('USM - Proxy - Eth', (accounts) => {
         const fumSellPrice = (await usm.fumPrice(sides.SELL))
         fumBuyPrice.toString().should.equal(fumSellPrice.toString())
 
-        await proxy.fundWithEth(0, { from: user1, value: oneEth })
+        await proxy.fund(oneEth, 0, ethTypes.ETH, { from: user1, value: oneEth })
         const ethPool2 = (await weth.balanceOf(usm.address))
         ethPool2.toString().should.equal(oneEth.toString())
       })
 
       it('does not mint FUM if minimum not reached', async () => {
         await expectRevert(
-          proxy.fundWithEth(MAX, { from: user1, value: oneEth }),
+          proxy.fund(oneEth, MAX, ethTypes.ETH, { from: user1, value: oneEth }),
           "Limit not reached",
         )
       })
 
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await proxy.fundWithEth(0, { from: user1, value: oneEth })
+          await proxy.fund(oneEth, 0, ethTypes.ETH, { from: user1, value: oneEth })
         })
 
         it('allows minting USM', async () => {
-          await proxy.mintWithEth(0, { from: user1, value: oneEth })
+          await proxy.mint(oneEth, 0, ethTypes.ETH, { from: user1, value: oneEth })
           const ethPool2 = (await weth.balanceOf(usm.address))
           ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
 
@@ -86,14 +87,14 @@ contract('USM - Proxy - Eth', (accounts) => {
 
         it('does not mint USM if minimum not reached', async () => {
           await expectRevert(
-            proxy.mintWithEth(MAX, { from: user1, value: oneEth }),
+            proxy.mint(oneEth, MAX, ethTypes.ETH, { from: user1, value: oneEth }),
             "Limit not reached",
           )
         })  
 
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await proxy.mintWithEth(0, { from: user1, value: oneEth })
+            await proxy.mint(oneEth, 0, ethTypes.ETH, { from: user1, value: oneEth })
           })
 
           it('allows burning FUM', async () => {
@@ -106,7 +107,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             fumBalance.toString().should.equal(targetFumBalance.toString())
 
             const fumToBurn = priceWAD.div(TWO)
-            await proxy.defundForEth(fumToBurn, 0, { from: user1, gasPrice: 0 }) // Don't use eth on gas
+            await proxy.defund(fumToBurn, 0, ethTypes.ETH, { from: user1, gasPrice: 0 }) // Don't use eth on gas
             const fumBalance2 = (await fum.balanceOf(user1))
             fumBalance2.toString().should.equal(fumBalance.sub(fumToBurn).toString())
 
@@ -121,7 +122,7 @@ contract('USM - Proxy - Eth', (accounts) => {
 
             await expectRevert(
               // Defunding the full balance would fail (violate MAX_DEBT_RATIO), so just defund half:
-              proxy.defundForEth(fumBalance.div(TWO), MAX, { from: user1 }),
+              proxy.defund(fumBalance.div(TWO), MAX, ethTypes.ETH, { from: user1 }),
               "Limit not reached",
             )
           })    
@@ -133,7 +134,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             const ethBalance = new BN(await web3.eth.getBalance(user1))
 
             const usmToBurn = (await usm.balanceOf(user1))
-            await proxy.burnForEth(usmToBurn, 0, { from: user1, gasPrice: 0})
+            await proxy.burn(usmToBurn, 0, ethTypes.ETH, { from: user1, gasPrice: 0})
             const userUsmBalance2 = (await usm.balanceOf(user1))
             userUsmBalance2.toString().should.equal('0')
 
@@ -147,7 +148,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             const usmBalance = (await usm.balanceOf(user1))
 
             await expectRevert(
-              proxy.burnForEth(usmBalance, MAX, { from: user1 }),
+              proxy.burn(usmBalance, MAX, ethTypes.ETH, { from: user1 }),
               "Limit not reached",
             )
           })    

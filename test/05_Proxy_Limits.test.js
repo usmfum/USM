@@ -19,6 +19,7 @@ contract('USM - Proxy - Limits', (accounts) => {
   let [deployer, user1, user2] = accounts
 
   const sides = { BUY: 0, SELL: 1 }
+  const ethTypes = { ETH: 0, WETH: 1 }
   const price = new BN('25000000000')
   const shift = new BN('8')
   const MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
@@ -52,7 +53,7 @@ contract('USM - Proxy - Limits', (accounts) => {
 
       it('allows minting FUM', async () => {
 
-        await proxy.fund(oneEth, 0, { from: user1 })
+        await proxy.fund(oneEth, 0, ethTypes.WETH, { from: user1 })
 
         const newEthPool = (await weth.balanceOf(usm.address))
         newEthPool.toString().should.equal(oneEth.toString())
@@ -60,39 +61,39 @@ contract('USM - Proxy - Limits', (accounts) => {
 
       it('does not mint FUM if minimum not reached', async () => {
         await expectRevert(
-          proxy.fund(oneEth, MAX, { from: user1 }),
+          proxy.fund(oneEth, MAX, ethTypes.WETH, { from: user1 }),
           "Limit not reached",
         )
       })
 
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await proxy.fund(oneEth, 0, { from: user1 })
+          await proxy.fund(oneEth, 0, ethTypes.WETH, { from: user1 })
         })
 
         it('allows minting USM', async () => {
-          await proxy.mint(oneEth, 0, { from: user1 })
+          await proxy.mint(oneEth, 0, ethTypes.WETH, { from: user1 })
           const usmBalance = (await usm.balanceOf(user1))
           usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).div(new BN('2')).toString())
         })
 
         it('does not mint USM if minimum not reached', async () => {
           await expectRevert(
-            proxy.mint(oneEth, MAX, { from: user1 }),
+            proxy.mint(oneEth, MAX, ethTypes.WETH, { from: user1 }),
             "Limit not reached",
           )
         })  
 
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await proxy.mint(oneEth, 0, { from: user1 })
+            await proxy.mint(oneEth, 0, ethTypes.WETH, { from: user1 })
           })
 
           it('allows burning FUM', async () => {
             const targetFumBalance = oneEth.mul(priceWAD).div(WAD) // see "allows minting FUM" above
             const startingBalance = await weth.balanceOf(user1)
 
-            await proxy.defund(priceWAD.mul(new BN('3')).div(new BN('4')), 0, { from: user1 }) // defund 75% of our fum
+            await proxy.defund(priceWAD.mul(new BN('3')).div(new BN('4')), 0, ethTypes.WETH, { from: user1 }) // defund 75% of our fum
             const newFumBalance = (await fum.balanceOf(user1))
             newFumBalance.toString().should.equal(targetFumBalance.div(new BN('4')).toString()) // should be 25% of what it was
 
@@ -101,7 +102,7 @@ contract('USM - Proxy - Limits', (accounts) => {
 
           it('does not burn FUM if minimum not reached', async () => {
             await expectRevert(
-              proxy.defund(priceWAD.mul(new BN('3')).div(new BN('4')), MAX, { from: user1 }),
+              proxy.defund(priceWAD.mul(new BN('3')).div(new BN('4')), MAX, ethTypes.WETH, { from: user1 }),
               "Limit not reached",
             )
           })    
@@ -110,7 +111,7 @@ contract('USM - Proxy - Limits', (accounts) => {
             const usmBalance = (await usm.balanceOf(user1)).toString()
             const startingBalance = await weth.balanceOf(user1)
 
-            await proxy.burn(usmBalance, 0, { from: user1 })
+            await proxy.burn(usmBalance, 0, ethTypes.WETH, { from: user1 })
             const newUsmBalance = (await usm.balanceOf(user1))
             newUsmBalance.toString().should.equal('0')
 
@@ -121,7 +122,7 @@ contract('USM - Proxy - Limits', (accounts) => {
             const usmBalance = (await usm.balanceOf(user1)).toString()
 
             await expectRevert(
-              proxy.burn(usmBalance, MAX, { from: user1 }),
+              proxy.burn(usmBalance, MAX, ethTypes.WETH, { from: user1 }),
               "Limit not reached",
             )
           })    
