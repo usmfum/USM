@@ -7,6 +7,8 @@ import "./external/IWETH9.sol";
 
 
 contract Proxy {
+    enum EthType {ETH, WETH}
+
     using Address for address payable;
     IUSM public usm;
     IWETH9 public weth;
@@ -20,108 +22,75 @@ contract Proxy {
         weth.approve(address(usm), uint(-1));
     }
 
-    // -------------------
-    // Using Ether
-    // -------------------
-
     /// @dev The WETH9 contract will send ether to Proxy on `weth.withdraw` using this function.
     receive() external payable { }
 
-    /// @dev Users use `mint` in Proxy to post ETH to USM (amount = msg.value), which will be converted to Weth here.
+    /// @dev Users use `mint()` in Proxy to input either WETH or ETH: either one results in passing WETH to `USM.mint()`.
+    /// @param ethIn Amount of WETH/ETH to use for minting USM.
     /// @param minUsmOut Minimum accepted USM for a successful mint.
-    function mintWithEth(uint minUsmOut)
+    /// @param inputType Whether the user passes in WETH, or ETH (which is immediately converted to WETH).
+    function mint(uint ethIn, uint minUsmOut, EthType inputType)
         external payable returns (uint)
     {
-        weth.deposit{ value: msg.value }();
-        uint usmOut = usm.mint(address(this), msg.sender, msg.value);
+        address payer = (inputType == EthType.ETH ? address(this) : msg.sender);
+        if (inputType == EthType.ETH) {
+            require(msg.value == ethIn, "ETH input misspecified");
+            weth.deposit{ value: msg.value }();
+        }
+        uint usmOut = usm.mint(payer, msg.sender, ethIn);
         require(usmOut >= minUsmOut, "Limit not reached");
         return usmOut;
     }
 
-    /// @dev Users wishing to withdraw their Weth as ETH from USM should use this function.
+    /// @dev Users wishing to withdraw their WETH from USM, either as WETH or as ETH, should use this function.
     /// Users must have called `controller.addDelegate(Proxy.address)` to authorize Proxy to act in their behalf.
     /// @param usmToBurn Amount of USM to burn.
-    /// @param minEthOut Minimum accepted ETH for a successful burn.
-    function burnForEth(uint usmToBurn, uint minEthOut)
+    /// @param minEthOut Minimum accepted WETH/ETH for a successful burn.
+    /// @param outputType Whether to send the user WETH, or first convert it to ETH.
+    function burn(uint usmToBurn, uint minEthOut, EthType outputType)
         external returns (uint)
     {
-        uint ethOut = usm.burn(msg.sender, address(this), usmToBurn);
+        address receiver = (outputType == EthType.ETH ? address(this) : msg.sender);
+        uint ethOut = usm.burn(msg.sender, receiver, usmToBurn);
         require(ethOut >= minEthOut, "Limit not reached");
-        weth.withdraw(ethOut);
-        msg.sender.sendValue(ethOut);
+        if (outputType == EthType.ETH) {
+            weth.withdraw(ethOut);
+            msg.sender.sendValue(ethOut);
+        }
         return ethOut;
     }
 
-    /// @notice Funds the pool with ETH, converted to WETH
-    /// @param minFumOut Minimum accepted FUM for a successful burn.
-    function fundWithEth(uint minFumOut)
+    /// @notice Funds the pool either with WETH, or with ETH (then converted to WETH)
+    /// @param ethIn Amount of WETH/ETH to use for minting FUM.
+    /// @param minFumOut Minimum accepted FUM for a successful fund.
+    /// @param inputType Whether the user passes in WETH, or ETH (which is immediately converted to WETH).
+    function fund(uint ethIn, uint minFumOut, EthType inputType)
         external payable returns (uint)
     {
-        weth.deposit{ value: msg.value }();
-        uint fumOut = usm.fund(address(this), msg.sender, msg.value);
+        address payer = (inputType == EthType.ETH ? address(this) : msg.sender);
+        if (inputType == EthType.ETH) {
+            require(msg.value == ethIn, "ETH input misspecified");
+            weth.deposit{ value: msg.value }();
+        }
+        uint fumOut = usm.fund(payer, msg.sender, ethIn);
         require(fumOut >= minFumOut, "Limit not reached");
         return fumOut;
     }
 
-    /// @notice Defunds the pool by sending FUM out in exchange for equivalent ETH from the pool
+    /// @notice Defunds the pool by redeeming FUM in exchange for equivalent WETH from the pool (optionally then converted to ETH)
     /// @param fumToBurn Amount of FUM to burn.
-    /// @param minEthOut Minimum accepted ETH for a successful defund.
-    function defundForEth(uint fumToBurn, uint minEthOut)
+    /// @param minEthOut Minimum accepted WETH/ETH for a successful defund.
+    /// @param outputType Whether to send the user WETH, or first convert it to ETH.
+    function defund(uint fumToBurn, uint minEthOut, EthType outputType)
         external returns (uint)
     {
-        uint ethOut = usm.defund(msg.sender, address(this), fumToBurn);
+        address receiver = (outputType == EthType.ETH ? address(this) : msg.sender);
+        uint ethOut = usm.defund(msg.sender, receiver, fumToBurn);
         require(ethOut >= minEthOut, "Limit not reached");
-        weth.withdraw(ethOut);
-        msg.sender.sendValue(ethOut);
-        return ethOut;
-    }
-
-    // -------------------
-    // Using Wrapped Ether
-    // -------------------
-
-    /// @dev Users use `mint` in Proxy to post Weth to USM.
-    /// @param ethIn Amount of wrapped eth to use for minting USM.
-    /// @param minUsmOut Minimum accepted USM for a successful mint.
-    function mint(uint ethIn, uint minUsmOut)
-        external returns (uint)
-    {
-        uint usmOut = usm.mint(msg.sender, msg.sender, ethIn);
-        require(usmOut >= minUsmOut, "Limit not reached");
-        return usmOut;
-    }
-
-    /// @dev Users wishing to withdraw their Weth from USM should use this function.
-    /// Users must have called `controller.addDelegate(Proxy.address)` to authorize Proxy to act in their behalf.
-    /// @param usmToBurn Amount of USM to burn.
-    /// @param minEthOut Minimum accepted WETH for a successful burn.
-    function burn(uint usmToBurn, uint minEthOut)
-        external returns (uint)
-    {
-        uint ethOut = usm.burn(msg.sender, msg.sender, usmToBurn);
-        require(ethOut >= minEthOut, "Limit not reached");
-        return ethOut;
-    }
-
-    /// @notice Funds the pool with WETH
-    /// @param ethIn Amount of wrapped eth to use for minting FUM.
-    /// @param minFumOut Minimum accepted FUM for a successful burn.
-    function fund(uint ethIn, uint minFumOut)
-        external returns (uint)
-    {
-        uint fumOut = usm.fund(msg.sender, msg.sender, ethIn); 
-        require(fumOut >= minFumOut, "Limit not reached");
-        return fumOut;
-    }
-
-    /// @notice Defunds the pool by sending FUM out in exchange for equivalent WETH from the pool
-    /// @param fumToBurn Amount of FUM to burn.
-    /// @param minEthOut Minimum accepted WETH for a successful defund.
-    function defund(uint fumToBurn, uint minEthOut)
-        external returns (uint)
-    {
-        uint ethOut = usm.defund(msg.sender, msg.sender, fumToBurn);
-        require(ethOut >= minEthOut, "Limit not reached");
+        if (outputType == EthType.ETH) {
+            weth.withdraw(ethOut);
+            msg.sender.sendValue(ethOut);
+        }
         return ethOut;
     }
 }
