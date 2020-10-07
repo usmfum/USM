@@ -10,7 +10,7 @@ require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Internal functions', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
-  let mockToken
+  let usm
 
   const price = new BN('25000000000')
   const shift = new BN('8')
@@ -21,7 +21,7 @@ contract('USM - Internal functions', (accounts) => {
   beforeEach(async () => {
     oracle = await TestOracle.new(price, shift, { from: deployer })
     weth = await WETH9.new({ from: deployer })
-    mockToken = await MockUSM.new(oracle.address, weth.address, { from: deployer })
+    usm = await MockUSM.new(oracle.address, weth.address, { from: deployer })
   })
 
   describe('deployment', async () => {
@@ -38,28 +38,28 @@ contract('USM - Internal functions', (accounts) => {
 
   describe('functionality', async () => {
     it('returns the oracle price in WAD', async () => {
-      let oraclePrice = (await mockToken.oraclePrice())
+      let oraclePrice = (await usm.oraclePrice())
       oraclePrice.toString().should.equal(priceWAD.toString())
     })
 
     it('returns the value of eth in usm', async () => {
       const oneEth = WAD
       const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-      let usmAmount = (await mockToken.ethToUsm(oneEth))
+      let usmAmount = (await usm.ethToUsm(oneEth))
       usmAmount.toString().should.equal(equivalentUSM.toString())
     })
 
     it('returns the value of usm in eth', async () => {
       const oneUSM = WAD
       const equivalentEth = oneUSM.mul(WAD).div(priceWAD)
-      let ethAmount = (await mockToken.usmToEth(oneUSM.toString()))
+      let ethAmount = (await usm.usmToEth(oneUSM.toString()))
       ethAmount.toString().should.equal(equivalentEth.toString())
     })
 
-    it('returns the debt ratio as zero', async () => {
-      const ZERO = new BN('0')
-      let debtRatio = (await mockToken.debtRatio())
-      debtRatio.toString().should.equal(ZERO.toString())
+    it('returns the debt ratio as MAX_DEBT_RATIO', async () => {
+      const MAX_DEBT_RATIO = await usm.MAX_DEBT_RATIO()
+      let debtRatio = (await usm.debtRatio())
+      debtRatio.toString().should.equal(MAX_DEBT_RATIO.toString())
     })
   })
 })
