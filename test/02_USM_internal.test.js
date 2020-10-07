@@ -56,10 +56,10 @@ contract('USM - Internal functions', (accounts) => {
       ethAmount.toString().should.equal(equivalentEth.toString())
     })
 
-    it('returns the debt ratio as MAX_DEBT_RATIO', async () => {
-      const MAX_DEBT_RATIO = await usm.MAX_DEBT_RATIO()
+    it('returns the debt ratio as zero', async () => {
+      const ZERO = new BN('0')
       let debtRatio = (await usm.debtRatio())
-      debtRatio.toString().should.equal(MAX_DEBT_RATIO.toString())
+      debtRatio.toString().should.equal(ZERO.toString())
     })
   })
 })

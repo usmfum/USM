@@ -147,6 +147,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
         _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolShrinkFactor.wadSquared()));
         require(eth.transfer(to, ethOut), "ETH transfer fail");
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
+        require(fum.totalSupply() > 0, "Some FUM must be left");
         return ethOut;
     }
 
@@ -190,7 +191,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
     function debtRatio() public view returns (uint) {
         uint pool = ethPool();
         if (pool == 0) {
-            return MAX_DEBT_RATIO;
+            return 0;
         }
         return totalSupply().wadDiv(ethToUsm(pool));
     }
