@@ -60,6 +60,11 @@ contract('USM', (accounts) => {
       usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
 
+      const initialFundEth = WAD
+      await weth.deposit({ from: user1, value: initialFundEth })
+      await weth.approve(usm.address, initialFundEth, { from: user1 })
+      await usm.fund(user1, user1, initialFundEth, { from: user1 })
+
       let snapshot = await timeMachine.takeSnapshot()
       snapshotId = snapshot['result']
     })
@@ -77,7 +82,7 @@ contract('USM', (accounts) => {
 
           await weth.deposit({ from: user1, value: ethIn })
           await weth.approve(usm.address, ethIn, { from: user1 })
-    
+
           const fumOut = await usm.fund.call(user1, user1, ethIn, { from: user1 })
           await usm.fund(user1, user1, ethIn, { from: user1 })
           console.log(`          > fumOut: ${fumOut}`)

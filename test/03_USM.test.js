@@ -90,6 +90,10 @@ contract('USM', (accounts) => {
     })
 
     describe("minting and burning", () => {
+      it("doesn't allow minting USM before minting FUM", async () => {
+        await expectRevert(usm.mint(user2, user1, totalEthToMint, { from: user2 }), "division by zero")
+      })
+
       it("allows minting FUM", async () => {
         const fumBuyPrice = (await usm.fumPrice(sides.BUY))
         const fumSellPrice = (await usm.fumPrice(sides.SELL))

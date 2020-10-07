@@ -37,15 +37,5 @@ module.exports = async function(deployer, network) {
         weth = await WETH9.at(wethAddresses[network])
     }
 
-    await deployer.deploy(USM, oracle.address, weth.address);
-    const usm = await USM.deployed()
-    const fum = await FUM.at(await usm.fum())
-
-    await deployer.deploy(Proxy, usm.address, weth.address)
-    const proxy = await Proxy.deployed()
-
-    await weth.deposit(deployer, 1)
-    await weth.approve(usm.address, 1)
-    await usm.fund(deployer, deployer, 1)
-    await fum.transfer('0x0000000000000000000000000000000000000001', 1)
+    await deployer.deploy(USM, oracle.address/*, wethAddresses[network]*/);
 }
