@@ -46,7 +46,7 @@ contract USMFuzzingRoundtrip {
         uint fumOut = usm.fund(address(this), address(this), ethIn);
         uint ethOut = usm.defund(address(this), address(this), fumOut);
 
-        require(fum.totalSupply() >= 10**18); // TODO: Edge case - Removing all FUM leaves ETH in USM that will be claimed by the next `fund()`
+        require(fum.totalSupply() > 0); // Edge case - Removing all FUM leaves ETH in USM that will be claimed by the next `fund()`
 
         assert(ethIn >= ethOut);
     }

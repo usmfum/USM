@@ -3,6 +3,10 @@ pragma solidity ^0.6.7;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
+/**
+ * @title Fixed point arithmetic library
+ * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
+ */
 library WadMath {
     using SafeMath for uint;
 

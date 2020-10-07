@@ -90,13 +90,6 @@ contract('USM', (accounts) => {
     })
 
     describe("minting and burning", () => {
-      it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(
-          usm.mint(user1, user1, oneEth, { from: user1 }),
-          "SafeMath: division by zero"
-        )
-      })
-
       it("allows minting FUM", async () => {
         const fumBuyPrice = (await usm.fumPrice(sides.BUY))
         const fumSellPrice = (await usm.fumPrice(sides.SELL))
@@ -166,11 +159,6 @@ contract('USM', (accounts) => {
             fum.transfer(fum.address, 1),
             "Don't transfer here"
           )
-        })
-
-        it("doesn't allow burning all FUM", async () => {
-          const allFum = (await fum.totalSupply())
-          await expectRevert(usm.defund(user2, user1, allFum, { from: user2 }), "Some FUM must be left")
         })
 
         it("decays fundDefundAdjustment over time", async () => {

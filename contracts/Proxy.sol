@@ -5,7 +5,10 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./IUSM.sol";
 import "./external/IWETH9.sol";
 
-
+/**
+ * @title USM Frontend Proxy
+ * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
+ */
 contract Proxy {
     enum EthType {ETH, WETH}
 

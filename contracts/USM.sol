@@ -13,7 +13,7 @@ import "./oracles/IOracle.sol";
 
 /**
  * @title USM Stable Coin
- * @author Alex Roan (@alexroan)
+ * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
 contract USM is IUSM, ERC20Permit, Delegable {
@@ -147,7 +147,6 @@ contract USM is IUSM, ERC20Permit, Delegable {
         _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolShrinkFactor.wadSquared()));
         require(eth.transfer(to, ethOut), "ETH transfer fail");
         require(debtRatio() <= MAX_DEBT_RATIO, "Max debt ratio breach");
-        require(fum.totalSupply() > 0, "Some FUM must be left");
         return ethOut;
     }
 
