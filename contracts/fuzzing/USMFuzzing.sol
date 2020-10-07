@@ -65,6 +65,8 @@ contract USMFuzzing {
         uint ethOut = usm.defund(address(this), address(this), fumOut);
         uint valueAfter = weth.balanceOf(address(usm));
 
+        require(fum.totalSupply() >= 10**18); // TODO: Edge case - Removing all FUM leaves ETH in USM that will be claimed by the next `fund()`
+
         assert(valueMiddle - ethOut == valueAfter); // The value in eth of the FUM supply decreased by as much as the value in eth of the FUM that was burnt
         assert(valueAfter >= valueBefore); // The protocol shouldn't have lost value with the round trip
     }
