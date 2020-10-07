@@ -91,7 +91,10 @@ contract('USM', (accounts) => {
 
     describe("minting and burning", () => {
       it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(usm.mint(user2, user1, oneEth, { from: user2 }), "Fund before minting")
+        await expectRevert(
+          usm.mint(user1, user1, oneEth, { from: user1 }),
+          "SafeMath: division by zero"
+        )
       })
 
       it("allows minting FUM", async () => {
