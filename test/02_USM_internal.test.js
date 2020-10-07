@@ -26,33 +26,33 @@ contract('USM - Internal functions', (accounts) => {
 
   describe('deployment', async () => {
     it('returns the correct price', async () => {
-      let oraclePrice = (await oracle.latestPrice())
+      let oraclePrice = await oracle.latestPrice()
       oraclePrice.toString().should.equal(price.toString())
     })
 
     it('returns the correct decimal shift', async () => {
-      let decimalshift = (await oracle.decimalShift())
+      let decimalshift = await oracle.decimalShift()
       decimalshift.toString().should.equal(shift.toString())
     })
   })
 
   describe('functionality', async () => {
     it('returns the oracle price in WAD', async () => {
-      let oraclePrice = (await usm.oraclePrice())
+      let oraclePrice = await usm.oraclePrice()
       oraclePrice.toString().should.equal(priceWAD.toString())
     })
 
     it('returns the value of eth in usm', async () => {
       const oneEth = WAD
       const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-      let usmAmount = (await usm.ethToUsm(oneEth))
+      let usmAmount = await usm.ethToUsm(oneEth)
       usmAmount.toString().should.equal(equivalentUSM.toString())
     })
 
     it('returns the value of usm in eth', async () => {
       const oneUSM = WAD
       const equivalentEth = oneUSM.mul(WAD).div(priceWAD)
-      let ethAmount = (await usm.usmToEth(oneUSM.toString()))
+      let ethAmount = await usm.usmToEth(oneUSM.toString())
       ethAmount.toString().should.equal(equivalentEth.toString())
     })
 
