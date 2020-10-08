@@ -1,11 +1,15 @@
 const TestOracle = artifacts.require("TestOracle");
 const ChainlinkOracle = artifacts.require("ChainlinkOracle");
 const USM = artifacts.require("USM");
+const FUM = artifacts.require("USM");
+const WETH9 = artifacts.require("USM");
+const Proxy = artifacts.require("Proxy");
 
 module.exports = async function(deployer, network) {
     // For some reason, this helps `oracle.address`
     // not be undefined??
     await web3.eth.net.getId();
+    const deployer = await web3.eth.getAccounts()[0]
     
     const oracleAddresses = {
         'ropsten' : '0x30B5068156688f818cEa0874B580206dFe081a03',
@@ -19,15 +23,19 @@ module.exports = async function(deployer, network) {
     }
 
     let oracle
+    let weth
     if (network !== 'ropsten' && network !== 'rinkeby' && network !== 'kovan') {
         await deployer.deploy(TestOracle, "25000000000", "8");
         oracle = await TestOracle.deployed()
+
+        await deployer.deploy(WETH9);
+        weth = await WETH9.deployed()
     }
     else {
         await deployer.deploy(ChainlinkOracle, oracleAddresses[network], "8")
         oracle = await ChainlinkOracle.deployed()
+        weth = await WETH9.at(wethAddresses[network])
     }
 
     await deployer.deploy(USM, oracle.address/*, wethAddresses[network]*/);
-    const usm = await USM.deployed()
 }

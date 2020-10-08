@@ -78,7 +78,7 @@ contract('USM', (accounts) => {
     })
 
     describe("deployment", () => {
-      it("starts with correct fum price", async () => {
+      it("starts with correct FUM price", async () => {
         const fumBuyPrice = (await usm.fumPrice(sides.BUY))
         // The FUM price should start off equal to $1, in ETH terms = 1 / price:
         const targetFumPrice = wadDiv(WAD, priceWAD)
@@ -91,7 +91,7 @@ contract('USM', (accounts) => {
 
     describe("minting and burning", () => {
       it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(usm.mint(user2, user1, oneEth, { from: user2 }), "Fund before minting")
+        await expectRevert(usm.mint(user2, user1, totalEthToMint, { from: user2 }), "division by zero")
       })
 
       it("allows minting FUM", async () => {
@@ -151,14 +151,14 @@ contract('USM', (accounts) => {
           await usm.fund(user1, user2, totalEthToFund, { from: user1 })
         })
 
-        it("reverts fum transfers to the usm contract", async () => {
+        it("reverts FUM transfers to the USM contract", async () => {
           await expectRevert(
             fum.transfer(usm.address, 1),
             "Don't transfer here"
           )
         })
 
-        it("reverts fum transfers to the fum contract", async () => {
+        it("reverts FUM transfers to the FUM contract", async () => {
           await expectRevert(
             fum.transfer(fum.address, 1),
             "Don't transfer here"
@@ -241,14 +241,14 @@ contract('USM', (accounts) => {
             price0 = (await oracle.latestPrice())
           })
 
-          it("reverts usm transfers to the usm contract", async () => {
+          it("reverts USM transfers to the USM contract", async () => {
             await expectRevert(
               usm.transfer(usm.address, 1),
               "Don't transfer here"
             )
           })
   
-          it("reverts usm transfers to the fum contract", async () => {
+          it("reverts USM transfers to the FUM contract", async () => {
             await expectRevert(
               usm.transfer(fum.address, 1),
               "Don't transfer here"

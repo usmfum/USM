@@ -6,7 +6,7 @@ import "erc20permit/contracts/ERC20Permit.sol";
 
 /**
  * @title FUM Token
- * @author Alex Roan (@alexroan)
+ * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  *
  * @notice This should be owned by the stablecoin.
  */

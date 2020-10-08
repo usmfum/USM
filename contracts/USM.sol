@@ -13,7 +13,7 @@ import "./oracles/IOracle.sol";
 
 /**
  * @title USM Stable Coin
- * @author Alex Roan (@alexroan)
+ * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
 contract USM is IUSM, ERC20Permit, Delegable {
@@ -57,6 +57,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
 
     /**
      * @notice Mint ETH for USM with checks and asset transfers. Uses msg.value as the ETH deposit.
+     * FUM needs to be funded before USM can be minted.
      * @param ethIn Amount of wrapped Ether to use for minting USM.
      * @return USM minted
      */
@@ -66,7 +67,6 @@ contract USM is IUSM, ERC20Permit, Delegable {
         returns (uint)
     {
         // First calculate:
-        require(fum.totalSupply() > 0, "Fund before minting");
         uint usmOut;
         uint ethPoolGrowthFactor;
         (usmOut, ethPoolGrowthFactor) = usmFromMint(ethIn);
