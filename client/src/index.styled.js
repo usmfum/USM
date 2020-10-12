@@ -9,11 +9,11 @@ export default createGlobalStyle`
     color: #282828;
     margin: 0;
     font-size: 16px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Lato', sans-serif;
   }
 
   a {
-    color: #E05A5B;
+    color: #282828;
     text-decoration: none;
   }
 
@@ -21,7 +21,7 @@ export default createGlobalStyle`
   .h2,
   .h3 {
     font-family: 'Rubik', sans-serif;
-    font-weight: 800;
+    font-weight: 900;
     text-transform: uppercase;
   }
 

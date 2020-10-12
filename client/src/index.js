@@ -11,8 +11,8 @@ import GlobalStyles from './index.styled';
 WebFont.load({
   google: {
     families: [
+      'Lato',
       'Rubik:800',
-      'Montserrat',
     ]
   }
 });

@@ -2,7 +2,9 @@ import React from 'react';
 import { connect } from 'react-redux';
 import { loadWeb3 } from '../../redux/interactions';
 
-import ConnectionStyled, { Button } from './Connection.styled';
+import Button from '../Button';
+
+import ConnectionStyled from './Connection.styled';
 
 function Connection({ dispatch }) {
   const connectWeb3 = () => loadWeb3(dispatch);
