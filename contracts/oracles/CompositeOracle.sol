@@ -18,7 +18,6 @@ contract CompositeOracle is IOracle, Ownable {
     constructor(IOracle[] memory oracles_, uint decimalShift_)
         public
     {
-        require(oracles_.length == 3, "Only 3 supported for now");
         oracles = oracles_; 
         decimalShift = decimalShift_;
 
@@ -45,18 +44,46 @@ contract CompositeOracle is IOracle, Ownable {
         return median(sourcePrices);
     }
 
-    function median(uint[] memory xs)
+    function median(uint[] memory arr)
         public pure returns (uint)
     {
-        require(xs.length == 3, "Only 3 supported for now");
+        sort(arr);
+        if (arr.length % 2 == 1) {
+            return arr[arr.length / 2];
+        } else {
+            return arr[arr.length / 2 - 1].add(arr[arr.length / 2]).div(2);     // Average of the two middle elements
+        }
+    }
 
-        uint a = xs[0];
-        uint b = xs[1];
-        uint c = xs[2];
-        bool ab = a > b;
-        bool bc = b > c;
-        bool ca = c > a;
+    function sort(uint[] memory arr)
+        public pure
+    {
+        quickSort(arr, int(0), int(arr.length) - 1);
+    }
 
-        return (ca == ab ? a : (ab == bc ? b : c));
+    /**
+     * @notice From @subhodi at https://gist.github.com/subhodi/b3b86cc13ad2636420963e692a4d896f, fixing @chriseth's (slightly
+     * broken!) version at https://ethereum.stackexchange.com/a/1518/64318
+     */
+    function quickSort(uint[] memory arr, int left, int right)
+         public pure
+    {
+        if (left >= right) {
+            return;
+        }
+        uint pivot = arr[uint((left + right) / 2)];
+        int i = left;
+        int j = right;
+        while (i <= j) {
+            while (arr[uint(i)] < pivot) ++i;
+            while (pivot < arr[uint(j)]) --j;
+            if (i <= j) {
+                (arr[uint(i)], arr[uint(j)]) = (arr[uint(j)], arr[uint(i)]);
+                ++i;
+                --j;
+            }
+        }
+        quickSort(arr, left, j);
+        quickSort(arr, i, right);
     }
 }
