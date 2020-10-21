@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.7;
+pragma solidity ^0.6.6;
 
 import "./IOracle.sol";
-import "./IUniswapV2Pair.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 
-contract UniswapV2SpotOracle is IOracle {
+contract OurUniswapV2SpotOracle is IOracle {
     IUniswapV2Pair public pair;
     uint public override decimalShift;
     uint public scalePriceBy;
@@ -48,7 +48,7 @@ contract UniswapV2SpotOracle is IOracle {
     function latestPrice() external override view returns (uint) {
         // Modeled off of https://github.com/anydotcrypto/uniswap-v2-periphery/blob/64dcf659928f9b9f002fdb58b4c655a099991472/contracts/UniswapV2Router04.sol -
         // thanks @stonecoldpat for the tip.
-        (uint reserve0, uint reserve1) = pair.getReserves();
+        (uint reserve0, uint reserve1,) = pair.getReserves();
         (uint reserveA, uint reserveB) = areTokensInReverseOrder ? (reserve1, reserve0) : (reserve0, reserve1);
         return reserveB * scalePriceBy / reserveA;      // See the "USDT * scalePriceBy / ETH" example above
     }
