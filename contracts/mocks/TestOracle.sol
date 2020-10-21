@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 
-import "./IOracle.sol";
+import "../oracles/IOracle.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TestOracle is IOracle, Ownable{
+contract TestOracle is IOracle, Ownable {
     using SafeMath for uint;
 
     uint public override latestPrice;

@@ -4,7 +4,7 @@ pragma solidity ^0.6.6;
 import "./IOracle.sol";
 import "./UniswapAnchoredView.sol";
 
-contract ComopoundOpenOracle is IOracle {
+contract CompoundOpenOracle is IOracle {
     UniswapAnchoredView public oracle;
     uint public override decimalShift;
 
