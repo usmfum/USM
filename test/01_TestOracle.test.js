@@ -1,8 +1,14 @@
 const TestOracle = artifacts.require('TestOracle')
+
 const Medianizer = artifacts.require('MockMakerMedianizer')
 const MakerOracle = artifacts.require('MakerOracle')
+
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
 const ChainlinkOracle = artifacts.require('ChainlinkOracle')
+
+const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
+const CompoundOracle = artifacts.require('CompoundOpenOracle')
+
 
 require('chai').use(require('chai-as-promised')).should()
 
@@ -71,6 +77,34 @@ contract('Chainlink', (accounts) => {
     await aggregator.set(price);
 
     oracle = await ChainlinkOracle.new(aggregator.address, shift, { from: deployer })
+  })
+
+  describe('deployment', async () => {
+    it('returns the correct price', async () => {
+      let oraclePrice = (await oracle.latestPrice())
+      oraclePrice.toString().should.equal(price)
+    })
+
+    it('returns the correct decimal shift', async () => {
+      let oracleShift = (await oracle.decimalShift())
+      oracleShift.toString().should.equal(shift)
+    })
+  })
+})
+
+contract('Compound', (accounts) => {
+  const [deployer] = accounts
+  let oracle
+  let anchoredView
+
+  const price = '414174999'
+  const shift = '6'
+
+  beforeEach(async () => {
+    anchoredView = await UniswapAnchoredView.new({ from: deployer })
+    await anchoredView.set(price);
+
+    oracle = await CompoundOracle.new(anchoredView.address, shift, { from: deployer })
   })
 
   describe('deployment', async () => {

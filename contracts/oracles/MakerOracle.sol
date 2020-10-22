@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
-
 import "./IOracle.sol";
-import "./IMakerPriceFeed.sol";
+
+
+interface IMakerPriceFeed {
+    function read() external view returns (bytes32);
+}
 
 contract MakerOracle is IOracle {
     IMakerPriceFeed public medianizer;

@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
-
 import "./IOracle.sol";
-import "./UniswapAnchoredView.sol";
+
+
+interface UniswapAnchoredView {
+    function price(string calldata symbol) external view returns (uint);
+}
 
 contract CompoundOpenOracle is IOracle {
     UniswapAnchoredView public oracle;
