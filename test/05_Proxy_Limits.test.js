@@ -8,11 +8,6 @@ const USM = artifacts.require('./USM.sol')
 const FUM = artifacts.require('./FUM.sol')
 const Proxy = artifacts.require('./Proxy.sol')
 
-const mintSignature = id('mint(address,address,uint256)').slice(0, 10)
-const burnSignature = id('burn(address,address,uint256)').slice(0, 10)
-const fundSignature = id('fund(address,address,uint256)').slice(0, 10)
-const defundSignature = id('defund(address,address,uint256)').slice(0, 10)
-
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Proxy - Limits', (accounts) => {
@@ -43,10 +38,7 @@ contract('USM - Proxy - Limits', (accounts) => {
       await weth.deposit({ from: user1, value: oneEth.mul(new BN('2')) })
       await weth.approve(usm.address, MAX, { from: user1 })
 
-      await usm.addDelegate(proxy.address, mintSignature, MAX, { from: user1 })
-      await usm.addDelegate(proxy.address, burnSignature, MAX, { from: user1 })
-      await usm.addDelegate(proxy.address, fundSignature, MAX, { from: user1 })
-      await usm.addDelegate(proxy.address, defundSignature, MAX, { from: user1 })
+      await usm.addDelegate(proxy.address, { from: user1 })
     })
 
     describe('minting and burning', () => {

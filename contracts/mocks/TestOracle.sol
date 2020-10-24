@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
-
 import "../oracles/IOracle.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@nomiclabs/buidler/console.sol";
+
 
 contract TestOracle is IOracle, Ownable {
     using SafeMath for uint;
@@ -19,5 +20,12 @@ contract TestOracle is IOracle, Ownable {
 
     function setPrice(uint price) external onlyOwner {
         latestPrice = price;
+    }
+
+    function latestPriceWithGas() external returns (uint256) {
+        uint gas = gasleft();
+        uint price = this.latestPrice();
+        console.log("        testOracle.latestPrice() cost: ", gas - gasleft());
+        return price;
     }
 }

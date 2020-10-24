@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 import "./IOracle.sol";
+import "@nomiclabs/buidler/console.sol";
 
 
 interface UniswapAnchoredView {
@@ -24,5 +25,13 @@ contract CompoundOpenOracle is IOracle {
     function latestPrice() external override view returns (uint) {
         // From https://compound.finance/docs/prices, also https://www.comp.xyz/t/open-price-feed-live/180
         return oracle.price("ETH");
+    }
+
+    // TODO: Remove for mainnet
+    function latestPriceWithGas() external returns (uint256) {
+        uint gas = gasleft();
+        uint price = this.latestPrice();
+        console.log("        compoundOracle.latestPrice() cost: ", gas - gasleft());
+        return price;
     }
 }

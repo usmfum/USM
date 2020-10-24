@@ -25,16 +25,18 @@ contract('TestOracle', (accounts) => {
     oracle = await TestOracle.new(price, shift, { from: deployer })
   })
 
-  describe('deployment', async () => {
-    it('returns the correct price', async () => {
-      let oraclePrice = (await oracle.latestPrice())
-      oraclePrice.toString().should.equal(price)
-    })
+  it('returns the correct price', async () => {
+    let oraclePrice = (await oracle.latestPrice())
+    oraclePrice.toString().should.equal(price)
+  })
 
-    it('returns the correct decimal shift', async () => {
-      let oracleShift = (await oracle.decimalShift())
-      oracleShift.toString().should.equal(shift)
-    })
+  it('returns the correct decimal shift', async () => {
+    let oracleShift = (await oracle.decimalShift())
+    oracleShift.toString().should.equal(shift)
+  })
+
+  it('returns the price in a transaction', async () => {
+    let oraclePrice = (await oracle.latestPriceWithGas())
   })
 })
 
@@ -53,16 +55,18 @@ contract('Maker', (accounts) => {
     oracle = await MakerOracle.new(medianizer.address, shift, { from: deployer })
   })
 
-  describe('deployment', async () => {
-    it('returns the correct price', async () => {
-      let oraclePrice = (await oracle.latestPrice())
-      oraclePrice.toString().should.equal(price)
-    })
+  it('returns the correct price', async () => {
+    let oraclePrice = (await oracle.latestPrice())
+    oraclePrice.toString().should.equal(price)
+  })
 
-    it('returns the correct decimal shift', async () => {
-      let oracleShift = (await oracle.decimalShift())
-      oracleShift.toString().should.equal(shift)
-    })
+  it('returns the correct decimal shift', async () => {
+    let oracleShift = (await oracle.decimalShift())
+    oracleShift.toString().should.equal(shift)
+  })
+
+  it('returns the price in a transaction', async () => {
+    let oraclePrice = (await oracle.latestPriceWithGas())
   })
 })
 
@@ -81,16 +85,18 @@ contract('Chainlink', (accounts) => {
     oracle = await ChainlinkOracle.new(aggregator.address, shift, { from: deployer })
   })
 
-  describe('deployment', async () => {
-    it('returns the correct price', async () => {
-      let oraclePrice = (await oracle.latestPrice())
-      oraclePrice.toString().should.equal(price)
-    })
+  it('returns the correct price', async () => {
+    let oraclePrice = (await oracle.latestPrice())
+    oraclePrice.toString().should.equal(price)
+  })
 
-    it('returns the correct decimal shift', async () => {
-      let oracleShift = (await oracle.decimalShift())
-      oracleShift.toString().should.equal(shift)
-    })
+  it('returns the correct decimal shift', async () => {
+    let oracleShift = (await oracle.decimalShift())
+    oracleShift.toString().should.equal(shift)
+  })
+
+  it('returns the price in a transaction', async () => {
+    let oraclePrice = (await oracle.latestPriceWithGas())
   })
 })
 
@@ -109,16 +115,18 @@ contract('Compound', (accounts) => {
     oracle = await CompoundOracle.new(anchoredView.address, shift, { from: deployer })
   })
 
-  describe('deployment', async () => {
-    it('returns the correct price', async () => {
-      let oraclePrice = (await oracle.latestPrice())
-      oraclePrice.toString().should.equal(price)
-    })
+  it('returns the correct price', async () => {
+    let oraclePrice = (await oracle.latestPrice())
+    oraclePrice.toString().should.equal(price)
+  })
 
-    it('returns the correct decimal shift', async () => {
-      let oracleShift = (await oracle.decimalShift())
-      oracleShift.toString().should.equal(shift)
-    })
+  it('returns the correct decimal shift', async () => {
+    let oracleShift = (await oracle.decimalShift())
+    oracleShift.toString().should.equal(shift)
+  })
+
+  it('returns the price in a transaction', async () => {
+    let oraclePrice = (await oracle.latestPriceWithGas())
   })
 })
 

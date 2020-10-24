@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 import "./IOracle.sol";
+import "@nomiclabs/buidler/console.sol";
 
 
 interface IMakerPriceFeed {
@@ -24,5 +25,13 @@ contract MakerOracle is IOracle {
     function latestPrice() external override view returns (uint) {
         // From https://studydefi.com/read-maker-medianizer/:
         return uint(medianizer.read());
+    }
+
+    // TODO: Remove for mainnet
+    function latestPriceWithGas() external returns (uint256) {
+        uint gas = gasleft();
+        uint price = this.latestPrice();
+        console.log("        makerOracle.latestPrice() cost: ", gas - gasleft());
+        return price;
     }
 }
