@@ -17,7 +17,9 @@ contract MockUSM is USM {
     constructor(address oracle_, address eth_) public USM(oracle_, eth_) { }
 
     function updateMinFumBuyPrice() public {
-        _updateMinFumBuyPrice();
+        uint ethInPool = ethPool();
+        uint oldDebtRatio = debtRatio(ethInPool, totalSupply());
+        _updateMinFumBuyPrice(oldDebtRatio, ethInPool, fum.totalSupply());
     }
 
     function oraclePrice() public view returns (uint) {
