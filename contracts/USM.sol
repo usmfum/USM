@@ -207,9 +207,9 @@ contract USM is IUSM, ERC20Permit, Delegable {
     function usmPrice(Side side) public view returns (uint price) {
         price = usmToEth(WAD);
         if (side == Side.Buy) {
-            price = price.wadMul(WAD.wadMax(buySellAdjustment()));
+            price = price.wadDiv(WAD.wadMin(buySellAdjustment()));
         } else {
-            price = price.wadMul(WAD.wadMin(buySellAdjustment()));
+            price = price.wadDiv(WAD.wadMax(buySellAdjustment()));
         }
     }
 
@@ -253,7 +253,15 @@ contract USM is IUSM, ERC20Permit, Delegable {
     }
 
     /**
-     * @notice The current buy/sell adjustment, equal to the stored value decayed by time since buySellAdjustmentTimestamp.
+     * @notice The current buy/sell adjustment, equal to the stored value decayed by time since buySellAdjustmentTimestamp.  This
+     * adjustment is intended as a measure of "how long-ETH recent user activity has been", so that we can slide price
+     * accordingly: if recent activity was mostly long-ETH (fund() and burn()), raise FUM buy price/reduce USM sell price; if
+     * recent activity was short-ETH (defund() and mint()), reduce FUM sell price/raise USM buy price.  We use "it reduced debt
+     * ratio" as a rough proxy for "the operation was long-ETH".
+     *
+     * (There is one odd case: when debt ratio > 100%, a *short*-ETH mint() will actually reduce debt ratio.  This does no real
+     * harm except to make fast-succession mint()s and fund()s in such > 100% cases a little more expensive than they would be.)
+     *
      * @return adjustment The sliding-price buy/sell adjustment
      */
     function buySellAdjustment() public view returns (uint adjustment) {
@@ -408,6 +416,9 @@ contract USM is IUSM, ERC20Permit, Delegable {
     function _updateBuySellAdjustmentIfNeeded(uint oldDebtRatio, uint newDebtRatio) internal {
         if (oldDebtRatio != 0 && newDebtRatio != 0) {
             uint previous = buySellAdjustmentStored.value;
+            // Eg: if a user operation reduced debt ratio from 70% to 50%, it was either a fund() or a burn().  These are both
+            // "long-ETH" operations.  So we can take old / new = 70% / 50% = 1.4 as the ratio by which to increase
+            // buySellAdjustment, which is intended as a measure of "how long-ETH recent user activity has been":
             uint adjustment = buySellAdjustment().wadMul(oldDebtRatio).wadDiv(newDebtRatio);
             buySellAdjustmentStored.timestamp = uint32(block.timestamp);
             buySellAdjustmentStored.value = uint224(adjustment);
