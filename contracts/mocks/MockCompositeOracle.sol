@@ -5,7 +5,7 @@ import "@nomiclabs/buidler/console.sol";
 
 contract MockCompositeOracle is CompositeOracle {
 
-    constructor(IOracle[] memory oracles_, uint decimalShift_) public CompositeOracle(oracles_, decimalShift_) { }
+    constructor(IOracle[3] memory oracles_, uint decimalShift_) public CompositeOracle(oracles_, decimalShift_) { }
 
     function latestPriceWithGas() external returns (uint256) {
         uint gas = gasleft();
