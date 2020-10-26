@@ -37,8 +37,8 @@ contract CompositeOracle is IOracle, Ownable {
     {
         // For maximal gas efficiency...
         return median([oracles[0].latestPrice().mul(shiftFactors[0]),
-		       oracles[1].latestPrice().mul(shiftFactors[1]),
-		       oracles[2].latestPrice().mul(shiftFactors[2])]);
+                       oracles[1].latestPrice().mul(shiftFactors[1]),
+                       oracles[2].latestPrice().mul(shiftFactors[2])]);
     }
 
     function median(uint[NUM_SOURCES] memory xs)
