@@ -2,7 +2,7 @@
 pragma solidity ^0.6.6;
 
 
-contract UniswapV2Pair {
+contract MockUniswapV2Pair {
     uint112 internal _reserves0;
     uint112 internal _reserves1;
 
@@ -11,7 +11,7 @@ contract UniswapV2Pair {
         _reserves1 = reserves1;
     }
 
-    function getReserves() external view returns(uint112, uint112) {
-        return (_reserves0, _reserves1);
+    function getReserves() external view returns (uint112, uint112, uint32) {
+        return (_reserves0, _reserves1, 0);
     }
 }

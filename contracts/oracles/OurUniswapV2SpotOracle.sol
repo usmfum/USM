@@ -2,14 +2,17 @@
 pragma solidity ^0.6.6;
 
 import "./IOracle.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+import "@nomiclabs/buidler/console.sol";
 
 contract OurUniswapV2SpotOracle is IOracle {
+    using SafeMath for uint;
+
     IUniswapV2Pair public pair;
+    bool public areTokensInReverseOrder;    // Whether to return reserve0 / reserve1, rather than reserve1 / reserve0
     uint public override decimalShift;
     uint public scalePriceBy;
-    bool public areTokensInReverseOrder;    // Depends on which order the given tokens are canonically sorted by Uniswap - see below
 
     /**
      * @notice Note that latestPrice() will return the price of tokenA, in terms of tokenB.  Eg, if tokenA = ETH and tokenB = DAI,
@@ -36,20 +39,26 @@ contract OurUniswapV2SpotOracle is IOracle {
      * - USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc (or 0x7fba4b8dc5e7616e59622806932dbea72537a56b?)
      * - DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11 (or 0xa1484c3aa22a66c62b77e0ae78e15258bd0cb711?)
      */
-    constructor(address factory, address tokenA, address tokenB, uint decimalShift_, uint scalePriceBy_) public {
-        pair = IUniswapV2Pair(UniswapV2Library.pairFor(factory, tokenA, tokenB));
+    constructor(address pair_, bool areTokensInReverseOrder_, uint decimalShift_, uint scalePriceBy_) public {
+        pair = IUniswapV2Pair(pair_);
+        areTokensInReverseOrder = areTokensInReverseOrder_;
         decimalShift = decimalShift_;
         scalePriceBy = scalePriceBy_;
-
-        (address token0, ) = UniswapV2Library.sortTokens(tokenA, tokenB);
-        areTokensInReverseOrder = (token0 == tokenB);
     }
 
     function latestPrice() external override view returns (uint) {
         // Modeled off of https://github.com/anydotcrypto/uniswap-v2-periphery/blob/64dcf659928f9b9f002fdb58b4c655a099991472/contracts/UniswapV2Router04.sol -
         // thanks @stonecoldpat for the tip.
-        (uint reserve0, uint reserve1,) = pair.getReserves();
-        (uint reserveA, uint reserveB) = areTokensInReverseOrder ? (reserve1, reserve0) : (reserve0, reserve1);
-        return reserveB * scalePriceBy / reserveA;      // See the "USDT * scalePriceBy / ETH" example above
+        (uint112 reserve0, uint112 reserve1,) = pair.getReserves();
+        (uint112 reserveA, uint112 reserveB) = areTokensInReverseOrder ? (reserve1, reserve0) : (reserve0, reserve1);
+        return (uint(reserveB)).mul(scalePriceBy).div(uint(reserveA));      // See the "USDT * scalePriceBy / ETH" example above
+    }
+
+    // TODO: Remove for mainnet
+    function latestPriceWithGas() external returns (uint256) {
+        uint gas = gasleft();
+        uint price = this.latestPrice();
+        console.log("        uniswapOracle.latestPrice() cost: ", gas - gasleft());
+        return price;
     }
 }
