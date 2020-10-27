@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.7;
+pragma solidity ^0.6.6;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "delegable.sol/contracts/Delegable.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
+import "./Delegable.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
 import "./oracles/IOracle.sol";
@@ -121,7 +121,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
 
         // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
-        if (ethPoolGrowthFactor != type(uint).max) {
+        if (ethPoolGrowthFactor != uint(-1)) {
             _updateFundDefundAdjustment(fundDefundAdjustment().wadMul(ethPoolGrowthFactor.wadSquared()));
         }
         fum.mint(to, fumOut);
@@ -316,7 +316,7 @@ contract USM is IUSM, ERC20Permit, Delegable {
         uint fumOut;
         if (pool == 0 ) {
             // This is our first ETH added, so an "ethPoolGrowthFactor" makes no sense - skip sliding-prices for this first call:
-            ethPoolGrowthFactor = type(uint).max;
+            ethPoolGrowthFactor = uint(-1);
             fumOut = ethIn.wadDiv(initialFumPrice);
         } else {
             ethPoolGrowthFactor = pool.add(ethIn).wadDiv(pool);
