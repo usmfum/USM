@@ -10,36 +10,30 @@ const CompositeOracle = artifacts.require('CompositeOracle')
 module.exports = async function(deployer, network) {
     
     const chainlinkAddresses = {
-        'mainnet' : '0x',
-        'ropsten' : '0x30B5068156688f818cEa0874B580206dFe081a03',
-        'rinkeby' : '0x8A753747A1Fa494EC906cE90E9f37563A8AF630e',
-        'kovan'   : '0x9326BFA02ADD2366b30bacB125260Af641031331'
+        'mainnet' : '0xaEA2808407B7319A31A383B6F8B60f04BCa23cE2',
+        'mainnet-ganache' : '0xaEA2808407B7319A31A383B6F8B60f04BCa23cE2'
     }
     const compoundAddresses = {
-        'mainnet' : '0x',
-        'ropsten' : '0x30B5068156688f818cEa0874B580206dFe081a03',
-        'rinkeby' : '0x8A753747A1Fa494EC906cE90E9f37563A8AF630e',
-        'kovan'   : '0x9326BFA02ADD2366b30bacB125260Af641031331'
+        'mainnet' : '0x922018674c12a7f0d394ebeef9b58f186cde13c1',
+        'mainnet-ganache' : '0x922018674c12a7f0d394ebeef9b58f186cde13c1'
     }
     const uniswapAddresses = {
-        'mainnet' : '0x',
-        'ropsten' : '0x30B5068156688f818cEa0874B580206dFe081a03',
-        'rinkeby' : '0x8A753747A1Fa494EC906cE90E9f37563A8AF630e',
-        'kovan'   : '0x9326BFA02ADD2366b30bacB125260Af641031331'
+        'mainnet' : '0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852',
+        'mainnet-ganache' : '0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852'
     }
 
     const shift = '18'
     const chainlinkShift = '8'
     const compoundShift = '6'
     const uniswapShift = '18'
+    const uniswapReverseOrder = false // TODO: Find out
+    const uniswapScalePriceBy = '1000000000000000000000000000000'
 
     if (network === 'development') {
         const chainlinkPrice = '38598000000'
         const compoundPrice = '414174999'
         const uniswapReserve0 = '646310144553926227215994'
         const uniswapReserve1 = '254384028636585'
-        const uniswapReverseOrder = false
-        const uniswapScalePriceBy = '1000000000000000000000000000000'
 
         await deployer.deploy(MockAggregator)
         aggregator = await MockAggregator.deployed()

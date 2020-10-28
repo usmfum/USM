@@ -5,10 +5,8 @@ const MockCompositeOracle = artifacts.require('MockCompositeOracle')
 const CompositeOracle = artifacts.require('CompositeOracle')
 
 const wethAddresses = {
-    'mainnet' : '0x',
-    'ropsten' : '0x',
-    'rinkeby' : '0x',
-    'kovan'   : '0x'
+    'mainnet' : '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+    'mainnet-ganache' : '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
 }
 
 module.exports = async function(deployer, network) {
