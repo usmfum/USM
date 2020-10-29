@@ -53,12 +53,4 @@ contract OurUniswapV2SpotOracle is IOracle {
         (uint112 reserveA, uint112 reserveB) = areTokensInReverseOrder ? (reserve1, reserve0) : (reserve0, reserve1);
         return (uint(reserveB)).mul(scalePriceBy).div(uint(reserveA));      // See the "USDT * scalePriceBy / ETH" example above
     }
-
-    // TODO: Remove for mainnet
-    function latestPriceWithGas() external returns (uint256) {
-        uint gas = gasleft();
-        uint price = this.latestPrice();
-        console.log("        uniswapOracle.latestPrice() cost: ", gas - gasleft());
-        return price;
-    }
 }

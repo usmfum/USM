@@ -1,13 +1,14 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const timeMachine = require('ganache-time-traveler')
 
+const SettableOracle = artifacts.require('SettableOracle')
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
 const ChainlinkOracle = artifacts.require('ChainlinkOracle')
 const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
 const CompoundOracle = artifacts.require('CompoundOpenOracle')
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
 const UniswapOracle = artifacts.require('OurUniswapV2SpotOracle')
-const CompositeOracle = artifacts.require('MockCompositeOracle')
+const CompositeOracle = artifacts.require('CompositeOracle')
 
 const WETH9 = artifacts.require('WETH9')
 const USM = artifacts.require('./USM.sol')
@@ -83,17 +84,21 @@ contract('USM', (accounts) => {
       // Oracle
       aggregator = await Aggregator.new({ from: deployer })
       await aggregator.set(chainlinkPrice);
-      chainlink = await ChainlinkOracle.new(aggregator.address, chainlinkShift, { from: deployer })
+      const chainlinkBase = await ChainlinkOracle.new(aggregator.address, chainlinkShift, { from: deployer })
+      chainlink = await SettableOracle.new(chainlinkBase.address, { from: deployer })
   
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
       await anchoredView.set(compoundPrice);
-      compound = await CompoundOracle.new(anchoredView.address, compoundShift, { from: deployer })
+      const compoundBase = await CompoundOracle.new(anchoredView.address, compoundShift, { from: deployer })
+      compound = await SettableOracle.new(compoundBase.address, { from: deployer })
   
       pair = await UniswapV2Pair.new({ from: deployer })
       await pair.set(uniswapReserve0, uniswapReserve1);
-      uniswap = await UniswapOracle.new(pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy, { from: deployer })
+      const uniswapBase = await UniswapOracle.new(pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy, { from: deployer })
+      uniswap = await SettableOracle.new(uniswapBase.address, { from: deployer })
   
-      oracle = await CompositeOracle.new([chainlink.address, compound.address, uniswap.address], shift, { from: deployer })
+      oracle = await CompositeOracle.new([chainlinkBase.address, compoundBase.address, uniswapBase.address], shift, { from: deployer })
+      oracle = await SettableOracle.new(oracle.address, { from: deployer })
 
       priceWAD = await oracle.latestPrice()
 
@@ -363,7 +368,6 @@ contract('USM', (accounts) => {
             // - Whether the fundDefundAdjustment decays properly over time (see "allows minting FUM" test above)
           })
 
-          /*
           it("doesn't allow burning FUM if it would push debt ratio above MAX_DEBT_RATIO", async () => {
             // Move price to get debt ratio just *below* MAX.  Eg, if debt ratio is currently 156%, increasing the price by
             // (156% / 79%%) should bring debt ratio to just about 79%:
@@ -395,7 +399,6 @@ contract('USM', (accounts) => {
             // And now defund() should fail:
             await expectRevert(usm.defund(user2, user1, oneFum, { from: user2 }), "Max debt ratio breach")
           })
-          */
 
           it("allows burning USM", async () => {
             const usmToBurn = (await usm.balanceOf(user1))
@@ -414,7 +417,6 @@ contract('USM', (accounts) => {
             shouldEqual(debtRatio2, 0) // debt ratio should be 0% - we burned all the debt!
           })
 
-          /*
           it("doesn't allow burning USM if debt ratio over 100%", async () => {
             // Move price to get debt ratio just *below* 100%:
             const targetDebtRatio1 = WAD.mul(HUNDRED.sub(ONE)).div(HUNDRED) // 99%
@@ -445,9 +447,7 @@ contract('USM', (accounts) => {
             // And now the same burn() should fail:
             await expectRevert(usm.burn(user1, user2, oneUsm, { from: user1 }), "Debt ratio too high")
           })
-          */
 
-          /*
           it("reduces minFumBuyPrice over time", async () => {
             // Move price to get debt ratio just *above* MAX:
             const targetDebtRatio1 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
@@ -485,7 +485,6 @@ contract('USM', (accounts) => {
             shouldEqual(minFumBuyPrice3, targetMinFumBuyPrice3)
             //console.log("MFBP 2: " + minFumBuyPrice + ", " + targetMinFumBuyPrice2 + ", " + minFumBuyPrice2 + ", " + targetMinFumBuyPrice3 + ", " + minFumBuyPrice3)
           })
-          */
         })
       })
     })
