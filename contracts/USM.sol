@@ -28,8 +28,8 @@ contract USM is IUSM, ERC20Permit, Delegable {
 
     uint public constant WAD = 10 ** 18;
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                 // 80%
-    uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 24 * 60 * 60;    // 1 day
-    uint public constant BUY_SELL_ADJUSTMENTS_HALF_LIFE = 60;           // 1 minute
+    uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
+    uint public constant BUY_SELL_ADJUSTMENTS_HALF_LIFE = 1 minutes;    // Solidity for 1 * 60
 
     IOracle public oracle;
     IERC20 public eth;
