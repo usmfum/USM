@@ -8,9 +8,6 @@ const USM = artifacts.require('./USM.sol')
 const FUM = artifacts.require('./FUM.sol')
 const Proxy = artifacts.require('./Proxy.sol')
 
-const burnSignature = id('burn(address,address,uint256)').slice(0, 10)
-const defundSignature = id('defund(address,address,uint256)').slice(0, 10)
-
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Proxy - Eth', (accounts) => {
@@ -67,8 +64,7 @@ contract('USM - Proxy - Eth', (accounts) => {
       fum = await FUM.at(await usm.fum())
       proxy = await Proxy.new(usm.address, weth.address, { from: deployer })
 
-      await usm.addDelegate(proxy.address, burnSignature, MAX, { from: user1 })
-      await usm.addDelegate(proxy.address, defundSignature, MAX, { from: user1 })
+      await usm.addDelegate(proxy.address, { from: user1 })
     })
 
     describe('minting and burning', () => {

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.7;
-
+pragma solidity ^0.6.6;
 import "./IOracle.sol";
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
+import "@nomiclabs/buidler/console.sol";
+
 
 contract ChainlinkOracle is IOracle{
 
@@ -22,5 +23,13 @@ contract ChainlinkOracle is IOracle{
     function latestPrice() external override view returns (uint) {
         (, int price,,,) = oracle.latestRoundData();
         return uint(price); // TODO: Cast safely
+    }
+
+    // TODO: Remove for mainnet
+    function latestPriceWithGas() external returns (uint256) {
+        uint gas = gasleft();
+        uint price = this.latestPrice();
+        console.log("        chainlinkOracle.latestPrice() cost: ", gas - gasleft());
+        return price;
     }
 }

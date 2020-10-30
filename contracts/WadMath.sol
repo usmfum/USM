@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.7;
+pragma solidity ^0.6.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
@@ -39,7 +39,7 @@ library WadMath {
     }
 
     function wadHalfExp(uint power) internal pure returns (uint) {
-        return wadHalfExp(power, type(uint).max);
+        return wadHalfExp(power, uint(-1));
     }
 
     //returns a loose but "gas-efficient" approximation of 0.5**power, where power is rounded to the nearest 0.1, and is capped

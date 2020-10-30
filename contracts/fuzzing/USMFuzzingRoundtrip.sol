@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.7;
+pragma solidity ^0.6.6;
 import "../IUSM.sol";
 import "../USM.sol";
 import "../FUM.sol";
-import "../oracles/TestOracle.sol";
+import "../mocks/TestOracle.sol";
 import "../mocks/MockWETH9.sol";
 import "../WadMath.sol";
 import "@nomiclabs/buidler/console.sol";
