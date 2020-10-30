@@ -59,20 +59,6 @@ module.exports = {
       gas: 0x6691b7
     },
 
-
-    // Another network with more advanced options...
-    // advanced: {
-      // port: 8777,             // Custom port
-      // network_id: 1342,       // Custom network
-      // gas: 8500000,           // Gas sent with each transaction (default: ~6700000)
-      // gasPrice: 20000000000,  // 20 gwei (in wei) (default: 100 gwei)
-      // from: <address>,        // Account to send txs from (default: accounts[0])
-      // websockets: true        // Enable EventEmitter interface for web3 (default: false)
-    // },
-
-    // Useful for deploying to a public network.
-    // NB: It's important to wrap the provider as a function.
-
     kovan: {
       provider: () => getProvider("kovan"),
       network_id: 42,         // Kovan's id
@@ -110,6 +96,26 @@ module.exports = {
       skipDryRun: false       // Skip dry run before migrations? (default: false for public nets )
     },
 
+    "mainnet-ganache": {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 8545,            // Standard Ethereum port (default: none)
+      network_id: 1,         // Any network (default: none)
+      gas: 10000000,
+      confirmations: 0,      // # of confs to wait between deployments. (default: 0)
+      timeoutBlocks: 200,    // # of blocks before a deployment times out  (minimum/default: 50)
+      gasPrice: 10000000000, // 10 gwei
+      skipDryRun: true       // Skip dry run before migrations? (default: false for public nets )
+    },
+
+    mainnet: {
+      provider: () => getProvider("mainnet"),
+      network_id: 1,         // Mainnet's id
+      confirmations: 0,      // # of confs to wait between deployments. (default: 0)
+      timeoutBlocks: 1000,   // # of blocks before a deployment times out  (minimum/default: 50)
+      gasPrice: 90000000000, // 90 gwei
+      skipDryRun: false      // Skip dry run before migrations? (default: false for public nets )
+    },
+
     // Useful for private networks
     // private: {
       // provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
@@ -127,7 +133,7 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.6.7",
+      version: "0.6.6",
       settings: {          // See the solidity docs for advice about optimization and evmVersion
         optimizer: {
           enabled: true,

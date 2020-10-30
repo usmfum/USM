@@ -1,10 +1,18 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const timeMachine = require('ganache-time-traveler')
 
-const TestOracle = artifacts.require('./TestOracle.sol')
+const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
+const ChainlinkOracle = artifacts.require('ChainlinkOracle')
+const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
+const CompoundOracle = artifacts.require('CompoundOpenOracle')
+const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
+const UniswapOracle = artifacts.require('OurUniswapV2SpotOracle')
+const CompositeOracle = artifacts.require('MockCompositeOracle')
+const SettableOracle = artifacts.require('SettableOracle')
+
 const WETH9 = artifacts.require('WETH9')
-const USM = artifacts.require('./USM.sol')
-const FUM = artifacts.require('./FUM.sol')
+const USM = artifacts.require('USM')
+const FUM = artifacts.require('FUM')
 
 require('chai').use(require('chai-as-promised')).should()
 
@@ -13,15 +21,36 @@ contract('USM', (accounts) => {
   const [ONE, TWO, THREE, FOUR, EIGHT, TEN, HUNDRED, THOUSAND, WAD] =
         [1, 2, 3, 4, 8, 10, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
   const sides = { BUY: 0, SELL: 1 }
-  const price = new BN('25000000000')
-  const shift = EIGHT
   const oneEth = WAD
   const oneUsm = WAD
   const oneFum = WAD
   const MINUTE = 60
   const HOUR = 60 * MINUTE
   const DAY = 24 * HOUR
-  const priceWAD = wadDiv(price, TEN.pow(shift))
+  const tolerance = new BN('1000000000000')
+
+  let oracle
+  let priceWAD
+  const shift = '18'
+
+  let chainlink
+  let aggregator
+  const chainlinkPrice = '38598000000'
+  const chainlinkShift = '8'
+
+  let compound
+  let anchoredView
+  const compoundPrice = '414174999'
+  const compoundShift = '6'
+
+  let uniswap
+  let pair
+  const uniswapReserve0 = '646310144553926227215994'
+  const uniswapReserve1 = '254384028636585'
+  const uniswapReverseOrder = false
+  const uniswapShift = '18'
+  const uniswapScalePriceBy = (new BN(10)).pow(new BN(30))
+  const uniswapPrice = '393594361437970499059' // = uniswapReserve1 * uniswapScalePriceBy / uniswapReserve0
 
   function wadMul(x, y) {
     return ((x.mul(y)).add(WAD.div(TWO))).div(WAD)
@@ -51,8 +80,28 @@ contract('USM', (accounts) => {
     let oracle, weth, usm, totalEthToFund, totalEthToMint, bitOfEth
 
     beforeEach(async () => {
-      // Deploy contracts
-      oracle = await TestOracle.new(price, shift, { from: deployer })
+      // Oracle
+      aggregator = await Aggregator.new({ from: deployer })
+      await aggregator.set(chainlinkPrice);
+      const chainlinkBase = await ChainlinkOracle.new(aggregator.address, chainlinkShift, { from: deployer })
+      chainlink = await SettableOracle.new(chainlinkBase.address, { from: deployer })
+  
+      anchoredView = await UniswapAnchoredView.new({ from: deployer })
+      await anchoredView.set(compoundPrice);
+      const compoundBase = await CompoundOracle.new(anchoredView.address, compoundShift, { from: deployer })
+      compound = await SettableOracle.new(compoundBase.address, { from: deployer })
+  
+      pair = await UniswapV2Pair.new({ from: deployer })
+      await pair.set(uniswapReserve0, uniswapReserve1);
+      const uniswapBase = await UniswapOracle.new(pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy, { from: deployer })
+      uniswap = await SettableOracle.new(uniswapBase.address, { from: deployer })
+  
+      const oracleBase = await CompositeOracle.new([chainlinkBase.address, compoundBase.address, uniswapBase.address], shift, { from: deployer })
+      oracle = await SettableOracle.new(oracleBase.address, { from: deployer })
+
+      priceWAD = await oracle.latestPrice()
+
+      // USM
       weth = await WETH9.new({ from: deployer })
       usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
@@ -71,6 +120,7 @@ contract('USM', (accounts) => {
 
       let snapshot = await timeMachine.takeSnapshot()
       snapshotId = snapshot['result']
+
     })
 
     afterEach(async () => {
@@ -108,7 +158,7 @@ contract('USM', (accounts) => {
         // The very first call to fund() is special: the initial price of $1 is used for the full trade, no sliding price.  So
         // 1 ETH @ $250 should buy 250 FUM:
         const targetFumBalance2 = wadMul(ethIn, priceWAD)
-        shouldEqual(fumBalance2, targetFumBalance2)
+        shouldEqualApprox(fumBalance2, targetFumBalance2, tolerance)
 
         const fundDefundAdj2 = (await usm.fundDefundAdjustment())
         shouldEqual(fundDefundAdj2, WAD) // First call to fund() doesn't move the fundDefundAdjustment
@@ -130,7 +180,7 @@ contract('USM', (accounts) => {
         // with the second call here 2xing the (W)ETH pool and the initial FUM price of $1 = 0.004 ETH, the FUM added should be
         // (current ETH pool) / 0.004 * (1 - 1 / 2), ie, the user's FUM balance should increase by a factor of 3/2:
         const targetFumBalance3 = wadMul(ethIn, priceWAD).mul(THREE).div(TWO)
-        shouldEqual(fumBalance3, targetFumBalance3)
+        shouldEqualApprox(fumBalance3, targetFumBalance3, tolerance)
 
         const fundDefundAdj3 = (await usm.fundDefundAdjustment())
         // We've 2x'd the ETH pool, which according to the adjustment math in USM.fund(), should 4x the fundDefundAdjustment:
@@ -209,7 +259,7 @@ contract('USM', (accounts) => {
           // the initial USM price of $1 = 0.004 ETH = 1 / $250, the USM added should be ETH pool * 250 * (1 - f):
           const poolIncreaseFactor = wadDiv(ethPool2, ethPool)
           const targetUsmBalance2 = wadMul(wadMul(ethPool, priceWAD), WAD.sub(wadDiv(WAD, poolIncreaseFactor)))
-          shouldEqual(usmBalance2, targetUsmBalance2)
+          shouldEqualApprox(usmBalance2, targetUsmBalance2, tolerance)
 
           const mintBurnAdj2 = (await usm.mintBurnAdjustment())
           // According to the adjustment math in USM.mint(), if the ETH pool has changed by factor f, the mintBurnAdjustment
@@ -287,7 +337,7 @@ contract('USM', (accounts) => {
 
             const fumBalance = (await fum.balanceOf(user2))
             const targetFumBalance = wadMul(totalEthToFund, priceWAD) // see "allows minting FUM"/"with existing FUM supply" above
-            shouldEqual(fumBalance, targetFumBalance)
+            shouldEqualApprox(fumBalance, targetFumBalance, tolerance)
 
             const debtRatio = (await usm.debtRatio())
             const usmSupply = (await usm.totalSupply())

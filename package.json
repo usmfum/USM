@@ -11,7 +11,10 @@
     "test": "buidler test test/*.js",
     "coverage": "buidler coverage --network coverage --temp build --testfiles 'test/*.js'",
     "lint:js": "prettier ./test/**/*.js --write",
-    "lint:sol": "solhint -f table contracts/**/*.sol"
+    "lint:sol": "solhint -f table contracts/**/*.sol",
+    "ganache": "./scripts/ganache.sh",
+    "deploy:ganache": "yarn ganache && truffle migrate",
+    "mainnet-ganache": "./scripts/mainnet-ganache.sh"
   },
   "author": "Alex Roan",
   "license": "GPL-3.0-or-later",

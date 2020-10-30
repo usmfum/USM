@@ -3,16 +3,16 @@ const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const TestOracle = artifacts.require('TestOracle')
 
 const Medianizer = artifacts.require('MockMakerMedianizer')
-const MakerOracle = artifacts.require('MakerOracle')
+const MakerOracle = artifacts.require('MockMakerOracle')
 
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
-const ChainlinkOracle = artifacts.require('ChainlinkOracle')
+const ChainlinkOracle = artifacts.require('MockChainlinkOracle')
 
 const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
-const CompoundOracle = artifacts.require('CompoundOpenOracle')
+const CompoundOracle = artifacts.require('MockCompoundOpenOracle')
 
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
-const UniswapOracle = artifacts.require('OurUniswapV2SpotOracle')
+const UniswapOracle = artifacts.require('MockOurUniswapV2SpotOracle')
 
 const CompositeOracle = artifacts.require('MockCompositeOracle')
 

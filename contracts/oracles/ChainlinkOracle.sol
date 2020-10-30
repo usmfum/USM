@@ -24,12 +24,4 @@ contract ChainlinkOracle is IOracle{
         (, int price,,,) = oracle.latestRoundData();
         return uint(price); // TODO: Cast safely
     }
-
-    // TODO: Remove for mainnet
-    function latestPriceWithGas() external returns (uint256) {
-        uint gas = gasleft();
-        uint price = this.latestPrice();
-        console.log("        chainlinkOracle.latestPrice() cost: ", gas - gasleft());
-        return price;
-    }
 }
