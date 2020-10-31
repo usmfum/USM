@@ -1,11 +1,19 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const timeMachine = require('ganache-time-traveler')
 
-const TestOracle = artifacts.require('./TestOracle.sol')
+const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
+const ChainlinkOracle = artifacts.require('ChainlinkOracle')
+const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
+const CompoundOracle = artifacts.require('CompoundOpenOracle')
+const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
+const UniswapOracle = artifacts.require('OurUniswapV2SpotOracle')
+const CompositeOracle = artifacts.require('MockCompositeOracle')
+const SettableOracle = artifacts.require('SettableOracle')
+
 const WETH9 = artifacts.require('WETH9')
 const WadMath = artifacts.require('MockWadMath')
-const USM = artifacts.require('./USM.sol')
-const FUM = artifacts.require('./FUM.sol')
+const USM = artifacts.require('USM')
+const FUM = artifacts.require('FUM')
 
 require('chai').use(require('chai-as-promised')).should()
 
@@ -14,16 +22,37 @@ contract('USM', (accounts) => {
   const [ZERO, ONE, TWO, THREE, FOUR, EIGHT, TEN, HUNDRED, THOUSAND, WAD] =
         [0, 1, 2, 3, 4, 8, 10, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
   const sides = { BUY: 0, SELL: 1 }
-  const price = new BN('25000000000')
-  const shift = EIGHT
   const oneEth = WAD
   const oneUsm = WAD
   const oneFum = WAD
   const MINUTE = 60
   const HOUR = 60 * MINUTE
   const DAY = 24 * HOUR
-  const priceWAD = wadDiv(price, TEN.pow(shift))
-  const oneDollarInEth = wadDiv(WAD, priceWAD)
+  const tolerance = new BN('1000000000000')
+
+  let oracle
+  let priceWAD
+  let oneDollarInEth
+  const shift = '18'
+
+  let chainlink
+  let aggregator
+  const chainlinkPrice = '38598000000'
+  const chainlinkShift = '8'
+
+  let compound
+  let anchoredView
+  const compoundPrice = '414174999'
+  const compoundShift = '6'
+
+  let uniswap
+  let pair
+  const uniswapReserve0 = '646310144553926227215994'
+  const uniswapReserve1 = '254384028636585'
+  const uniswapReverseOrder = false
+  const uniswapShift = '18'
+  const uniswapScalePriceBy = (new BN(10)).pow(new BN(30))
+  const uniswapPrice = '393594361437970499059' // = uniswapReserve1 * uniswapScalePriceBy / uniswapReserve0
 
   function wadMul(x, y) {
     return ((x.mul(y)).add(WAD.div(TWO))).div(WAD)
@@ -61,6 +90,12 @@ contract('USM', (accounts) => {
     x.toString().should.equal(y.toString())
   }
 
+  function shouldEqualOrSlightlyLess(x, y) {
+    // Check that 0.999999y <= x <= y:
+    x.should.be.bignumber.lte(y)
+    x.should.be.bignumber.gte(y.mul(new BN(999999)).div(new BN(1000000)))
+  }
+
   function fl(w) { // Converts a WAD fixed-point (eg, 2.7e18) to an unscaled float (2.7).  Of course may lose a bit of precision
     return parseFloat(w) / 10**18
   }
@@ -71,8 +106,29 @@ contract('USM', (accounts) => {
     let oracle, weth, usm, ethPerFund, ethPerMint, bitOfEth, snapshot, snapshotId
 
     beforeEach(async () => {
-      // Deploy contracts
-      oracle = await TestOracle.new(price, shift, { from: deployer })
+      // Oracle
+      aggregator = await Aggregator.new({ from: deployer })
+      await aggregator.set(chainlinkPrice);
+      const chainlinkBase = await ChainlinkOracle.new(aggregator.address, chainlinkShift, { from: deployer })
+      chainlink = await SettableOracle.new(chainlinkBase.address, { from: deployer })
+  
+      anchoredView = await UniswapAnchoredView.new({ from: deployer })
+      await anchoredView.set(compoundPrice);
+      const compoundBase = await CompoundOracle.new(anchoredView.address, compoundShift, { from: deployer })
+      compound = await SettableOracle.new(compoundBase.address, { from: deployer })
+  
+      pair = await UniswapV2Pair.new({ from: deployer })
+      await pair.set(uniswapReserve0, uniswapReserve1);
+      const uniswapBase = await UniswapOracle.new(pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy, { from: deployer })
+      uniswap = await SettableOracle.new(uniswapBase.address, { from: deployer })
+  
+      const oracleBase = await CompositeOracle.new([chainlinkBase.address, compoundBase.address, uniswapBase.address], shift, { from: deployer })
+      oracle = await SettableOracle.new(oracleBase.address, { from: deployer })
+
+      priceWAD = await oracle.latestPrice()
+      oneDollarInEth = wadDiv(WAD, priceWAD)
+
+      // USM
       weth = await WETH9.new({ from: deployer })
       usm = await USM.new(oracle.address, weth.address, { from: deployer })
       fum = await FUM.at(await usm.fum())
@@ -93,6 +149,7 @@ contract('USM', (accounts) => {
 
       snapshot = await timeMachine.takeSnapshot()
       snapshotId = snapshot['result']
+
     })
 
     afterEach(async () => {
@@ -166,8 +223,8 @@ contract('USM', (accounts) => {
 
           // Check that the FUM created was just based on straight linear pricing - qty * price:
           const targetFumBalance1 = wadMul(ethPool1, priceWAD)
-          shouldEqual(user2FumBalance1, targetFumBalance1)
-          shouldEqual(totalFumSupply1, targetFumBalance1)
+          shouldEqualOrSlightlyLess(user2FumBalance1, targetFumBalance1)    // Only approx b/c fumFromFund() loses some precision
+          shouldEqualOrSlightlyLess(totalFumSupply1, targetFumBalance1)
 
           // And relatedly, buySellAdjustment should be unchanged (1), and FUM buy price and FUM sell price should still be $1:
           shouldEqual(buySellAdj1, WAD)
@@ -220,8 +277,8 @@ contract('USM', (accounts) => {
             // The first mint() call doesn't use sliding prices, or update buySellAdjustment, because before this call the debt
             // ratio is 0.  Only once debt ratio becomes non-zero after this call does the system start applying sliding prices.
             const targetUsmBalance2 = wadMul(ethPerMint, priceWAD)
-            shouldEqual(user1UsmBalance2, targetUsmBalance2)
-            shouldEqual(totalUsmSupply2, targetUsmBalance2)
+            shouldEqualOrSlightlyLess(user1UsmBalance2, targetUsmBalance2)  // Only approx b/c usmFromMint() loses some precision
+            shouldEqualOrSlightlyLess(totalUsmSupply2, targetUsmBalance2)
 
             shouldEqual(buySellAdj2, WAD)
             shouldEqual(fumBuyPrice2, oneDollarInEth)

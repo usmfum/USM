@@ -26,12 +26,4 @@ contract MakerOracle is IOracle {
         // From https://studydefi.com/read-maker-medianizer/:
         return uint(medianizer.read());
     }
-
-    // TODO: Remove for mainnet
-    function latestPriceWithGas() external returns (uint256) {
-        uint gas = gasleft();
-        uint price = this.latestPrice();
-        console.log("        makerOracle.latestPrice() cost: ", gas - gasleft());
-        return price;
-    }
 }

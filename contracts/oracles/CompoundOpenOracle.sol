@@ -26,12 +26,4 @@ contract CompoundOpenOracle is IOracle {
         // From https://compound.finance/docs/prices, also https://www.comp.xyz/t/open-price-feed-live/180
         return oracle.price("ETH");
     }
-
-    // TODO: Remove for mainnet
-    function latestPriceWithGas() external returns (uint256) {
-        uint gas = gasleft();
-        uint price = this.latestPrice();
-        console.log("        compoundOracle.latestPrice() cost: ", gas - gasleft());
-        return price;
-    }
 }
