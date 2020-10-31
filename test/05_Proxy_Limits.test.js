@@ -66,7 +66,7 @@ contract('USM - Proxy - Limits', (accounts) => {
         it('allows minting USM', async () => {
           await proxy.mint(oneEth, 0, ethTypes.WETH, { from: user1 })
           const usmBalance = (await usm.balanceOf(user1))
-          usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).div(new BN('2')).toString())
+          usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).toString())
         })
 
         it('does not mint USM if minimum not reached', async () => {

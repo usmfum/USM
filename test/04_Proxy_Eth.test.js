@@ -12,17 +12,37 @@ require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Proxy - Eth', (accounts) => {
   function wadMul(x, y) {
-    return x.mul(y).div(WAD);
+    return ((x.mul(y)).add(WAD.div(TWO))).div(WAD)
+  }
+
+  function wadSquared(x) {
+    return wadMul(x, x)
   }
 
   function wadDiv(x, y) {
-    return x.mul(WAD).div(y);
+    return ((x.mul(WAD)).add(y.div(TWO))).div(y)
+  }
+
+  function wadSqrt(y) {
+    y = y.mul(WAD)
+    if (y.gt(THREE)) {
+      let z = y
+      let x = y.div(TWO).add(ONE)
+      while (x.lt(z)) {
+        z = x
+        x = y.div(x).add(x).div(TWO)
+      }
+      return z
+    } else if (y.ne(ZERO)) {
+      return ONE
+    }
+    return ZERO
   }
 
   const [deployer, user1, user2] = accounts
 
-  const [ZERO, TWO, EIGHT, TEN] =
-        [0, 2, 8, 10].map(function (n) { return new BN(n) })
+  const [ZERO, ONE, TWO, THREE, EIGHT, TEN] =
+        [0, 1, 2, 3, 8, 10].map(function (n) { return new BN(n) })
   const WAD = new BN('1000000000000000000')
 
   const sides = { BUY: 0, SELL: 1 }
@@ -78,7 +98,7 @@ contract('USM - Proxy - Eth', (accounts) => {
           ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
 
           const usmBalance2 = (await usm.balanceOf(user1))
-          usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD).div(TWO).toString())
+          usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD).toString()) // Just qty * price, no sliding prices yet
         })
 
         it('does not mint USM if minimum not reached', async () => {
@@ -95,6 +115,7 @@ contract('USM - Proxy - Eth', (accounts) => {
 
           it('allows burning FUM', async () => {
             const ethPool = (await usm.ethPool())
+            const debtRatio = (await usm.debtRatio())
             const fumSellPrice = (await usm.fumPrice(sides.SELL))
 
             const fumBalance = (await fum.balanceOf(user1))
@@ -109,8 +130,11 @@ contract('USM - Proxy - Eth', (accounts) => {
 
             const ethBalance2 = new BN(await web3.eth.getBalance(user1))
             const ethOut = ethBalance2.sub(ethBalance)
-            const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(fumToBurn, fumSellPrice))))
-            ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
+            // Like most of this file, this math is cribbed from 03_USM.test.js (originally, from USM.sol, eg ethFromDefund()):
+            const integralFirstPart = wadMul(wadSquared(fumBalance).sub(wadSquared(fumBalance2)), wadSquared(fumSellPrice))
+            const targetEthPool2 = wadSqrt(wadSquared(ethPool).sub(wadDiv(integralFirstPart, debtRatio)))
+            const targetEthOut = ethPool.sub(targetEthPool2)
+            ethOut.toString().should.equal(targetEthOut.toString())
           })
 
           it('does not burn FUM if minimum not reached', async () => {
@@ -125,19 +149,23 @@ contract('USM - Proxy - Eth', (accounts) => {
 
           it('allows burning USM', async () => {
             const ethPool = (await usm.ethPool())
+            const debtRatio = (await usm.debtRatio())
             const usmSellPrice = (await usm.usmPrice(sides.SELL))
 
+            const usmBalance = (await usm.balanceOf(user1))
             const ethBalance = new BN(await web3.eth.getBalance(user1))
 
-            const usmToBurn = (await usm.balanceOf(user1))
+            const usmToBurn = usmBalance
             await proxy.burn(usmToBurn, 0, ethTypes.ETH, { from: user1, gasPrice: 0})
-            const userUsmBalance2 = (await usm.balanceOf(user1))
-            userUsmBalance2.toString().should.equal('0')
+            const usmBalance2 = (await usm.balanceOf(user1))
+            usmBalance2.toString().should.equal('0')
 
             const ethBalance2 = new BN(await web3.eth.getBalance(user1))
             const ethOut = ethBalance2.sub(ethBalance)
-            const targetEthOut = wadDiv(WAD, wadDiv(WAD, ethPool).add(wadDiv(WAD, wadMul(usmToBurn, usmSellPrice))))
-            ethOut.divRound(TEN).toString().should.equal(targetEthOut.divRound(TEN).toString())
+            const integralFirstPart = wadMul(wadSquared(usmBalance).sub(wadSquared(usmBalance2)), wadSquared(usmSellPrice))
+            const targetEthPool2 = wadSqrt(wadSquared(ethPool).sub(wadDiv(integralFirstPart, debtRatio)))
+            const targetEthOut = ethPool.sub(targetEthPool2)
+            ethOut.toString().should.equal(targetEthOut.toString())
           })
 
           it('does not burn USM if minimum not reached', async () => {
