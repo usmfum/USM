@@ -3,6 +3,7 @@ const timeMachine = require('ganache-time-traveler')
 
 const TestOracle = artifacts.require('./TestOracle.sol')
 const WETH9 = artifacts.require('WETH9')
+const WadMath = artifacts.require('MockWadMath')
 const USM = artifacts.require('./USM.sol')
 const FUM = artifacts.require('./FUM.sol')
 
@@ -282,6 +283,22 @@ contract('USM', (accounts) => {
               fumSellPrice3 = await usm.fumPrice(sides.SELL)
               usmBuyPrice3 = await usm.usmPrice(sides.BUY)
               usmSellPrice3 = await usm.usmPrice(sides.SELL)
+            })
+
+            it("calculates sqrt correctly", async () => {
+              const roots = [1, 2, 3, 7, 10, 99, 1001, 10000, 99999, 1000001]
+              const w = await WadMath.new()
+              let i, r, square, sqrt
+              for (i = 0; i < roots.length; ++i) {
+                r = (new BN(roots[i])).mul(WAD)
+                square = wadSquared(r)
+                sqrt = await w.wadSqrt(square)
+                shouldEqual(sqrt, r)            // wadSqrt(49000000000000000000) should return 7000000000000000000
+                sqrt = await w.wadSqrt(square.add(ONE))
+                shouldEqual(sqrt, r)            // wadSqrt(49000000000000000001) should return 7000000000000000000 too
+                sqrt = await w.wadSqrt(square.sub(ONE))
+                shouldEqual(sqrt, r.sub(ONE))   // wadSqrt(48999999999999999999) should return 6999999999999999999 (ie, round down)
+              }
             })
 
             it("slides price correctly when minting FUM", async () => {
