@@ -4,9 +4,9 @@ pragma solidity ^0.6.6;
 import "../USM.sol";
 
 /**
- * @title MockWadMath
+ * @title MockUSM
  * @author Jacob Eliosoff (@jacob-eliosoff)
- * @notice This contract gives access to the internal functions of WadMath for testing
+ * @notice Like USM, but allows oraclePrice() to be set for testing purposes
  */
 contract MockUSM is USM {
     uint private savedPrice;
