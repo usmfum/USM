@@ -2,13 +2,8 @@ const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const timeMachine = require('ganache-time-traveler')
 
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
-//const ChainlinkOracle = artifacts.require('ChainlinkOracle')
 const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
-//const CompoundOracle = artifacts.require('CompoundOpenOracle')
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
-//const UniswapOracle = artifacts.require('OurUniswapV2SpotOracle')
-//const CompositeOracle = artifacts.require('MockCompositeOracle')
-//const SettableOracle = artifacts.require('SettableOracle')
 
 const WETH9 = artifacts.require('WETH9')
 const WadMath = artifacts.require('MockWadMath')
@@ -108,7 +103,8 @@ contract('USM', (accounts) => {
   
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
       await anchoredView.set(compoundPrice);
-  
+
+      // THIS IS A HACK AND NEEDS FIXING - these should be three different Uniswap pairs, not the same one 3 times!
       pairA = await UniswapV2Pair.new({ from: deployer })
       await pairA.set(uniswapReserve0, uniswapReserve1);
 
