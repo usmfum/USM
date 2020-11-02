@@ -2,17 +2,17 @@ const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const timeMachine = require('ganache-time-traveler')
 
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
-const ChainlinkOracle = artifacts.require('ChainlinkOracle')
+//const ChainlinkOracle = artifacts.require('ChainlinkOracle')
 const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
-const CompoundOracle = artifacts.require('CompoundOpenOracle')
+//const CompoundOracle = artifacts.require('CompoundOpenOracle')
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
-const UniswapOracle = artifacts.require('OurUniswapV2SpotOracle')
-const CompositeOracle = artifacts.require('MockCompositeOracle')
-const SettableOracle = artifacts.require('SettableOracle')
+//const UniswapOracle = artifacts.require('OurUniswapV2SpotOracle')
+//const CompositeOracle = artifacts.require('MockCompositeOracle')
+//const SettableOracle = artifacts.require('SettableOracle')
 
 const WETH9 = artifacts.require('WETH9')
 const WadMath = artifacts.require('MockWadMath')
-const USM = artifacts.require('USM')
+const USM = artifacts.require('MockUSM')
 const FUM = artifacts.require('FUM')
 
 require('chai').use(require('chai-as-promised')).should()
@@ -30,22 +30,18 @@ contract('USM', (accounts) => {
   const DAY = 24 * HOUR
   const tolerance = new BN('1000000000000')
 
-  let oracle
   let priceWAD
   let oneDollarInEth
   const shift = '18'
 
-  let chainlink
   let aggregator
   const chainlinkPrice = '38598000000'
   const chainlinkShift = '8'
 
-  let compound
   let anchoredView
   const compoundPrice = '414174999'
   const compoundShift = '6'
 
-  let uniswap
   let pair
   const uniswapReserve0 = '646310144553926227215994'
   const uniswapReserve1 = '254384028636585'
@@ -90,10 +86,10 @@ contract('USM', (accounts) => {
     x.toString().should.equal(y.toString())
   }
 
-  function shouldEqualOrSlightlyLess(x, y) {
-    // Check that 0.999999y <= x <= y:
-    x.should.be.bignumber.lte(y)
-    x.should.be.bignumber.gte(y.mul(new BN(999999)).div(new BN(1000000)))
+  function shouldEqualApprox(x, y) {
+    // Check that abs(x - y) < 0.0000001(x + y):
+    const diff = (x.gt(y) ? x.sub(y) : y.sub(x))
+    diff.should.be.bignumber.lt(x.add(y).div(new BN(1000000)))
   }
 
   function fl(w) { // Converts a WAD fixed-point (eg, 2.7e18) to an unscaled float (2.7).  Of course may lose a bit of precision
@@ -103,35 +99,33 @@ contract('USM', (accounts) => {
   /* ____________________ Deployment ____________________ */
 
   describe("mints and burns a static amount", () => {
-    let oracle, weth, usm, ethPerFund, ethPerMint, bitOfEth, snapshot, snapshotId
+    let weth, usm, ethPerFund, ethPerMint, bitOfEth, snapshot, snapshotId
 
     beforeEach(async () => {
       // Oracle
       aggregator = await Aggregator.new({ from: deployer })
       await aggregator.set(chainlinkPrice);
-      const chainlinkBase = await ChainlinkOracle.new(aggregator.address, chainlinkShift, { from: deployer })
-      chainlink = await SettableOracle.new(chainlinkBase.address, { from: deployer })
   
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
       await anchoredView.set(compoundPrice);
-      const compoundBase = await CompoundOracle.new(anchoredView.address, compoundShift, { from: deployer })
-      compound = await SettableOracle.new(compoundBase.address, { from: deployer })
   
-      pair = await UniswapV2Pair.new({ from: deployer })
-      await pair.set(uniswapReserve0, uniswapReserve1);
-      const uniswapBase = await UniswapOracle.new(pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy, { from: deployer })
-      uniswap = await SettableOracle.new(uniswapBase.address, { from: deployer })
-  
-      const oracleBase = await CompositeOracle.new([chainlinkBase.address, compoundBase.address, uniswapBase.address], shift, { from: deployer })
-      oracle = await SettableOracle.new(oracleBase.address, { from: deployer })
+      pairA = await UniswapV2Pair.new({ from: deployer })
+      await pairA.set(uniswapReserve0, uniswapReserve1);
 
-      priceWAD = await oracle.latestPrice()
-      oneDollarInEth = wadDiv(WAD, priceWAD)
+      pairB = await UniswapV2Pair.new({ from: deployer })
+      await pairB.set(uniswapReserve0, uniswapReserve1);
+
+      pairC = await UniswapV2Pair.new({ from: deployer })
+      await pairC.set(uniswapReserve0, uniswapReserve1);
 
       // USM
       weth = await WETH9.new({ from: deployer })
-      usm = await USM.new(oracle.address, weth.address, { from: deployer })
+      usm = await USM.new(weth.address, aggregator.address, anchoredView.address,
+                          pairA.address, true, pairB.address, false, pairC.address, true, { from: deployer })
       fum = await FUM.at(await usm.fum())
+
+      priceWAD = await usm.oraclePrice()
+      oneDollarInEth = wadDiv(WAD, priceWAD)
 
       ethPerFund = oneEth.mul(TWO)                  // Can be any (?) number
       const totalEthToFund = ethPerFund.mul(THREE)  // Based on three cumulative calls to fund() in tests below
@@ -174,7 +168,7 @@ contract('USM', (accounts) => {
 
       beforeEach(async () => {
         MAX_DEBT_RATIO = await usm.MAX_DEBT_RATIO()
-        price0 = await oracle.latestPrice()
+        price0 = await usm.oraclePrice()
       })
 
       it("doesn't allow minting USM before minting FUM", async () => {
@@ -223,8 +217,8 @@ contract('USM', (accounts) => {
 
           // Check that the FUM created was just based on straight linear pricing - qty * price:
           const targetFumBalance1 = wadMul(ethPool1, priceWAD)
-          shouldEqualOrSlightlyLess(user2FumBalance1, targetFumBalance1)    // Only approx b/c fumFromFund() loses some precision
-          shouldEqualOrSlightlyLess(totalFumSupply1, targetFumBalance1)
+          shouldEqualApprox(user2FumBalance1, targetFumBalance1)    // Only approx b/c fumFromFund() loses some precision
+          shouldEqualApprox(totalFumSupply1, targetFumBalance1)
 
           // And relatedly, buySellAdjustment should be unchanged (1), and FUM buy price and FUM sell price should still be $1:
           shouldEqual(buySellAdj1, WAD)
@@ -277,8 +271,8 @@ contract('USM', (accounts) => {
             // The first mint() call doesn't use sliding prices, or update buySellAdjustment, because before this call the debt
             // ratio is 0.  Only once debt ratio becomes non-zero after this call does the system start applying sliding prices.
             const targetUsmBalance2 = wadMul(ethPerMint, priceWAD)
-            shouldEqualOrSlightlyLess(user1UsmBalance2, targetUsmBalance2)  // Only approx b/c usmFromMint() loses some precision
-            shouldEqualOrSlightlyLess(totalUsmSupply2, targetUsmBalance2)
+            shouldEqualApprox(user1UsmBalance2, targetUsmBalance2)  // Only approx b/c usmFromMint() loses some precision
+            shouldEqualApprox(totalUsmSupply2, targetUsmBalance2)
 
             shouldEqual(buySellAdj2, WAD)
             shouldEqual(fumBuyPrice2, oneDollarInEth)
@@ -290,8 +284,8 @@ contract('USM', (accounts) => {
             const targetDebtRatio3 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
             const targetPrice3 = wadMul(price0, priceChangeFactor3)
-            await oracle.setPrice(targetPrice3)
-            const price3 = await oracle.latestPrice()
+            await usm.setPrice(targetPrice3)
+            const price3 = await usm.oraclePrice()
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -537,8 +531,8 @@ contract('USM', (accounts) => {
             const targetDebtRatio3 = MAX_DEBT_RATIO.sub(WAD.div(HUNDRED)) // Eg, 80% - 1% = 79%
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
             const targetPrice3 = wadMul(price0, priceChangeFactor3)
-            await oracle.setPrice(targetPrice3)
-            const price3 = await oracle.latestPrice()
+            await usm.setPrice(targetPrice3)
+            const price3 = await usm.oraclePrice()
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -552,8 +546,8 @@ contract('USM', (accounts) => {
             const targetDebtRatio5 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5)
             const targetPrice5 = wadMul(price3, priceChangeFactor5)
-            await oracle.setPrice(targetPrice5)
-            const price5 = await oracle.latestPrice()
+            await usm.setPrice(targetPrice5)
+            const price5 = await usm.oraclePrice()
             shouldEqual(price5, targetPrice5)
 
             const debtRatio5 = await usm.debtRatio()
@@ -624,8 +618,8 @@ contract('USM', (accounts) => {
             const targetDebtRatio3 = WAD.mul(HUNDRED.sub(ONE)).div(HUNDRED) // 99%
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
             const targetPrice3 = wadMul(price0, priceChangeFactor3)
-            await oracle.setPrice(targetPrice3)
-            const price3 = await oracle.latestPrice()
+            await usm.setPrice(targetPrice3)
+            const price3 = await usm.oraclePrice()
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -639,8 +633,8 @@ contract('USM', (accounts) => {
             const targetDebtRatio5 = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5)
             const targetPrice5 = wadMul(price3, priceChangeFactor5)
-            await oracle.setPrice(targetPrice5)
-            const price5 = await oracle.latestPrice()
+            await usm.setPrice(targetPrice5)
+            const price5 = await usm.oraclePrice()
             shouldEqual(price5, targetPrice5)
 
             const debtRatio5 = await usm.debtRatio()
