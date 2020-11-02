@@ -203,18 +203,21 @@ contract('CompositeOracle', (accounts) => {
     //maker = await MakerOracle.new(medianizer.address, makerShift, { from: deployer })
 
     aggregator = await Aggregator.new({ from: deployer })
-    await aggregator.set(chainlinkPrice);
-    chainlink = await ChainlinkOracle.new(aggregator.address, chainlinkShift, { from: deployer })
+    await aggregator.set(chainlinkPrice)
 
     anchoredView = await UniswapAnchoredView.new({ from: deployer })
-    await anchoredView.set(compoundPrice);
-    compound = await CompoundOracle.new(anchoredView.address, compoundShift, { from: deployer })
+    await anchoredView.set(compoundPrice)
 
     pair = await UniswapV2Pair.new({ from: deployer })
-    await pair.set(uniswapReserve0, uniswapReserve1);
-    uniswap = await UniswapOracle.new(pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy, { from: deployer })
+    await pair.set(uniswapReserve0, uniswapReserve1)
 
-    oracle = await CompositeOracle.new([chainlink.address, compound.address, uniswap.address], shift, { from: deployer })
+    oracle = await CompositeOracle.new(
+      aggregator.address, chainlinkShift,
+      anchoredView.address, compoundShift,
+      pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy,
+      shift,
+      { from: deployer }
+    )
   })
 
   describe('deployment', async () => {

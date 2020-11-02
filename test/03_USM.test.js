@@ -106,23 +106,23 @@ contract('USM', (accounts) => {
     let oracle, weth, usm, ethPerFund, ethPerMint, bitOfEth, snapshot, snapshotId
 
     beforeEach(async () => {
-      // Oracle
+
       aggregator = await Aggregator.new({ from: deployer })
-      await aggregator.set(chainlinkPrice);
-      const chainlinkBase = await ChainlinkOracle.new(aggregator.address, chainlinkShift, { from: deployer })
-      chainlink = await SettableOracle.new(chainlinkBase.address, { from: deployer })
+      await aggregator.set(chainlinkPrice)
   
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
-      await anchoredView.set(compoundPrice);
-      const compoundBase = await CompoundOracle.new(anchoredView.address, compoundShift, { from: deployer })
-      compound = await SettableOracle.new(compoundBase.address, { from: deployer })
+      await anchoredView.set(compoundPrice)
   
       pair = await UniswapV2Pair.new({ from: deployer })
-      await pair.set(uniswapReserve0, uniswapReserve1);
-      const uniswapBase = await UniswapOracle.new(pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy, { from: deployer })
-      uniswap = await SettableOracle.new(uniswapBase.address, { from: deployer })
+      await pair.set(uniswapReserve0, uniswapReserve1)
   
-      const oracleBase = await CompositeOracle.new([chainlinkBase.address, compoundBase.address, uniswapBase.address], shift, { from: deployer })
+      const oracleBase = await CompositeOracle.new(
+        aggregator.address, chainlinkShift,
+        anchoredView.address, compoundShift,
+        pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy,
+        shift,
+        { from: deployer }
+      )
       oracle = await SettableOracle.new(oracleBase.address, { from: deployer })
 
       priceWAD = await oracle.latestPrice()
