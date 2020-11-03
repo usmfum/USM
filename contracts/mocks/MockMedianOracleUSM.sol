@@ -5,11 +5,11 @@ import "./SettableOracle.sol";
 import "../USM.sol";
 
 /**
- * @title MockUSM
+ * @title MockMedianOracleUSM
  * @author Jacob Eliosoff (@jacob-eliosoff)
- * @notice Like USM, but allows latestPrice() to be set for testing purposes
+ * @notice Like USM (so, also inheriting MedianOracle), but allows latestPrice() to be set for testing purposes
  */
-contract MockUSM is USM, SettableOracle {
+contract MockMedianOracleUSM is USM, SettableOracle {
     uint private constant NUM_UNISWAP_PAIRS = 3;
 
     uint private savedPrice;

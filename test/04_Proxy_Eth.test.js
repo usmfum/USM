@@ -2,11 +2,10 @@ const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const { expect } = require('chai')
 const { id } = require('ethers/lib/utils')
 
-const TestOracle = artifacts.require('./TestOracle.sol')
 const WETH9 = artifacts.require('WETH9')
-const USM = artifacts.require('./USM.sol')
-const FUM = artifacts.require('./FUM.sol')
-const Proxy = artifacts.require('./Proxy.sol')
+const USM = artifacts.require('MockTestOracleUSM')
+const FUM = artifacts.require('FUM')
+const Proxy = artifacts.require('Proxy')
 
 require('chai').use(require('chai-as-promised')).should()
 
@@ -47,20 +46,18 @@ contract('USM - Proxy - Eth', (accounts) => {
 
   const sides = { BUY: 0, SELL: 1 }
   const ethTypes = { ETH: 0, WETH: 1 }
-  const price = new BN('25000000000')
-  const shift = EIGHT
   const MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
   const oneEth = WAD
-  const priceWAD = wadDiv(price, TEN.pow(shift))
+  const price = new BN(250)
+  const priceWAD = price.mul(WAD)
 
   describe('mints and burns a static amount', () => {
-    let oracle, weth, usm, proxy
+    let weth, usm, proxy
 
     beforeEach(async () => {
       // Deploy contracts
-      oracle = await TestOracle.new(price, shift, { from: deployer })
       weth = await WETH9.new({ from: deployer })
-      usm = await USM.new(oracle.address, weth.address, { from: deployer })
+      usm = await USM.new(weth.address, priceWAD, { from: deployer })
       fum = await FUM.at(await usm.fum())
       proxy = await Proxy.new(usm.address, weth.address, { from: deployer })
 

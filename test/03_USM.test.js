@@ -7,7 +7,7 @@ const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
 
 const WETH9 = artifacts.require('WETH9')
 const WadMath = artifacts.require('MockWadMath')
-const USM = artifacts.require('MockUSM')
+const USM = artifacts.require('MockMedianOracleUSM')
 const FUM = artifacts.require('FUM')
 
 require('chai').use(require('chai-as-promised')).should()
@@ -23,7 +23,6 @@ contract('USM', (accounts) => {
   const MINUTE = 60
   const HOUR = 60 * MINUTE
   const DAY = 24 * HOUR
-  const tolerance = new BN('1000000000000')
 
   let priceWAD
   let oneDollarInEth
@@ -124,7 +123,7 @@ contract('USM', (accounts) => {
       weth = await WETH9.new({ from: deployer })
       usm = await USM.new(weth.address, aggregator.address, anchoredView.address,
                           [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
-			  uniswapTokensInReverseOrder, uniswapScaleFactors, { from: deployer })
+                          uniswapTokensInReverseOrder, uniswapScaleFactors, { from: deployer })
       fum = await FUM.at(await usm.fum())
 
       priceWAD = await usm.latestPrice()

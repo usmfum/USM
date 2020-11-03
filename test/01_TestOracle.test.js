@@ -3,233 +3,227 @@ const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const TestOracle = artifacts.require('TestOracle')
 
 const Medianizer = artifacts.require('MockMakerMedianizer')
-const MakerOracle = artifacts.require('MockMakerOracle')
+const GasMakerOracle = artifacts.require('GasMeasuredMakerOracle')
 
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
-const ChainlinkOracle = artifacts.require('MockChainlinkOracle')
+const GasChainlinkOracle = artifacts.require('GasMeasuredChainlinkOracle')
 
 const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
-const CompoundOracle = artifacts.require('MockCompoundOpenOracle')
+const GasCompoundOracle = artifacts.require('GasMeasuredCompoundOpenOracle')
 
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
-const UniswapOracle = artifacts.require('MockOurUniswapV2SpotOracle')
+const GasUniswapOracle = artifacts.require('GasMeasuredOurUniswapV2SpotOracle')
 
-const CompositeOracle = artifacts.require('MockCompositeOracle')
+const GasUniswapMedianOracle = artifacts.require('GasMeasuredUniswapMedianOracle')
 
+const GasMedianOracle = artifacts.require('GasMeasuredMedianOracle')
 
 require('chai').use(require('chai-as-promised')).should()
 
-contract('TestOracle', (accounts) => {
-  const [deployer] = accounts
-  let oracle
+contract('Oracle pricing', (accounts) => {
+  const testPriceWAD = '250000000000000000000'              // TestOracle just uses WAD (18-dec-place) pricing
 
-  const price = '25000'
-  const shift = '8'
+  const makerPriceWAD = '392110000000000000000'             // Maker medianizer (IMakerPriceFeed) returns WAD 18-dec-place prices
 
-  beforeEach(async () => {
-    oracle = await TestOracle.new(price, shift, { from: deployer })
-  })
+  const chainlinkPrice = '38598000000'                      // Chainlink aggregator (AggregatorV3Interface) stores 8 dec places
+  const chainlinkPriceWAD = chainlinkPrice + '0000000000'   // We want 18 dec places, so add 10 0s
 
-  it('returns the correct price', async () => {
-    let oraclePrice = (await oracle.latestPrice())
-    oraclePrice.toString().should.equal(price)
-  })
+  const compoundPrice = '414174999'                         // Compound view (UniswapAnchoredView) stores 6 dec places
+  const compoundPriceWAD = compoundPrice + '000000000000'   // We want 18 dec places, so add 12 0s
 
-  it('returns the correct decimal shift', async () => {
-    let oracleShift = (await oracle.decimalShift())
-    oracleShift.toString().should.equal(shift)
-  })
+  const ethUsdtReserve0 = '646310144553926227215994'        // From the ETH/USDT pair.  See OurUniswapV2SpotOracle
+  const ethUsdtReserve1 = '254384028636585'
+  const ethUsdtTokensInReverseOrder = false
+  const ethUsdtScaleFactor = (new BN(10)).pow(new BN(30))   // This pair gives -12 dec places, we need 18.  See OurUniswapV2SpotOracle
 
-  it('returns the price in a transaction', async () => {
-    let oraclePrice = (await oracle.latestPriceWithGas())
-  })
-})
+  const usdcEthReserve0 = '260787673159143'
+  const usdcEthReserve1 = '696170744128378724814084'
+  const usdcEthTokensInReverseOrder = true
+  const usdcEthScaleFactor = (new BN(10)).pow(new BN(30))   // This pair gives -12 dec places, we need 18
 
-contract('Maker', (accounts) => {
-  const [deployer] = accounts
-  let oracle
-  let medianizer
+  const daiEthReserve0 = '178617913077721329213551886'
+  const daiEthReserve1 = '480578265664207487333589'
+  const daiEthTokensInReverseOrder = true
+  const daiEthScaleFactor = (new BN(10)).pow(new BN(18))    // This pair gives 0 dec places, we need 18
 
-  const price = '392110000000000000000'
-  const shift = '18'
+  describe("with TestOracle", () => {
+    const [deployer] = accounts
+    let oracle
 
-  beforeEach(async () => {
-    medianizer = await Medianizer.new({ from: deployer })
-    await medianizer.set(price);
-
-    oracle = await MakerOracle.new(medianizer.address, shift, { from: deployer })
-  })
-
-  it('returns the correct price', async () => {
-    let oraclePrice = (await oracle.latestPrice())
-    oraclePrice.toString().should.equal(price)
-  })
-
-  it('returns the correct decimal shift', async () => {
-    let oracleShift = (await oracle.decimalShift())
-    oracleShift.toString().should.equal(shift)
-  })
-
-  it('returns the price in a transaction', async () => {
-    let oraclePrice = (await oracle.latestPriceWithGas())
-  })
-})
-
-contract('Chainlink', (accounts) => {
-  const [deployer] = accounts
-  let oracle
-  let aggregator
-
-  const price = '38598000000'
-  const shift = '8'
-
-  beforeEach(async () => {
-    aggregator = await Aggregator.new({ from: deployer })
-    await aggregator.set(price);
-
-    oracle = await ChainlinkOracle.new(aggregator.address, shift, { from: deployer })
-  })
-
-  it('returns the correct price', async () => {
-    let oraclePrice = (await oracle.latestPrice())
-    oraclePrice.toString().should.equal(price)
-  })
-
-  it('returns the correct decimal shift', async () => {
-    let oracleShift = (await oracle.decimalShift())
-    oracleShift.toString().should.equal(shift)
-  })
-
-  it('returns the price in a transaction', async () => {
-    let oraclePrice = (await oracle.latestPriceWithGas())
-  })
-})
-
-contract('Compound', (accounts) => {
-  const [deployer] = accounts
-  let oracle
-  let anchoredView
-
-  const price = '414174999'
-  const shift = '6'
-
-  beforeEach(async () => {
-    anchoredView = await UniswapAnchoredView.new({ from: deployer })
-    await anchoredView.set(price);
-
-    oracle = await CompoundOracle.new(anchoredView.address, shift, { from: deployer })
-  })
-
-  it('returns the correct price', async () => {
-    let oraclePrice = (await oracle.latestPrice())
-    oraclePrice.toString().should.equal(price)
-  })
-
-  it('returns the correct decimal shift', async () => {
-    let oracleShift = (await oracle.decimalShift())
-    oracleShift.toString().should.equal(shift)
-  })
-
-  it('returns the price in a transaction', async () => {
-    let oraclePrice = (await oracle.latestPriceWithGas())
-  })
-})
-
-contract('Uniswap', (accounts) => {
-  const [deployer] = accounts
-  let oracle
-  let pair
-
-  const reserve0 = '646310144553926227215994'
-  const reserve1 = '254384028636585'
-  const shift = '18'
-  const scalePriceBy = (new BN(10)).pow(new BN(30))
-
-  beforeEach(async () => {
-    pair = await UniswapV2Pair.new({ from: deployer })
-    await pair.set(reserve0, reserve1)
-
-    oracle = await UniswapOracle.new(pair.address, false, shift, scalePriceBy, { from: deployer })
-  })
-
-  it('returns the correct price', async () => {
-    let oraclePrice = (await oracle.latestPrice())
-    const targetPrice = (new BN(reserve1)).mul(scalePriceBy).div(new BN(reserve0))
-    oraclePrice.toString().should.equal(targetPrice.toString())
-  })
-
-  it('returns the correct decimal shift', async () => {
-    let oracleShift = (await oracle.decimalShift())
-    oracleShift.toString().should.equal(shift)
-  })
-
-  it('returns the price in a transaction', async () => {
-    let oraclePrice = (await oracle.latestPriceWithGas())
-  })
-})
-
-contract('CompositeOracle', (accounts) => {
-  const [deployer] = accounts
-  let oracle
-  shift = '18'
-
-  //let maker
-  //let medianizer
-  //const makerPrice = '392110000000000000000'
-  //const makerShift = '18'
-
-  let chainlink
-  let aggregator
-  const chainlinkPrice = '38598000000'
-  const chainlinkShift = '8'
-
-  let compound
-  let anchoredView
-  const compoundPrice = '414174999'
-  const compoundShift = '6'
-
-  let uniswap
-  let pair
-  const uniswapReserve0 = '646310144553926227215994'
-  const uniswapReserve1 = '254384028636585'
-  const uniswapReverseOrder = false
-  const uniswapShift = '18'
-  const uniswapScalePriceBy = (new BN(10)).pow(new BN(30))
-  const uniswapPrice = '393594361437970499059' // = uniswapReserve1 * uniswapScalePriceBy / uniswapReserve0
-
-  beforeEach(async () => {
-    //medianizer = await Medianizer.new({ from: deployer })
-    //await medianizer.set(makerPrice);
-    //maker = await MakerOracle.new(medianizer.address, makerShift, { from: deployer })
-
-    aggregator = await Aggregator.new({ from: deployer })
-    await aggregator.set(chainlinkPrice);
-    chainlink = await ChainlinkOracle.new(aggregator.address, chainlinkShift, { from: deployer })
-
-    anchoredView = await UniswapAnchoredView.new({ from: deployer })
-    await anchoredView.set(compoundPrice);
-    compound = await CompoundOracle.new(anchoredView.address, compoundShift, { from: deployer })
-
-    pair = await UniswapV2Pair.new({ from: deployer })
-    await pair.set(uniswapReserve0, uniswapReserve1);
-    uniswap = await UniswapOracle.new(pair.address, uniswapReverseOrder, uniswapShift, uniswapScalePriceBy, { from: deployer })
-
-    oracle = await CompositeOracle.new([chainlink.address, compound.address, uniswap.address], shift, { from: deployer })
-  })
-
-  describe('deployment', async () => {
-    it('returns the correct price', async () => {
-      let oraclePrice = (await oracle.latestPrice())
-      oraclePrice.toString().should.equal(uniswapPrice)
+    beforeEach(async () => {
+      oracle = await TestOracle.new(testPriceWAD, { from: deployer })
     })
 
-    it('returns the correct decimal shift', async () => {
-      let oracleShift = (await oracle.decimalShift())
-      oracleShift.toString().should.equal(shift)
+    it('returns the correct price', async () => {
+      const oraclePrice = (await oracle.latestPrice())
+      oraclePrice.toString().should.equal(testPriceWAD)
     })
 
     it('returns the price in a transaction', async () => {
-      let oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPriceWithGas())
+    })
+  })
+
+  describe("with MakerOracle", () => {
+    const [deployer] = accounts
+    let oracle
+    let medianizer
+
+    beforeEach(async () => {
+      medianizer = await Medianizer.new({ from: deployer })
+      await medianizer.set(makerPriceWAD);
+
+      oracle = await GasMakerOracle.new(medianizer.address, { from: deployer })
+    })
+
+    it('returns the correct price', async () => {
+      const oraclePrice = (await oracle.latestPrice())
+      oraclePrice.toString().should.equal(makerPriceWAD)
+    })
+
+    it('returns the price in a transaction', async () => {
+      const oraclePrice = (await oracle.latestPriceWithGas())
+    })
+  })
+
+  describe("with ChainlinkOracle", () => {
+    const [deployer] = accounts
+    let oracle
+    let aggregator
+
+    beforeEach(async () => {
+      aggregator = await Aggregator.new({ from: deployer })
+      await aggregator.set(chainlinkPrice);
+
+      oracle = await GasChainlinkOracle.new(aggregator.address, { from: deployer })
+    })
+
+    it('returns the correct price', async () => {
+      const oraclePrice = (await oracle.latestPrice())
+      oraclePrice.toString().should.equal(chainlinkPriceWAD)
+    })
+
+    it('returns the price in a transaction', async () => {
+      const oraclePrice = (await oracle.latestPriceWithGas())
+    })
+  })
+
+  describe("with CompoundOracle", () => {
+    const [deployer] = accounts
+    let oracle
+    let anchoredView
+
+    beforeEach(async () => {
+      anchoredView = await UniswapAnchoredView.new({ from: deployer })
+      await anchoredView.set(compoundPrice);
+
+      oracle = await GasCompoundOracle.new(anchoredView.address, { from: deployer })
+    })
+
+    it('returns the correct price', async () => {
+      const oraclePrice = (await oracle.latestPrice())
+      oraclePrice.toString().should.equal(compoundPriceWAD)
+    })
+
+    it('returns the price in a transaction', async () => {
+      const oraclePrice = (await oracle.latestPriceWithGas())
+    })
+  })
+
+  describe("with OurUniswapV2SpotOracle", () => {
+    const [deployer] = accounts
+    let oracle
+    let pair
+
+    beforeEach(async () => {
+      pair = await UniswapV2Pair.new({ from: deployer })
+      await pair.set(ethUsdtReserve0, ethUsdtReserve1)
+
+      oracle = await GasUniswapOracle.new(pair.address, ethUsdtTokensInReverseOrder, ethUsdtScaleFactor, { from: deployer })
+    })
+
+    it('returns the correct price', async () => {
+      const oraclePrice = (await oracle.latestPrice())
+      const targetPrice = (new BN(ethUsdtReserve1)).mul(ethUsdtScaleFactor).div(new BN(ethUsdtReserve0)) // reverseOrder = false
+      oraclePrice.toString().should.equal(targetPrice.toString())
+    })
+
+    it('returns the price in a transaction', async () => {
+      const oraclePrice = (await oracle.latestPriceWithGas())
+    })
+  })
+
+  describe("with UniswapMedianOracle", () => {
+    const [deployer] = accounts
+    let oracle
+    let ethUsdtPair, usdcEthPair, daiEthPair
+
+    beforeEach(async () => {
+      ethUsdtPair = await UniswapV2Pair.new({ from: deployer })
+      await ethUsdtPair.set(ethUsdtReserve0, ethUsdtReserve1)
+
+      usdcEthPair = await UniswapV2Pair.new({ from: deployer })
+      await usdcEthPair.set(usdcEthReserve0, usdcEthReserve1)
+
+      daiEthPair = await UniswapV2Pair.new({ from: deployer })
+      await daiEthPair.set(daiEthReserve0, daiEthReserve1)
+
+      oracle = await GasUniswapMedianOracle.new(
+          [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
+          [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder],
+          [ethUsdtScaleFactor, usdcEthScaleFactor, daiEthScaleFactor], { from: deployer })
+    })
+
+    it('returns the correct price', async () => {
+      const oraclePrice = (await oracle.latestPrice())
+      // Of the three pairs, the USDC/ETH pair has the middle price, so UniswapMedianOracle's price should match it:
+      const targetPrice = (new BN(usdcEthReserve0)).mul(usdcEthScaleFactor).div(new BN(usdcEthReserve1)) // reverseOrder = true
+      oraclePrice.toString().should.equal(targetPrice.toString())
+    })
+
+    it('returns the price in a transaction', async () => {
+      const oraclePrice = (await oracle.latestPriceWithGas())
+    })
+  })
+
+  describe("with MedianOracle", () => {
+    const [deployer] = accounts
+    let oracle
+    let makerMedianizer, chainlinkAggregator, compoundView, ethUsdtPair, usdcEthPair, daiEthPair
+
+    beforeEach(async () => {
+      //makerMedianizer = await Medianizer.new({ from: deployer })
+      //await makerMedianizer.set(makerPriceWAD);
+
+      chainlinkAggregator = await Aggregator.new({ from: deployer })
+      await chainlinkAggregator.set(chainlinkPrice);
+
+      compoundView = await UniswapAnchoredView.new({ from: deployer })
+      await compoundView.set(compoundPrice);
+
+      ethUsdtPair = await UniswapV2Pair.new({ from: deployer })
+      await ethUsdtPair.set(ethUsdtReserve0, ethUsdtReserve1)
+
+      usdcEthPair = await UniswapV2Pair.new({ from: deployer })
+      await usdcEthPair.set(usdcEthReserve0, usdcEthReserve1)
+
+      daiEthPair = await UniswapV2Pair.new({ from: deployer })
+      await daiEthPair.set(daiEthReserve0, daiEthReserve1)
+
+      oracle = await GasMedianOracle.new(chainlinkAggregator.address, compoundView.address,
+        [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
+        [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder],
+        [ethUsdtScaleFactor, usdcEthScaleFactor, daiEthScaleFactor], { from: deployer })
+    })
+
+    it('returns the correct price', async () => {
+      const oraclePrice = (await oracle.latestPrice())
+      // Of the three oracles (Chainlink, Compound, UniswapMedian), Chainlink's is in the middle, so MedianOracle should match it:
+      oraclePrice.toString().should.equal(chainlinkPriceWAD)
+    })
+
+    it('returns the price in a transaction', async () => {
+      const oraclePrice = (await oracle.latestPriceWithGas())
     })
   })
 })
