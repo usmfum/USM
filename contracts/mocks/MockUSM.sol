@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 
+import "./SettableOracle.sol";
 import "../USM.sol";
 
 /**
@@ -8,7 +9,7 @@ import "../USM.sol";
  * @author Jacob Eliosoff (@jacob-eliosoff)
  * @notice Like USM, but allows latestPrice() to be set for testing purposes
  */
-contract MockUSM is USM {
+contract MockUSM is USM, SettableOracle {
     uint private constant NUM_UNISWAP_PAIRS = 3;
 
     uint private savedPrice;
@@ -18,7 +19,7 @@ contract MockUSM is USM {
                 uint[NUM_UNISWAP_PAIRS] memory uniswapScaleFactors) public
         USM(eth, chainlinkAggregator, compoundView, uniswapPairs, uniswapTokensInReverseOrder, uniswapScaleFactors) {}
 
-    function setPrice(uint p) public {
+    function setPrice(uint p) public override {
         savedPrice = p;
     }
 

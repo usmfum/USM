@@ -14,8 +14,8 @@ require('chai').use(require('chai-as-promised')).should()
 
 contract('USM', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
-  const [ZERO, ONE, TWO, THREE, FOUR, EIGHT, TEN, HUNDRED, THOUSAND, WAD] =
-        [0, 1, 2, 3, 4, 8, 10, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
+  const [ZERO, ONE, TWO, THREE, FOUR, EIGHT, TEN, EIGHTEEN, THIRTY, HUNDRED, THOUSAND, WAD] =
+        [0, 1, 2, 3, 4, 8, 10, 18, 30, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
   const sides = { BUY: 0, SELL: 1 }
   const oneEth = WAD
   const oneUsm = WAD
@@ -36,20 +36,20 @@ contract('USM', (accounts) => {
   const compoundPrice = '414174999' // 6 dec places: see CompoundOpenOracle
 
   let ethUsdtPair, usdcEthPair, daiEthPair
-  const uniswapTokensInReverseOrder = [false, true, true]       // See UniswapMedianOracle
-  const uniswapScaleFactors = [10 ** 30, 10 ** 30, 10 ** 18]    // See UniswapMedianOracle
+  const uniswapTokensInReverseOrder = [false, true, true]                               // See UniswapMedianOracle
+  const uniswapScaleFactors = [TEN.pow(THIRTY), TEN.pow(THIRTY), TEN.pow(EIGHTEEN)]     // See UniswapMedianOracle
 
   const ethUsdtReserve0 = '646310144553926227215994'
   const ethUsdtReserve1 = '254384028636585'
-  const ethUsdtPrice = '393594361437970499059'                  // = ethUsdtReserve1 * ethUsdtScaleFactor / ethUsdtReserve0
+  const ethUsdtPrice = '393594361437970499059'              // = ethUsdtReserve1 * ethUsdtScaleFactor / ethUsdtReserve0
 
   const usdcEthReserve0 = '260787673159143'
   const usdcEthReserve1 = '696170744128378724814084'
-  const usdcEthPrice = '374603034325515896918'                  // = usdcEthReserve0 * usdcEthScaleFactor / usdcEthReserve1
+  const usdcEthPrice = '374603034325515896918'              // = usdcEthReserve0 * usdcEthScaleFactor / usdcEthReserve1
 
   const daiEthReserve0 = '178617913077721329213551886'
   const daiEthReserve1 = '480578265664207487333589'
-  const daiEthPrice = '371672890430975717452'                   // = daiEthReserve0 * daiEthScaleFactor / daiEthReserve1
+  const daiEthPrice = '371672890430975717452'               // = daiEthReserve0 * daiEthScaleFactor / daiEthReserve1
 
 
   function wadMul(x, y) {
@@ -127,7 +127,7 @@ contract('USM', (accounts) => {
 			  uniswapTokensInReverseOrder, uniswapScaleFactors, { from: deployer })
       fum = await FUM.at(await usm.fum())
 
-      priceWAD = await usm.oraclePrice()
+      priceWAD = await usm.latestPrice()
       oneDollarInEth = wadDiv(WAD, priceWAD)
 
       ethPerFund = oneEth.mul(TWO)                  // Can be any (?) number
@@ -171,7 +171,7 @@ contract('USM', (accounts) => {
 
       beforeEach(async () => {
         MAX_DEBT_RATIO = await usm.MAX_DEBT_RATIO()
-        price0 = await usm.oraclePrice()
+        price0 = await usm.latestPrice()
       })
 
       it("doesn't allow minting USM before minting FUM", async () => {
@@ -288,7 +288,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
             const targetPrice3 = wadMul(price0, priceChangeFactor3)
             await usm.setPrice(targetPrice3)
-            const price3 = await usm.oraclePrice()
+            const price3 = await usm.latestPrice()
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -535,7 +535,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
             const targetPrice3 = wadMul(price0, priceChangeFactor3)
             await usm.setPrice(targetPrice3)
-            const price3 = await usm.oraclePrice()
+            const price3 = await usm.latestPrice()
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -550,7 +550,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5)
             const targetPrice5 = wadMul(price3, priceChangeFactor5)
             await usm.setPrice(targetPrice5)
-            const price5 = await usm.oraclePrice()
+            const price5 = await usm.latestPrice()
             shouldEqual(price5, targetPrice5)
 
             const debtRatio5 = await usm.debtRatio()
@@ -622,7 +622,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
             const targetPrice3 = wadMul(price0, priceChangeFactor3)
             await usm.setPrice(targetPrice3)
-            const price3 = await usm.oraclePrice()
+            const price3 = await usm.latestPrice()
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -637,7 +637,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5)
             const targetPrice5 = wadMul(price3, priceChangeFactor5)
             await usm.setPrice(targetPrice5)
-            const price5 = await usm.oraclePrice()
+            const price5 = await usm.latestPrice()
             shouldEqual(price5, targetPrice5)
 
             const debtRatio5 = await usm.debtRatio()

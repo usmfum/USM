@@ -3,7 +3,7 @@ pragma solidity ^0.6.6;
 
 library Median {
     function median(uint[3] memory xs)
-        public pure returns (uint)
+        internal pure returns (uint)
     {
         require(xs.length == 3, "Only 3 supported for now");
 
