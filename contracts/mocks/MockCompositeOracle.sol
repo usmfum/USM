@@ -5,6 +5,15 @@ import "../oracles/CompositeOracle.sol";
 import "@nomiclabs/buidler/console.sol";
 
 contract MockCompositeOracle is CompositeOracle, GasMeasuredOracle("composite") {
-    constructor(IOracle[3] memory oracles_, uint decimalShift_) public
-        CompositeOracle(oracles_, decimalShift_) {}
+    constructor(
+        address chainlinkOracle_, uint chainlinkShift_,
+        address compoundOracle_, uint compoundShift_,
+        address uniswapPair_, bool areTokensInReverseOrder_, uint uniswapShift_, uint scalePriceBy_,
+        uint decimalShift_)
+    public CompositeOracle(
+        chainlinkOracle_, chainlinkShift_,
+        compoundOracle_, compoundShift_,
+        uniswapPair_, areTokensInReverseOrder_, uniswapShift_, scalePriceBy_,
+        decimalShift_)
+    {}
 }
