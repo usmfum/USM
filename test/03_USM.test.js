@@ -30,20 +30,27 @@ contract('USM', (accounts) => {
   const shift = '18'
 
   let aggregator
-  const chainlinkPrice = '38598000000'
-  const chainlinkShift = '8'
+  const chainlinkPrice = '38598000000' // 8 dec places: see ChainlinkOracle
 
   let anchoredView
-  const compoundPrice = '414174999'
-  const compoundShift = '6'
+  const compoundPrice = '414174999' // 6 dec places: see CompoundOpenOracle
 
-  let pair
-  const uniswapReserve0 = '646310144553926227215994'
-  const uniswapReserve1 = '254384028636585'
-  const uniswapReverseOrder = false
-  const uniswapShift = '18'
-  const uniswapScalePriceBy = (new BN(10)).pow(new BN(30))
-  const uniswapPrice = '393594361437970499059' // = uniswapReserve1 * uniswapScalePriceBy / uniswapReserve0
+  let ethUsdtPair, usdcEthPair, daiEthPair
+  const uniswapTokensInReverseOrder = [false, true, true]       // See UniswapMedianOracle
+  const uniswapScaleFactors = [10 ** 30, 10 ** 30, 10 ** 18]    // See UniswapMedianOracle
+
+  const ethUsdtReserve0 = '646310144553926227215994'
+  const ethUsdtReserve1 = '254384028636585'
+  const ethUsdtPrice = '393594361437970499059'                  // = ethUsdtReserve1 * ethUsdtScaleFactor / ethUsdtReserve0
+
+  const usdcEthReserve0 = '260787673159143'
+  const usdcEthReserve1 = '696170744128378724814084'
+  const usdcEthPrice = '374603034325515896918'                  // = usdcEthReserve0 * usdcEthScaleFactor / usdcEthReserve1
+
+  const daiEthReserve0 = '178617913077721329213551886'
+  const daiEthReserve1 = '480578265664207487333589'
+  const daiEthPrice = '371672890430975717452'                   // = daiEthReserve0 * daiEthScaleFactor / daiEthReserve1
+
 
   function wadMul(x, y) {
     return ((x.mul(y)).add(WAD.div(TWO))).div(WAD)
@@ -104,20 +111,20 @@ contract('USM', (accounts) => {
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
       await anchoredView.set(compoundPrice);
 
-      // THIS IS A HACK AND NEEDS FIXING - these should be three different Uniswap pairs, not the same one 3 times!
-      pairA = await UniswapV2Pair.new({ from: deployer })
-      await pairA.set(uniswapReserve0, uniswapReserve1);
+      ethUsdtPair = await UniswapV2Pair.new({ from: deployer })
+      await ethUsdtPair.set(ethUsdtReserve0, ethUsdtReserve1);
 
-      pairB = await UniswapV2Pair.new({ from: deployer })
-      await pairB.set(uniswapReserve0, uniswapReserve1);
+      usdcEthPair = await UniswapV2Pair.new({ from: deployer })
+      await usdcEthPair.set(usdcEthReserve0, usdcEthReserve1);
 
-      pairC = await UniswapV2Pair.new({ from: deployer })
-      await pairC.set(uniswapReserve0, uniswapReserve1);
+      daiEthPair = await UniswapV2Pair.new({ from: deployer })
+      await daiEthPair.set(daiEthReserve0, daiEthReserve1);
 
       // USM
       weth = await WETH9.new({ from: deployer })
       usm = await USM.new(weth.address, aggregator.address, anchoredView.address,
-                          pairA.address, true, pairB.address, false, pairC.address, true, { from: deployer })
+                          [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
+			  uniswapTokensInReverseOrder, uniswapScaleFactors, { from: deployer })
       fum = await FUM.at(await usm.fum())
 
       priceWAD = await usm.oraclePrice()

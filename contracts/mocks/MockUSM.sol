@@ -6,23 +6,23 @@ import "../USM.sol";
 /**
  * @title MockUSM
  * @author Jacob Eliosoff (@jacob-eliosoff)
- * @notice Like USM, but allows oraclePrice() to be set for testing purposes
+ * @notice Like USM, but allows latestPrice() to be set for testing purposes
  */
 contract MockUSM is USM {
+    uint private constant NUM_UNISWAP_PAIRS = 3;
+
     uint private savedPrice;
 
-    constructor(address eth_, address chainlinkOracle_, address compoundOracle_,
-                address uniswapEthUsdtPair_, bool uniswapEthUsdtPairInReverseOrder_,
-                address uniswapUsdcEthPair_, bool uniswapUsdcEthPairInReverseOrder_,
-                address uniswapDaiEthPair_, bool uniswapDaiEthPairInReverseOrder_) public
-        USM(eth_, chainlinkOracle_, compoundOracle_, uniswapEthUsdtPair_, uniswapEthUsdtPairInReverseOrder_,
-            uniswapUsdcEthPair_, uniswapUsdcEthPairInReverseOrder_, uniswapDaiEthPair_, uniswapDaiEthPairInReverseOrder_) {}
+    constructor(address eth, address chainlinkAggregator, address compoundView,
+                address[NUM_UNISWAP_PAIRS] memory uniswapPairs, bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder,
+                uint[NUM_UNISWAP_PAIRS] memory uniswapScaleFactors) public
+        USM(eth, chainlinkAggregator, compoundView, uniswapPairs, uniswapTokensInReverseOrder, uniswapScaleFactors) {}
 
     function setPrice(uint p) public {
         savedPrice = p;
     }
 
-    function oraclePrice() public override view returns (uint price) {
-        price = (savedPrice != 0) ? savedPrice : super.oraclePrice();
+    function latestPrice() public override view returns (uint price) {
+        price = (savedPrice != 0) ? savedPrice : super.latestPrice();
     }
 }
