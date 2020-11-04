@@ -14,15 +14,15 @@ interface IMakerPriceFeed {
 contract MakerOracle is Oracle {
     using SafeMath for uint;
 
-    IMakerPriceFeed public makerMedianizer;
+    IMakerPriceFeed private medianizer;
 
-    constructor(address medianizer) public
+    constructor(address medianizer_) public
     {
-        makerMedianizer = IMakerPriceFeed(medianizer);
+        medianizer = IMakerPriceFeed(medianizer_);
     }
 
     function latestPrice() public override view returns (uint) {
         // From https://studydefi.com/read-maker-medianizer/:
-        return uint(makerMedianizer.read());     // No need to scale, medianizer price is already 18 dec places
+        return uint(medianizer.read());     // No need to scale, medianizer price is already 18 dec places
     }
 }

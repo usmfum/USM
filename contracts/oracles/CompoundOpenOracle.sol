@@ -14,13 +14,13 @@ interface UniswapAnchoredView {
 contract CompoundOpenOracle is Oracle {
     using SafeMath for uint;
 
-    uint internal constant COMPOUND_SCALE_FACTOR = 10 ** 12; // Since Compound has 6 dec places, and latestPrice() needs 18
+    uint private constant SCALE_FACTOR = 10 ** 12;  // Since Compound has 6 dec places, and latestPrice() needs 18
 
-    UniswapAnchoredView public compoundView;
+    UniswapAnchoredView private anchoredView;
 
-    constructor(address compoundView_) public
+    constructor(address anchoredView_) public
     {
-        compoundView = UniswapAnchoredView(compoundView_);
+        anchoredView = UniswapAnchoredView(anchoredView_);
     }
 
     /**
@@ -28,6 +28,6 @@ contract CompoundOpenOracle is Oracle {
      * @return price
      */
     function latestPrice() public virtual override view returns (uint price) {
-        price = compoundView.price("ETH").mul(COMPOUND_SCALE_FACTOR);
+        price = anchoredView.price("ETH").mul(SCALE_FACTOR);
     }
 }

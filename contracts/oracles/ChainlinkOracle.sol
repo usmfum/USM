@@ -11,13 +11,13 @@ import "./Oracle.sol";
 contract ChainlinkOracle is Oracle {
     using SafeMath for uint;
 
-    uint internal constant CHAINLINK_SCALE_FACTOR = 10 ** 10; // Since Chainlink has 8 dec places, and latestPrice() needs 18
+    uint private constant SCALE_FACTOR = 10 ** 10;  // Since Chainlink has 8 dec places, and latestPrice() needs 18
 
-    AggregatorV3Interface public chainlinkAggregator;
+    AggregatorV3Interface private aggregator;
 
-    constructor(address chainlinkAggregator_) public
+    constructor(address aggregator_) public
     {
-        chainlinkAggregator = AggregatorV3Interface(chainlinkAggregator_);
+        aggregator = AggregatorV3Interface(aggregator_);
     }
 
     /**
@@ -25,7 +25,7 @@ contract ChainlinkOracle is Oracle {
      * @return price
      */
     function latestPrice() public virtual override view returns (uint price) {
-        (, int rawPrice,,,) = chainlinkAggregator.latestRoundData();
-        price = uint(rawPrice).mul(CHAINLINK_SCALE_FACTOR); // TODO: Cast safely
+        (, int rawPrice,,,) = aggregator.latestRoundData();
+        price = uint(rawPrice).mul(SCALE_FACTOR); // TODO: Cast safely
     }
 }

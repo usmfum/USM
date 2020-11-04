@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 library WadMath {
     using SafeMath for uint;
 
-    uint public constant WAD = 10 ** 18;
+    uint private constant WAD = 10 ** 18;
 
     uint private constant WAD_OVER_10 = WAD / 10;
     uint private constant WAD_OVER_20 = WAD / 20;

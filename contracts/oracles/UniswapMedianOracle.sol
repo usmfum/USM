@@ -11,40 +11,42 @@ contract UniswapMedianOracle is Oracle {
 
     uint private constant NUM_SOURCE_ORACLES = 3;
 
-    IUniswapV2Pair[NUM_SOURCE_ORACLES] public pairs;
-    bool[NUM_SOURCE_ORACLES] public tokensInReverseOrder;
-    uint[NUM_SOURCE_ORACLES] public scaleFactors;
+    struct UniswapPriceablePair {
+        IUniswapV2Pair pair;
+        bool tokensInReverseOrder;
+        uint scaleFactor;
+    }
+
+    UniswapPriceablePair[NUM_SOURCE_ORACLES] private pairs;
 
     /**
      *  See OurUniswapV2SpotOracle for example pairs to pass in
      */
     constructor(address[NUM_SOURCE_ORACLES] memory pairs_,
-                bool[NUM_SOURCE_ORACLES] memory tokensInReverseOrder_,
-                uint[NUM_SOURCE_ORACLES] memory scaleFactors_) public
+                bool[NUM_SOURCE_ORACLES] memory tokensInReverseOrder,
+                uint[NUM_SOURCE_ORACLES] memory scaleFactors) public
     {
         for (uint i = 0; i < NUM_SOURCE_ORACLES; ++i) {
-            pairs[i] = IUniswapV2Pair(pairs_[i]);
+            pairs[i] = UniswapPriceablePair(IUniswapV2Pair(pairs_[i]), tokensInReverseOrder[i], scaleFactors[i]);
         }
-        tokensInReverseOrder = tokensInReverseOrder_;
-        scaleFactors = scaleFactors_;
     }
 
     function latestPrice() public virtual override view returns (uint price) {
         // For maximum gas efficiency...
-        price = Median.median([latestUniswapPairPrice(pairs[0], tokensInReverseOrder[0], scaleFactors[0]),
-                               latestUniswapPairPrice(pairs[1], tokensInReverseOrder[1], scaleFactors[1]),
-                               latestUniswapPairPrice(pairs[2], tokensInReverseOrder[2], scaleFactors[2])]);
+        price = Median.median([latestUniswapPairPrice(pairs[0]),
+                               latestUniswapPairPrice(pairs[1]),
+                               latestUniswapPairPrice(pairs[2])]);
     }
 
     /**
      *  Cribbed from OurUniswapV2SpotOracle.latestPrice()...  Unfortunately our "inheritance in place of composition" design
      *  doesn't let us easily share that code
      */
-    function latestUniswapPairPrice(IUniswapV2Pair pair, bool tokensInReverseOrder_, uint scaleFactor)
+    function latestUniswapPairPrice(UniswapPriceablePair memory pair)
         internal view returns (uint price)
     {
-        (uint112 reserve0, uint112 reserve1,) = pair.getReserves();
-        (uint112 reserveA, uint112 reserveB) = tokensInReverseOrder_ ? (reserve1, reserve0) : (reserve0, reserve1);
-        price = (uint(reserveB)).mul(scaleFactor).div(uint(reserveA));
+        (uint112 reserve0, uint112 reserve1,) = pair.pair.getReserves();
+        (uint112 reserveA, uint112 reserveB) = pair.tokensInReverseOrder ? (reserve1, reserve0) : (reserve0, reserve1);
+        price = (uint(reserveB)).mul(pair.scaleFactor).div(uint(reserveA));
     }
 }
