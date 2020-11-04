@@ -71,7 +71,7 @@ contract('Oracle pricing', (accounts) => {
 
     beforeEach(async () => {
       medianizer = await Medianizer.new({ from: deployer })
-      await medianizer.set(makerPriceWAD);
+      await medianizer.set(makerPriceWAD)
 
       oracle = await GasMakerOracle.new(medianizer.address, { from: deployer })
     })
@@ -93,7 +93,7 @@ contract('Oracle pricing', (accounts) => {
 
     beforeEach(async () => {
       aggregator = await Aggregator.new({ from: deployer })
-      await aggregator.set(chainlinkPrice);
+      await aggregator.set(chainlinkPrice)
 
       oracle = await GasChainlinkOracle.new(aggregator.address, { from: deployer })
     })
@@ -115,7 +115,7 @@ contract('Oracle pricing', (accounts) => {
 
     beforeEach(async () => {
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
-      await anchoredView.set(compoundPrice);
+      await anchoredView.set(compoundPrice)
 
       oracle = await GasCompoundOracle.new(anchoredView.address, { from: deployer })
     })
@@ -193,13 +193,13 @@ contract('Oracle pricing', (accounts) => {
 
     beforeEach(async () => {
       //makerMedianizer = await Medianizer.new({ from: deployer })
-      //await makerMedianizer.set(makerPriceWAD);
+      //await makerMedianizer.set(makerPriceWAD)
 
       chainlinkAggregator = await Aggregator.new({ from: deployer })
-      await chainlinkAggregator.set(chainlinkPrice);
+      await chainlinkAggregator.set(chainlinkPrice)
 
       compoundView = await UniswapAnchoredView.new({ from: deployer })
-      await compoundView.set(compoundPrice);
+      await compoundView.set(compoundPrice)
 
       ethUsdtPair = await UniswapV2Pair.new({ from: deployer })
       await ethUsdtPair.set(ethUsdtReserve0, ethUsdtReserve1)

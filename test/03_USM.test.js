@@ -103,21 +103,22 @@ contract('USM', (accounts) => {
     let weth, usm, ethPerFund, ethPerMint, bitOfEth, snapshot, snapshotId
 
     beforeEach(async () => {
-      // Oracle
+      // Oracle params
+
       aggregator = await Aggregator.new({ from: deployer })
-      await aggregator.set(chainlinkPrice);
+      await aggregator.set(chainlinkPrice)
   
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
-      await anchoredView.set(compoundPrice);
+      await anchoredView.set(compoundPrice)
 
       ethUsdtPair = await UniswapV2Pair.new({ from: deployer })
-      await ethUsdtPair.set(ethUsdtReserve0, ethUsdtReserve1);
+      await ethUsdtPair.set(ethUsdtReserve0, ethUsdtReserve1)
 
       usdcEthPair = await UniswapV2Pair.new({ from: deployer })
-      await usdcEthPair.set(usdcEthReserve0, usdcEthReserve1);
+      await usdcEthPair.set(usdcEthReserve0, usdcEthReserve1)
 
       daiEthPair = await UniswapV2Pair.new({ from: deployer })
-      await daiEthPair.set(daiEthReserve0, daiEthReserve1);
+      await daiEthPair.set(daiEthReserve0, daiEthReserve1)
 
       // USM
       weth = await WETH9.new({ from: deployer })
