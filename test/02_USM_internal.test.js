@@ -23,27 +23,29 @@ contract('USM - Internal functions', (accounts) => {
 
   describe('functionality', async () => {
     it('returns the oracle price in WAD', async () => {
-      let oraclePrice = await usm.latestPrice()
+      const oraclePrice = await usm.latestPrice()
       oraclePrice.toString().should.equal(priceWAD.toString())
     })
 
     it('returns the value of eth in usm', async () => {
       const oneEth = WAD
       const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-      let usmAmount = await usm.ethToUsm(oneEth)
+      const oraclePrice = await usm.latestPrice()
+      const usmAmount = await usm.ethToUsm(oraclePrice, oneEth)
       usmAmount.toString().should.equal(equivalentUSM.toString())
     })
 
     it('returns the value of usm in eth', async () => {
-      const oneUSM = WAD
-      const equivalentEth = oneUSM.mul(WAD).div(priceWAD)
-      let ethAmount = await usm.usmToEth(oneUSM.toString())
+      const oneUsm = WAD
+      const equivalentEth = oneUsm.mul(WAD).div(priceWAD)
+      const oraclePrice = await usm.latestPrice()
+      const ethAmount = await usm.usmToEth(oraclePrice, oneUsm)
       ethAmount.toString().should.equal(equivalentEth.toString())
     })
 
     it('returns the debt ratio as zero', async () => {
       const ZERO = new BN('0')
-      let debtRatio = (await usm.debtRatio())
+      const debtRatio = (await usm.debtRatio())
       debtRatio.toString().should.equal(ZERO.toString())
     })
   })
