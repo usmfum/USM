@@ -194,14 +194,13 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         if (debtRatio_ <= MAX_DEBT_RATIO) {                 // We've dropped below (or were already below, whatev) max debt ratio
             minFumBuyPriceStored.timestamp = 0;             // Clear mfbp
             minFumBuyPriceStored.value = 0;
-
+            emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
         } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
             minFumBuyPriceStored.timestamp = uint32(block.timestamp);
             minFumBuyPriceStored.value = uint224(WAD.sub(MAX_DEBT_RATIO).wadMul(ethInPool).wadDiv(fumTotalSupply));
+            emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
         }
-
-        emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
     }
 
     /**
@@ -253,6 +252,24 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     }
 
     /**
+     * @notice Convert ETH amount to USM using a ETH/USD price.
+     * @param ethAmount The amount of ETH to convert
+     * @return usmOut The amount of USM
+     */
+    function ethToUsm(uint ethUsmPrice, uint ethAmount) internal pure returns (uint usmOut) {
+        usmOut = ethAmount.wadMul(ethUsmPrice);
+    }
+
+    /**
+     * @notice Convert USM amount to ETH using a ETH/USD price.
+     * @param usmAmount The amount of USM to convert
+     * @return ethOut The amount of ETH
+     */
+    function usmToEth(uint ethUsmPrice, uint usmAmount) internal pure returns (uint ethOut) {
+        ethOut = usmAmount.wadDiv(ethUsmPrice);
+    }
+
+    /**
      * @notice Calculate the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
@@ -283,6 +300,98 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
             price = price.wadMax(minFumBuyPrice());
         } else {
             price = price.wadMul(WAD.wadMin(buySellAdjustment()));
+        }
+    }
+
+    /**
+     * @notice How much USM a minter currently gets back for ethIn ETH, accounting for adjustment and sliding prices.
+     * @param ethIn The amount of ETH passed to mint()
+     * @return usmOut The amount of USM to receive in exchange
+     */
+    function usmFromMint(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint debtRatio0)
+        internal view returns (uint usmOut)
+    {
+        // Mint USM at a sliding-up USM price (ie, at a sliding-down ETH price).  **BASIC RULE:** anytime debtRatio() changes by
+        // factor k (here > 1), ETH price changes by factor 1/k (ie, USM price, in ETH terms, changes by factor k).  (Earlier
+        // versions of this logic scaled ETH price based on the change in ethPool(), or change in ethPool() squared: the latter
+        // gives simpler math - no sqrt() - but doesn't let mint/burn offset fund/defund, which using debtRatio() nicely does.)
+        uint usmPrice0 = usmPrice(Side.Buy, ethUsmPrice);
+        if (debtRatio0 == 0) {
+            // No USM in the system, so debtRatio() == 0 which breaks the integral below - skip sliding-prices this time:
+            usmOut = ethIn.wadDiv(usmPrice0);
+        } else {
+            uint ethQty1 = ethQty0.add(ethIn);
+
+            // Math: this is an integral - sum of all USM minted at a sliding-down ETH price:
+            uint integralFirstPart = debtRatio0.wadMul(ethQty1.wadSquared().sub(ethQty0.wadSquared()));
+            uint usmQty1 = integralFirstPart.add(usmQty0.wadMul(usmPrice0).wadSquared()).wadSqrt().wadDiv(usmPrice0);
+            usmOut = usmQty1.sub(usmQty0);
+        }
+    }
+
+    /**
+     * @notice How much ETH a burner currently gets from burning usmIn USM, accounting for adjustment and sliding prices.
+     * @param usmIn The amount of USM passed to burn()
+     * @return ethOut The amount of ETH to receive in exchange
+     */
+    function ethFromBurn(uint ethUsmPrice, uint usmIn, uint ethQty0, uint usmQty0, uint debtRatio0)
+        internal view returns (uint ethOut)
+    {
+        // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price):
+        uint usmPrice0 = usmPrice(Side.Sell, ethUsmPrice);
+        uint usmQty1 = usmQty0.sub(usmIn);
+
+        // Math: this is an integral - sum of all USM burned at a sliding price.  Follows the same mathematical invariant as
+        // above: if debtRatio() *= k (here, k < 1), ETH price *= 1/k, ie, USM price in ETH terms *= k.
+        uint integralFirstPart = usmQty0.wadSquared().sub(usmQty1.wadSquared()).wadMul(usmPrice0.wadSquared());
+        uint ethQty1 = ethQty0.wadSquared().sub(integralFirstPart.wadDiv(debtRatio0)).wadSqrt();
+        ethOut = ethQty0.sub(ethQty1);
+    }
+
+    /**
+     * @notice How much FUM a funder currently gets back for ethIn ETH, accounting for adjustment and sliding prices.
+     * @param ethIn The amount of ETH passed to fund()
+     * @return fumOut The amount of FUM to receive in exchange
+     */
+    function fumFromFund(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint debtRatio0, uint fumQty0)
+        internal view returns (uint fumOut)
+    {
+        // Create FUM at a sliding-up FUM price:
+        uint fumPrice0 = fumPrice(Side.Buy, ethUsmPrice, ethQty0, usmQty0, fumQty0);
+        if (debtRatio0 == 0) {
+            // No USM in the system - skip sliding-prices:
+            fumOut = ethIn.wadDiv(fumPrice0);
+        } else {
+            uint ethQty1 = ethQty0.add(ethIn);
+
+            // Math: see closely analogous comment in usmFromMint() above.
+            uint integralFirstPart = debtRatio0.wadMul(ethQty1.wadSquared().sub(ethQty0.wadSquared()));
+            uint fumQty1 = integralFirstPart.add(fumQty0.wadMul(fumPrice0).wadSquared()).wadSqrt().wadDiv(fumPrice0);
+            fumOut = fumQty1.sub(fumQty0);
+        }
+    }
+
+    /**
+     * @notice How much ETH a defunder currently gets back for fumIn FUM, accounting for adjustment and sliding prices.
+     * @param fumIn The amount of FUM passed to defund()
+     * @return ethOut The amount of ETH to receive in exchange
+     */
+    function ethFromDefund(uint ethUsmPrice, uint fumIn, uint ethQty0, uint usmQty0, uint debtRatio0)
+        internal view returns (uint ethOut)
+    {
+        // Burn FUM at a sliding-down FUM price:
+        uint fumQty0 = fum.totalSupply();
+        uint fumPrice0 = fumPrice(Side.Sell, ethUsmPrice, ethQty0, usmQty0, fumQty0);
+        if (debtRatio0 == 0) {
+            // No USM in the system - skip sliding-prices:
+            ethOut = fumIn.wadMul(fumPrice0);
+        } else {
+            uint fumQty1 = fumQty0.sub(fumIn);
+
+            // Math: see closely analogous comment in ethFromBurn() above.
+            uint integralFirstPart = fumQty0.wadSquared().sub(fumQty1.wadSquared()).wadMul(fumPrice0.wadSquared());
+            uint ethQty1 = ethQty0.wadSquared().sub(integralFirstPart.wadDiv(debtRatio0)).wadSqrt();
+            ethOut = ethQty0.sub(ethQty1);
         }
     }
 
@@ -318,98 +427,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
         // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
         adjustment = WAD.add(uint256(buySellAdjustmentStored.value).wadMul(decayFactor)).sub(decayFactor);
-    }
-
-    /**
-     * @notice How much USM a minter currently gets back for ethIn ETH, accounting for adjustment and sliding prices.
-     * @param ethIn The amount of ETH passed to mint()
-     * @return usmOut The amount of USM to receive in exchange
-     */
-    function usmFromMint(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint debtRatio0)
-        public view returns (uint usmOut)
-    {
-        // Mint USM at a sliding-up USM price (ie, at a sliding-down ETH price).  **BASIC RULE:** anytime debtRatio() changes by
-        // factor k (here > 1), ETH price changes by factor 1/k (ie, USM price, in ETH terms, changes by factor k).  (Earlier
-        // versions of this logic scaled ETH price based on the change in ethPool(), or change in ethPool() squared: the latter
-        // gives simpler math - no sqrt() - but doesn't let mint/burn offset fund/defund, which using debtRatio() nicely does.)
-        uint usmPrice0 = usmPrice(Side.Buy, ethUsmPrice);
-        if (debtRatio0 == 0) {
-            // No USM in the system, so debtRatio() == 0 which breaks the integral below - skip sliding-prices this time:
-            usmOut = ethIn.wadDiv(usmPrice0);
-        } else {
-            uint ethQty1 = ethQty0.add(ethIn);
-
-            // Math: this is an integral - sum of all USM minted at a sliding-down ETH price:
-            uint integralFirstPart = debtRatio0.wadMul(ethQty1.wadSquared().sub(ethQty0.wadSquared()));
-            uint usmQty1 = integralFirstPart.add(usmQty0.wadMul(usmPrice0).wadSquared()).wadSqrt().wadDiv(usmPrice0);
-            usmOut = usmQty1.sub(usmQty0);
-        }
-    }
-
-    /**
-     * @notice How much ETH a burner currently gets from burning usmIn USM, accounting for adjustment and sliding prices.
-     * @param usmIn The amount of USM passed to burn()
-     * @return ethOut The amount of ETH to receive in exchange
-     */
-    function ethFromBurn(uint ethUsmPrice, uint usmIn, uint ethQty0, uint usmQty0, uint debtRatio0)
-        public view returns (uint ethOut)
-    {
-        // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price):
-        uint usmPrice0 = usmPrice(Side.Sell, ethUsmPrice);
-        uint usmQty1 = usmQty0.sub(usmIn);
-
-        // Math: this is an integral - sum of all USM burned at a sliding price.  Follows the same mathematical invariant as
-        // above: if debtRatio() *= k (here, k < 1), ETH price *= 1/k, ie, USM price in ETH terms *= k.
-        uint integralFirstPart = usmQty0.wadSquared().sub(usmQty1.wadSquared()).wadMul(usmPrice0.wadSquared());
-        uint ethQty1 = ethQty0.wadSquared().sub(integralFirstPart.wadDiv(debtRatio0)).wadSqrt();
-        ethOut = ethQty0.sub(ethQty1);
-    }
-
-    /**
-     * @notice How much FUM a funder currently gets back for ethIn ETH, accounting for adjustment and sliding prices.
-     * @param ethIn The amount of ETH passed to fund()
-     * @return fumOut The amount of FUM to receive in exchange
-     */
-    function fumFromFund(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint debtRatio0, uint fumQty0)
-        public view returns (uint fumOut)
-    {
-        // Create FUM at a sliding-up FUM price:
-        uint fumPrice0 = fumPrice(Side.Buy, ethUsmPrice, ethQty0, usmQty0, fumQty0);
-        if (debtRatio0 == 0) {
-            // No USM in the system - skip sliding-prices:
-            fumOut = ethIn.wadDiv(fumPrice0);
-        } else {
-            uint ethQty1 = ethQty0.add(ethIn);
-
-            // Math: see closely analogous comment in usmFromMint() above.
-            uint integralFirstPart = debtRatio0.wadMul(ethQty1.wadSquared().sub(ethQty0.wadSquared()));
-            uint fumQty1 = integralFirstPart.add(fumQty0.wadMul(fumPrice0).wadSquared()).wadSqrt().wadDiv(fumPrice0);
-            fumOut = fumQty1.sub(fumQty0);
-        }
-    }
-
-    /**
-     * @notice How much ETH a defunder currently gets back for fumIn FUM, accounting for adjustment and sliding prices.
-     * @param fumIn The amount of FUM passed to defund()
-     * @return ethOut The amount of ETH to receive in exchange
-     */
-    function ethFromDefund(uint ethUsmPrice, uint fumIn, uint ethQty0, uint usmQty0, uint debtRatio0)
-        public view returns (uint ethOut)
-    {
-        // Burn FUM at a sliding-down FUM price:
-        uint fumQty0 = fum.totalSupply();
-        uint fumPrice0 = fumPrice(Side.Sell, ethUsmPrice, ethQty0, usmQty0, fumQty0);
-        if (debtRatio0 == 0) {
-            // No USM in the system - skip sliding-prices:
-            ethOut = fumIn.wadMul(fumPrice0);
-        } else {
-            uint fumQty1 = fumQty0.sub(fumIn);
-
-            // Math: see closely analogous comment in ethFromBurn() above.
-            uint integralFirstPart = fumQty0.wadSquared().sub(fumQty1.wadSquared()).wadMul(fumPrice0.wadSquared());
-            uint ethQty1 = ethQty0.wadSquared().sub(integralFirstPart.wadDiv(debtRatio0)).wadSqrt();
-            ethOut = ethQty0.sub(ethQty1);
-        }
     }
 
     /** EXTERNAL VIEW FUNCTIONS */
@@ -464,25 +481,5 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      */
     function fumPrice(Side side) external view returns (uint price) {
         price = fumPrice(side, latestPrice(), ethPool(), totalSupply(), fum.totalSupply());
-    }
-
-    /** INTERNAL FUNCTIONS */
-
-    /**
-     * @notice Convert ETH amount to USM using a ETH/USD price.
-     * @param ethAmount The amount of ETH to convert
-     * @return usmOut The amount of USM
-     */
-    function ethToUsm(uint ethUsmPrice, uint ethAmount) internal pure returns (uint usmOut) {
-        usmOut = ethAmount.wadMul(ethUsmPrice);
-    }
-
-    /**
-     * @notice Convert USM amount to ETH using a ETH/USD price.
-     * @param usmAmount The amount of USM to convert
-     * @return ethOut The amount of ETH
-     */
-    function usmToEth(uint ethUsmPrice, uint usmAmount) internal pure returns (uint ethOut) {
-        ethOut = usmAmount.wadDiv(ethUsmPrice);
     }
 }

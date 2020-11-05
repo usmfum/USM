@@ -5,8 +5,6 @@ library Median {
     function median(uint[3] memory xs)
         internal pure returns (uint)
     {
-        require(xs.length == 3, "Only 3 supported for now");
-
         uint a = xs[0];
         uint b = xs[1];
         uint c = xs[2];
