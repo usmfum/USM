@@ -195,7 +195,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice Calculate debt ratio for a given eth to USM price: ratio of the outstanding USM (amount of USM in total supply), to the current ETH pool amount.
      * @return ratio Debt ratio
      */
-    function debtRatio(uint ethUsmPrice, uint ethInPool, uint usmTotalSupply) public view returns (uint ratio) {
+    function debtRatio(uint ethUsmPrice, uint ethInPool, uint usmTotalSupply) public pure returns (uint ratio) {
         uint usmOut = ethUsmPrice.wadMul(ethInPool);
         ratio = (ethInPool == 0 ? 0 : usmTotalSupply.wadDiv(usmOut));
     }
