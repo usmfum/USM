@@ -30,16 +30,14 @@ contract('USM - Internal functions', (accounts) => {
     it('returns the value of eth in usm', async () => {
       const oneEth = WAD
       const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-      const oraclePrice = await usm.latestPrice()
-      const usmAmount = await usm.ethToUsm(oraclePrice, oneEth)
+      const usmAmount = await usm.ethToUsm(oneEth)
       usmAmount.toString().should.equal(equivalentUSM.toString())
     })
 
     it('returns the value of usm in eth', async () => {
       const oneUsm = WAD
       const equivalentEth = oneUsm.mul(WAD).div(priceWAD)
-      const oraclePrice = await usm.latestPrice()
-      const ethAmount = await usm.usmToEth(oraclePrice, oneUsm)
+      const ethAmount = await usm.usmToEth(oneUsm)
       ethAmount.toString().should.equal(equivalentEth.toString())
     })
 

@@ -54,7 +54,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         fum = new FUM(address(this));
     }
 
-    /** EXTERNAL FUNCTIONS **/
+    /** EXTERNAL TRANSACTIONAL FUNCTIONS **/
 
     /**
      * @notice Mint ETH for USM with checks and asset transfers.  Uses msg.value as the ETH deposit.
@@ -162,8 +162,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
 
-    /** PUBLIC FUNCTIONS **/
-
     /**
      * @notice Regular transfer, disallowing transfers to this contract.
      * @return success Transfer successfumPrice
@@ -173,6 +171,59 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _transfer(_msgSender(), recipient, amount);
         success = true;
     }
+
+    /** INTERNAL TRANSACTIONAL FUNCTIONS */
+
+    /**
+     * @notice Set the min FUM price, based on the current oracle price and debt ratio. Emits a MinFumBuyPriceChanged event.
+     * @dev The logic for calculating a new minFumBuyPrice is as follows.  We want to set it to the FUM price, in ETH terms, at
+     * which debt ratio was exactly MAX_DEBT_RATIO.  So we can assume:
+     *
+     *     usmToEth(totalSupply()) / ethPool() = MAX_DEBT_RATIO, or in other words:
+     *     usmToEth(totalSupply()) = MAX_DEBT_RATIO * ethPool()
+     *
+     * And with this assumption, we calculate the FUM price (buffer / FUM qty) like so:
+     *
+     *     minFumBuyPrice = ethBuffer() / fum.totalSupply()
+     *                    = (ethPool() - usmToEth(totalSupply())) / fum.totalSupply()
+     *                    = (ethPool() - (MAX_DEBT_RATIO * ethPool())) / fum.totalSupply()
+     *                    = (1 - MAX_DEBT_RATIO) * ethPool() / fum.totalSupply()
+     */
+    function _updateMinFumBuyPrice(uint debtRatio_, uint ethInPool, uint fumTotalSupply) internal {
+        uint previous = minFumBuyPriceStored.value;
+        if (debtRatio_ <= MAX_DEBT_RATIO) {                 // We've dropped below (or were already below, whatev) max debt ratio
+            minFumBuyPriceStored.timestamp = 0;             // Clear mfbp
+            minFumBuyPriceStored.value = 0;
+
+        } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
+            // See reasoning in @dev comment above
+            minFumBuyPriceStored.timestamp = uint32(block.timestamp);
+            minFumBuyPriceStored.value = uint224(WAD.sub(MAX_DEBT_RATIO).wadMul(ethInPool).wadDiv(fumTotalSupply));
+        }
+
+        emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
+    }
+
+    /**
+     * @notice Update the buy/sell adjustment factor, as of the current block time, after a price-moving operation.
+     * @param oldDebtRatio The debt ratio before the operation (eg, mint()) was done
+     * @param newDebtRatio The current, post-op debt ratio
+     */
+    function _updateBuySellAdjustmentIfNeeded(uint oldDebtRatio, uint newDebtRatio) internal {
+        if (oldDebtRatio != 0 && newDebtRatio != 0) {
+            uint previous = buySellAdjustmentStored.value;
+            // Eg: if a user operation reduced debt ratio from 70% to 50%, it was either a fund() or a burn().  These are both
+            // "long-ETH" operations.  So we can take old / new = 70% / 50% = 1.4 as the ratio by which to increase
+            // buySellAdjustment, which is intended as a measure of "how long-ETH recent user activity has been":
+            uint adjustment = buySellAdjustment().wadMul(oldDebtRatio).wadDiv(newDebtRatio);
+            buySellAdjustmentStored.timestamp = uint32(block.timestamp);
+            buySellAdjustmentStored.value = uint224(adjustment);
+
+            emit BuySellAdjustmentChanged(previous, buySellAdjustmentStored.value);
+        }
+    }
+
+    /** PUBLIC AND INTERNAL VIEW FUNCTIONS **/
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
@@ -186,7 +237,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice Calculate the amount of ETH in the buffer.
      * @return buffer ETH buffer
      */
-    function ethBuffer(uint ethUsmPrice, uint ethInPool, uint usmTotalSupply) public pure returns (int buffer) {
+    function ethBuffer(uint ethUsmPrice, uint ethInPool, uint usmTotalSupply) internal pure returns (int buffer) {
         buffer = int(ethInPool) - int(usmToEth(ethUsmPrice, usmTotalSupply));
         require(buffer <= int(ethInPool), "Underflow error");
     }
@@ -196,24 +247,16 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * the current ETH pool amount.
      * @return ratio Debt ratio
      */
-    function debtRatio(uint ethUsmPrice, uint ethInPool, uint usmTotalSupply) public pure returns (uint ratio) {
+    function debtRatio(uint ethUsmPrice, uint ethInPool, uint usmTotalSupply) internal pure returns (uint ratio) {
         uint usmOut = ethUsmPrice.wadMul(ethInPool);
         ratio = (ethInPool == 0 ? 0 : usmTotalSupply.wadDiv(usmOut));
-    }
-
-    /**
-     * @notice Convenience version for tests - for gas efficiency, shouldn't be called within this contract.
-     * @return ratio Debt ratio
-     */
-    function debtRatio() public view returns (uint ratio) {
-        ratio = debtRatio(latestPrice(), ethPool(), totalSupply());
     }
 
     /**
      * @notice Calculate the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
-    function usmPrice(Side side, uint ethUsmPrice) public view returns (uint price) {
+    function usmPrice(Side side, uint ethUsmPrice) internal view returns (uint price) {
         price = usmToEth(ethUsmPrice, WAD);
         if (side == Side.Buy) {
             price = price.wadDiv(WAD.wadMin(buySellAdjustment()));
@@ -223,19 +266,11 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     }
 
     /**
-     * @notice Convenience version for tests - for gas efficiency, shouldn't be called within this contract.
-     * @return price USM price in ETH terms
-     */
-    function usmPrice(Side side) public view returns (uint price) {
-        price = usmPrice(side, latestPrice());
-    }
-
-    /**
      * @notice Calculate the *marginal* price of FUM (in ETH terms) - that is, of the next unit, before the price start sliding.
      * @return price FUM price in ETH terms
      */
     function fumPrice(Side side, uint ethUsmPrice, uint ethInPool, uint usmTotalSupply, uint fumTotalSupply)
-        public view returns (uint price)
+        internal view returns (uint price)
     {
         if (fumTotalSupply == 0) {
             return usmToEth(ethUsmPrice, WAD); // if no FUM have been issued yet, default fumPrice to 1 USD (in ETH terms)
@@ -249,14 +284,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         } else {
             price = price.wadMul(WAD.wadMin(buySellAdjustment()));
         }
-    }
-
-    /**
-     * @notice Convenience version for tests - for gas efficiency, shouldn't be called within this contract.
-     * @return price FUM price in ETH terms
-     */
-    function fumPrice(Side side) public view returns (uint price) {
-        price = fumPrice(side, latestPrice(), ethPool(), totalSupply(), fum.totalSupply());
     }
 
     /**
@@ -385,13 +412,25 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         }
     }
 
+    /** EXTERNAL VIEW FUNCTIONS */
+
+    /**
+     * @notice Calculate the amount of ETH in the buffer.
+     * @return buffer ETH buffer
+     */
+    function ethBuffer() external view returns (int buffer) {
+        int ethInPool = int(ethPool());
+        buffer = ethInPool - int(usmToEth(latestPrice(), totalSupply()));
+        require(buffer <= ethInPool, "Underflow error");
+    }
+
     /**
      * @notice Convert ETH amount to USM using the latest oracle ETH/USD price.
      * @param ethAmount The amount of ETH to convert
      * @return usmOut The amount of USM
      */
-    function ethToUsm(uint ethUsmPrice, uint ethAmount) public pure returns (uint usmOut) {
-        usmOut = ethAmount.wadMul(ethUsmPrice);
+    function ethToUsm(uint ethAmount) external view returns (uint) {
+        return ethToUsm(latestPrice(), ethAmount);
     }
 
     /**
@@ -399,58 +438,51 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param usmAmount The amount of USM to convert
      * @return ethOut The amount of ETH
      */
-    function usmToEth(uint ethUsmPrice, uint usmAmount) public pure returns (uint ethOut) {
-        ethOut = usmAmount.wadDiv(ethUsmPrice);
+    function usmToEth(uint usmAmount) external view returns (uint) {
+        return usmToEth(latestPrice(), usmAmount);
+    }
+
+    /**
+     * @notice Calculate debt ratio.
+     * @return ratio Debt ratio
+     */
+    function debtRatio() external view returns (uint ratio) {
+        ratio = debtRatio(latestPrice(), ethPool(), totalSupply());
+    }
+
+    /**
+     * @notice Calculate the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding.
+     * @return price USM price in ETH terms
+     */
+    function usmPrice(Side side) external view returns (uint price) {
+        price = usmPrice(side, latestPrice());
+    }
+
+    /**
+     * @notice Calculate the *marginal* price of FUM (in ETH terms) - that is, of the next unit, before the price start sliding.
+     * @return price FUM price in ETH terms
+     */
+    function fumPrice(Side side) external view returns (uint price) {
+        price = fumPrice(side, latestPrice(), ethPool(), totalSupply(), fum.totalSupply());
     }
 
     /** INTERNAL FUNCTIONS */
 
     /**
-     * @notice Set the min FUM price, based on the current oracle price and debt ratio. Emits a MinFumBuyPriceChanged event.
-     * @dev The logic for calculating a new minFumBuyPrice is as follows.  We want to set it to the FUM price, in ETH terms, at
-     * which debt ratio was exactly MAX_DEBT_RATIO.  So we can assume:
-     *
-     *     usmToEth(totalSupply()) / ethPool() = MAX_DEBT_RATIO, or in other words:
-     *     usmToEth(totalSupply()) = MAX_DEBT_RATIO * ethPool()
-     *
-     * And with this assumption, we calculate the FUM price (buffer / FUM qty) like so:
-     *
-     *     minFumBuyPrice = ethBuffer() / fum.totalSupply()
-     *                    = (ethPool() - usmToEth(totalSupply())) / fum.totalSupply()
-     *                    = (ethPool() - (MAX_DEBT_RATIO * ethPool())) / fum.totalSupply()
-     *                    = (1 - MAX_DEBT_RATIO) * ethPool() / fum.totalSupply()
+     * @notice Convert ETH amount to USM using a ETH/USD price.
+     * @param ethAmount The amount of ETH to convert
+     * @return usmOut The amount of USM
      */
-    function _updateMinFumBuyPrice(uint debtRatio_, uint ethInPool, uint fumTotalSupply) internal {
-        uint previous = minFumBuyPriceStored.value;
-        if (debtRatio_ <= MAX_DEBT_RATIO) {                 // We've dropped below (or were already below, whatev) max debt ratio
-            minFumBuyPriceStored.timestamp = 0;             // Clear mfbp
-            minFumBuyPriceStored.value = 0;
-
-        } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
-            // See reasoning in @dev comment above
-            minFumBuyPriceStored.timestamp = uint32(block.timestamp);
-            minFumBuyPriceStored.value = uint224(WAD.sub(MAX_DEBT_RATIO).wadMul(ethInPool).wadDiv(fumTotalSupply));
-        }
-
-        emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
+    function ethToUsm(uint ethUsmPrice, uint ethAmount) internal pure returns (uint usmOut) {
+        usmOut = ethAmount.wadMul(ethUsmPrice);
     }
 
     /**
-     * @notice Update the buy/sell adjustment factor, as of the current block time, after a price-moving operation.
-     * @param oldDebtRatio The debt ratio before the operation (eg, mint()) was done
-     * @param newDebtRatio The current, post-op debt ratio
+     * @notice Convert USM amount to ETH using a ETH/USD price.
+     * @param usmAmount The amount of USM to convert
+     * @return ethOut The amount of ETH
      */
-    function _updateBuySellAdjustmentIfNeeded(uint oldDebtRatio, uint newDebtRatio) internal {
-        if (oldDebtRatio != 0 && newDebtRatio != 0) {
-            uint previous = buySellAdjustmentStored.value;
-            // Eg: if a user operation reduced debt ratio from 70% to 50%, it was either a fund() or a burn().  These are both
-            // "long-ETH" operations.  So we can take old / new = 70% / 50% = 1.4 as the ratio by which to increase
-            // buySellAdjustment, which is intended as a measure of "how long-ETH recent user activity has been":
-            uint adjustment = buySellAdjustment().wadMul(oldDebtRatio).wadDiv(newDebtRatio);
-            buySellAdjustmentStored.timestamp = uint32(block.timestamp);
-            buySellAdjustmentStored.value = uint224(adjustment);
-
-            emit BuySellAdjustmentChanged(previous, buySellAdjustmentStored.value);
-        }
+    function usmToEth(uint ethUsmPrice, uint usmAmount) internal pure returns (uint ethOut) {
+        ethOut = usmAmount.wadDiv(ethUsmPrice);
     }
 }
