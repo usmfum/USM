@@ -20,7 +20,7 @@ contract OurUniswapV2SpotOracle is Oracle {
     /**
      *  Example pairs to pass in:
      *  ETH/USDT: 0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852, false, 10 ** 30 (since ETH/USDT has -12 dec places, and we want 18)
-     *  USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, true, 10 ** 6 (since USDC/ETH has 12 dec places, and we want 18)
+     *  USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, true, 10 ** 30 (since USDC/ETH has -12 dec places, and we want 18)
      *  DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, true, 10 ** 18 (since DAI/ETH has 0 dec places, and we want 18)
      */
     constructor(address pair_, bool tokensInReverseOrder, uint scaleFactor) public {
