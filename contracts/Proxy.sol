@@ -13,16 +13,14 @@ contract Proxy {
     enum EthType {ETH, WETH}
 
     using Address for address payable;
-    IUSM public usm;
-    IWETH9 public weth;
+    IUSM public immutable usm;
+    IWETH9 public immutable weth;
 
     constructor(address usm_, address weth_)
         public
     {
         usm = IUSM(usm_); 
         weth = IWETH9(weth_);
-
-        weth.approve(address(usm), uint(-1));
     }
 
     /// @dev The WETH9 contract will send ether to Proxy on `weth.withdraw` using this function.
@@ -40,6 +38,7 @@ contract Proxy {
             require(msg.value == ethIn, "ETH input misspecified");
             weth.deposit{ value: msg.value }();
         }
+        if (weth.allowance(address(this), address(usm)) < uint(-1)) weth.approve(address(usm), uint(-1));
         uint usmOut = usm.mint(payer, msg.sender, ethIn);
         require(usmOut >= minUsmOut, "Limit not reached");
         return usmOut;
@@ -75,6 +74,7 @@ contract Proxy {
             require(msg.value == ethIn, "ETH input misspecified");
             weth.deposit{ value: msg.value }();
         }
+        if (weth.allowance(address(this), address(usm)) < uint(-1)) weth.approve(address(usm), uint(-1));
         uint fumOut = usm.fund(payer, msg.sender, ethIn);
         require(fumOut >= minFumOut, "Limit not reached");
         return fumOut;
