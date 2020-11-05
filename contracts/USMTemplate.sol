@@ -72,14 +72,15 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(ethInPool > 0, "Fund before minting");
 
         // Then calculate:
+        uint ethUsmPrice = latestPrice();
         uint usmTotalSupply = totalSupply();
-        uint oldDebtRatio = debtRatio(ethInPool, usmTotalSupply);
+        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         usmOut = usmFromMint(ethIn, ethInPool, usmTotalSupply, oldDebtRatio);
 
         // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
         _mint(to, usmOut);
-        uint newDebtRatio = debtRatio(ethInPool + ethIn, usmTotalSupply + usmOut);
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool + ethIn, usmTotalSupply + usmOut);
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
 
@@ -94,15 +95,16 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         returns (uint ethOut)
     {
         // First calculate:
+        uint ethUsmPrice = latestPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
-        uint oldDebtRatio = debtRatio(ethInPool, usmTotalSupply);
+        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         ethOut = ethFromBurn(usmToBurn, ethInPool, usmTotalSupply, oldDebtRatio);
 
         // Then update state:
         _burn(from, usmToBurn);
         require(eth.transfer(to, ethOut), "ETH transfer fail");
-        uint newDebtRatio = debtRatio(ethInPool - ethOut, usmTotalSupply - usmToBurn);
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool - ethOut, usmTotalSupply - usmToBurn);
         require(newDebtRatio <= WAD, "Debt ratio too high");
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
@@ -118,9 +120,10 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         returns (uint fumOut)
     {
         // First refresh mfbp:
+        uint ethUsmPrice = latestPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
-        uint oldDebtRatio = debtRatio(ethInPool, usmTotalSupply);
+        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         uint fumTotalSupply = fum.totalSupply();
         _updateMinFumBuyPrice(oldDebtRatio, ethInPool, fumTotalSupply);
 
@@ -130,7 +133,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
         fum.mint(to, fumOut);
-        uint newDebtRatio = debtRatio(ethInPool + ethIn, usmTotalSupply);
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool + ethIn, usmTotalSupply);
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
 
@@ -145,15 +148,16 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         returns (uint ethOut)
     {
         // First calculate:
+        uint ethUsmPrice = latestPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
-        uint oldDebtRatio = debtRatio(ethInPool, usmTotalSupply);
+        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         ethOut = ethFromDefund(fumToBurn, ethInPool, usmTotalSupply, oldDebtRatio);
 
         // Then update state:
         fum.burn(from, fumToBurn);
         require(eth.transfer(to, ethOut), "ETH transfer fail");
-        uint newDebtRatio = debtRatio(ethInPool - ethOut, usmTotalSupply);
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool - ethOut, usmTotalSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
@@ -162,7 +166,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
     /**
      * @notice Regular transfer, disallowing transfers to this contract.
-     * @return success Transfer success
+     * @return success Transfer successfumPrice
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
         require(recipient != address(this) && recipient != address(fum), "Don't transfer here");
@@ -185,6 +189,15 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function ethBuffer(uint ethInPool, uint usmTotalSupply) public view returns (int buffer) {
         buffer = int(ethInPool) - int(usmToEth(usmTotalSupply));
         require(buffer <= int(ethInPool), "Underflow error");
+    }
+
+    /**
+     * @notice Calculate debt ratio for a given eth to USM price: ratio of the outstanding USM (amount of USM in total supply), to the current ETH pool amount.
+     * @return ratio Debt ratio
+     */
+    function debtRatio(uint ethUsmPrice, uint ethInPool, uint usmTotalSupply) public view returns (uint ratio) {
+        uint usmOut = ethUsmPrice.wadMul(ethInPool);
+        ratio = (ethInPool == 0 ? 0 : usmTotalSupply.wadDiv(usmOut));
     }
 
     /**
