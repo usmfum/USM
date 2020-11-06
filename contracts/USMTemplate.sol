@@ -80,7 +80,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
         _mint(to, usmOut);
-        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool + ethIn, usmTotalSupply + usmOut);
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.add(ethIn), usmTotalSupply.add(usmOut));
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
 
@@ -104,7 +104,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // Then update state:
         _burn(from, usmToBurn);
         require(eth.transfer(to, ethOut), "ETH transfer fail");
-        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool - ethOut, usmTotalSupply - usmToBurn);
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
         require(newDebtRatio <= WAD, "Debt ratio too high");
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
@@ -133,7 +133,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
         fum.mint(to, fumOut);
-        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool + ethIn, usmTotalSupply);
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.add(ethIn), usmTotalSupply);
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
 
@@ -157,7 +157,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // Then update state:
         fum.burn(from, fumToBurn);
         require(eth.transfer(to, ethOut), "ETH transfer fail");
-        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool - ethOut, usmTotalSupply);
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
     }
@@ -198,7 +198,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
             minFumBuyPriceStored.timestamp = uint32(block.timestamp);
-            minFumBuyPriceStored.value = uint224(WAD.sub(MAX_DEBT_RATIO).wadMul(ethInPool).wadDiv(fumTotalSupply));
+            minFumBuyPriceStored.value = uint224((WAD - MAX_DEBT_RATIO).wadMul(ethInPool).wadDiv(fumTotalSupply));
             emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
         }
     }
