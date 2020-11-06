@@ -198,7 +198,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
             minFumBuyPriceStored.timestamp = uint32(block.timestamp);
-            minFumBuyPriceStored.value = uint224((WAD - MAX_DEBT_RATIO).wadMul(ethInPool).wadDiv(fumTotalSupply));
+            minFumBuyPriceStored.value = uint224((WAD - MAX_DEBT_RATIO).mul(ethInPool).div(fumTotalSupply));
             emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
         }
     }
@@ -214,7 +214,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
             // Eg: if a user operation reduced debt ratio from 70% to 50%, it was either a fund() or a burn().  These are both
             // "long-ETH" operations.  So we can take old / new = 70% / 50% = 1.4 as the ratio by which to increase
             // buySellAdjustment, which is intended as a measure of "how long-ETH recent user activity has been":
-            uint adjustment = buySellAdjustment().wadMul(oldDebtRatio).wadDiv(newDebtRatio);
+            uint adjustment = buySellAdjustment().mul(oldDebtRatio).div(newDebtRatio);
             buySellAdjustmentStored.timestamp = uint32(block.timestamp);
             buySellAdjustmentStored.value = uint224(adjustment);
 

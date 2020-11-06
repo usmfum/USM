@@ -302,7 +302,7 @@ contract('USM', (accounts) => {
             await usm.fund(user3, user3, bitOfEth, { from: user3 })
 
             const minFumBuyPrice4 = await usm.minFumBuyPrice()
-            shouldEqual(minFumBuyPrice4, targetMinFumBuyPrice4)
+            shouldEqualApprox(minFumBuyPrice4, targetMinFumBuyPrice4)
 
             // Now move forward a few days, and check that minFumBuyPrice decays by the appropriate factor:
             const block0 = await web3.eth.getBlockNumber()
