@@ -31,14 +31,6 @@ library WadMath {
         return ((x.mul(WAD)).add(y / 2)).div(y);
     }
 
-    function wadMax(uint x, uint y) internal pure returns (uint) {
-        return (x > y ? x : y);
-    }
-
-    function wadMin(uint x, uint y) internal pure returns (uint) {
-        return (x < y ? x : y);
-    }
-
     function wadHalfExp(uint power) internal pure returns (uint) {
         return wadHalfExp(power, uint(-1));
     }

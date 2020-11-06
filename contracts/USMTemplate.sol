@@ -275,10 +275,10 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      */
     function usmPrice(Side side, uint ethUsmPrice) internal view returns (uint price) {
         price = usmToEth(ethUsmPrice, WAD);
-        if (side == Side.Buy) {
-            price = price.wadDiv(WAD.wadMin(buySellAdjustment()));
-        } else {
-            price = price.wadDiv(WAD.wadMax(buySellAdjustment()));
+
+        uint adjustment = buySellAdjustment();
+        if ((side == Side.Buy && adjustment < WAD) || (side == Side.Sell && adjustment > WAD)) {
+            price = price.wadDiv(adjustment);
         }
     }
 
@@ -294,12 +294,21 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         }
         int buffer = ethBuffer(ethUsmPrice, ethInPool, usmTotalSupply);
         price = (buffer < 0 ? 0 : uint(buffer).wadDiv(fumTotalSupply));
+
+        uint adjustment = buySellAdjustment();
         if (side == Side.Buy) {
-            price = price.wadMul(WAD.wadMax(buySellAdjustment()));
+            if (adjustment > WAD) {
+                price = price.wadMul(adjustment);
+            }
             // Floor the buy price at minFumBuyPrice:
-            price = price.wadMax(minFumBuyPrice());
+            uint mfbp = minFumBuyPrice();
+            if (price < mfbp) {
+                price = mfbp;
+            }
         } else {
-            price = price.wadMul(WAD.wadMin(buySellAdjustment()));
+            if (adjustment < WAD) {
+                price = price.wadMul(adjustment);
+            }
         }
     }
 
