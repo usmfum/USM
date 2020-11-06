@@ -10,24 +10,25 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 library WadMath {
     using SafeMath for uint;
 
-    uint public constant WAD = 10 ** 18;
+    uint private constant WAD = 10 ** 18;
 
+    uint private constant WAD_OVER_2 = WAD / 2;
     uint private constant WAD_OVER_10 = WAD / 10;
     uint private constant WAD_OVER_20 = WAD / 20;
     uint private constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
 
     //rounds to zero if x*y < WAD / 2
     function wadMul(uint x, uint y) internal pure returns (uint) {
-        return ((x.mul(y)).add(WAD.div(2))).div(WAD);
+        return (x.mul(y)).add(WAD_OVER_2) / WAD;
     }
 
     function wadSquared(uint x) internal pure returns (uint) {
-        return ((x.mul(x)).add(WAD.div(2))).div(WAD);
+        return (x.mul(x)).add(WAD_OVER_2) / WAD;
     }
 
     //rounds to zero if x/y < WAD / 2
     function wadDiv(uint x, uint y) internal pure returns (uint) {
-        return ((x.mul(WAD)).add(y.div(2))).div(y);
+        return ((x.mul(WAD)).add(y / 2)).div(y);
     }
 
     function wadMax(uint x, uint y) internal pure returns (uint) {
@@ -46,9 +47,9 @@ library WadMath {
     //at maxPower.  Note that power is WAD-scaled (eg, 2.7364 * WAD), but maxPower is just a plain unscaled uint (eg, 10).
     function wadHalfExp(uint power, uint maxPower) internal pure returns (uint) {
         require(power >= 0, "power must be positive");
-        uint powerInTenths = (power + WAD_OVER_20) / WAD_OVER_10;
+        uint powerInTenths = power.add(WAD_OVER_20) / WAD_OVER_10;
         require(powerInTenths >= 0, "powerInTenths must be positive");
-        if (powerInTenths > 10 * maxPower) {
+        if (powerInTenths / 10 > maxPower) {
             return 0;
         }
         return wadPow(HALF_TO_THE_ONE_TENTH, powerInTenths);
@@ -86,7 +87,7 @@ library WadMath {
     // Babylonian method, from Uniswap: https://github.com/Uniswap/uniswap-v2-core/blob/v1.0.1/contracts/libraries/Math.sol
     // (via https://ethereum.stackexchange.com/a/87713/64318).
     function wadSqrt(uint y) internal pure returns (uint z) {
-        y *= WAD;
+        y = y.mul(WAD);
         if (y > 3) {
             z = y;
             uint x = y / 2 + 1;

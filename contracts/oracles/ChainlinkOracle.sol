@@ -1,27 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
-import "./IOracle.sol";
+
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
-import "@nomiclabs/buidler/console.sol";
+import "./Oracle.sol";
 
+/**
+ * @title ChainlinkOracle
+ */
+contract ChainlinkOracle is Oracle {
+    using SafeMath for uint;
 
-contract ChainlinkOracle is IOracle{
+    uint private constant SCALE_FACTOR = 10 ** 10;  // Since Chainlink has 8 dec places, and latestPrice() needs 18
 
-    AggregatorV3Interface public oracle;
-    uint public override decimalShift;
+    AggregatorV3Interface private aggregator;
 
-    /**
-     * @notice Ropsten Details:
-     * address: 0x30B5068156688f818cEa0874B580206dFe081a03
-     * decShift: 8
-     */
-    constructor(address oracle_, uint shift) public {
-        oracle = AggregatorV3Interface(oracle_);
-        decimalShift = shift;
+    constructor(address aggregator_) public
+    {
+        aggregator = AggregatorV3Interface(aggregator_);
     }
 
-    function latestPrice() external override view returns (uint) {
-        (, int price,,,) = oracle.latestRoundData();
-        return uint(price); // TODO: Cast safely
+    /**
+     * @notice Retrieve the latest price of the price oracle.
+     * @return price
+     */
+    function latestPrice() public virtual override view returns (uint price) {
+        (, int rawPrice,,,) = aggregator.latestRoundData();
+        price = uint(rawPrice).mul(SCALE_FACTOR); // TODO: Cast safely
     }
 }

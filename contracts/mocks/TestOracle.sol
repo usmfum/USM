@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
+
 import "./GasMeasuredOracle.sol";
 import "./SettableOracle.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@nomiclabs/buidler/console.sol";
 
+contract TestOracle is GasMeasuredOracle("test"), SettableOracle, Ownable {
+    uint internal savedPrice;
 
-contract TestOracle is SettableOracle(this), GasMeasuredOracle("test"), Ownable {
-    using SafeMath for uint;
+    constructor(uint p) public {
+        setPrice(p);
+    }
 
-    uint public override(SettableOracle, IOracle) decimalShift;
+    function latestPrice() public override view returns (uint) {
+        return savedPrice;
+    }
 
-    constructor(uint price, uint shift) public {
-        setPrice(price);
-        decimalShift = shift;
-        // 25000, 2 = $250.00
+    function setPrice(uint p) public override {
+        savedPrice = p;
     }
 }

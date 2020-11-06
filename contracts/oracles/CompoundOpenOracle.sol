@@ -1,29 +1,33 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
-import "./IOracle.sol";
-import "@nomiclabs/buidler/console.sol";
 
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./Oracle.sol";
 
 interface UniswapAnchoredView {
     function price(string calldata symbol) external view returns (uint);
 }
 
-contract CompoundOpenOracle is IOracle {
-    UniswapAnchoredView public oracle;
-    uint public override decimalShift;
+/**
+ * @title CompoundOpenOracle
+ */
+contract CompoundOpenOracle is Oracle {
+    using SafeMath for uint;
 
-    /**
-     * @notice Mainnet details:
-     * UniswapAnchoredView: 0x922018674c12a7f0d394ebeef9b58f186cde13c1
-     * decimalShift: 6
-     */
-    constructor(address oracle_, uint decimalShift_) public {
-        oracle = UniswapAnchoredView(oracle_);
-        decimalShift = decimalShift_;
+    uint private constant SCALE_FACTOR = 10 ** 12;  // Since Compound has 6 dec places, and latestPrice() needs 18
+
+    UniswapAnchoredView private anchoredView;
+
+    constructor(address anchoredView_) public
+    {
+        anchoredView = UniswapAnchoredView(anchoredView_);
     }
 
-    function latestPrice() external override view returns (uint) {
-        // From https://compound.finance/docs/prices, also https://www.comp.xyz/t/open-price-feed-live/180
-        return oracle.price("ETH");
+    /**
+     * @notice Retrieve the latest price of the price oracle.
+     * @return price
+     */
+    function latestPrice() public virtual override view returns (uint price) {
+        price = anchoredView.price("ETH").mul(SCALE_FACTOR);
     }
 }

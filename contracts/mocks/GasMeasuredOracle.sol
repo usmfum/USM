@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
-import "../oracles/IOracle.sol";
+
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "../oracles/Oracle.sol";
 import "@nomiclabs/buidler/console.sol";
 
-abstract contract GasMeasuredOracle is IOracle {
-    string internal _name;
+abstract contract GasMeasuredOracle is Oracle {
+    using SafeMath for uint;
 
-    constructor(string memory name_) public {
-        _name = name_;
+    string internal oracleName;
+
+    constructor(string memory name) public {
+        oracleName = name;
     }
 
-    function name() external virtual view returns (string memory) {
-        return _name;
-    }
-
-    function latestPriceWithGas() external virtual view returns (uint price) {
-        string memory name_ = this.name();
-        uint gas = gasleft();
+    function latestPriceWithGas() public virtual view returns (uint price) {
+        uint gasStart = gasleft();
         price = this.latestPrice();
-        console.log("        ", name_, "oracle.latestPrice() cost: ", gas - gasleft());
+        uint gasEnd = gasleft();
+        console.log("        ", oracleName, "oracle.latestPrice() cost: ", gasStart.sub(gasEnd));
     }
 }

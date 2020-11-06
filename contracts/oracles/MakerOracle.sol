@@ -1,29 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
-import "./IOracle.sol";
-import "@nomiclabs/buidler/console.sol";
 
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./Oracle.sol";
 
 interface IMakerPriceFeed {
     function read() external view returns (bytes32);
 }
 
-contract MakerOracle is IOracle {
-    IMakerPriceFeed public medianizer;
-    uint public override decimalShift;
+/**
+ * @title MakerOracle
+ */
+contract MakerOracle is Oracle {
+    using SafeMath for uint;
 
-    /**
-     * @notice Mainnet details:
-     * medianizer: 0x729D19f657BD0614b4985Cf1D82531c67569197B
-     * decimalShift: 18
-     */
-    constructor(address medianizer_, uint decimalShift_) public {
+    IMakerPriceFeed private medianizer;
+
+    constructor(address medianizer_) public
+    {
         medianizer = IMakerPriceFeed(medianizer_);
-        decimalShift = decimalShift_;
     }
 
-    function latestPrice() external override view returns (uint) {
+    function latestPrice() public override view returns (uint) {
         // From https://studydefi.com/read-maker-medianizer/:
-        return uint(medianizer.read());
+        return uint(medianizer.read());     // No need to scale, medianizer price is already 18 dec places
     }
 }
