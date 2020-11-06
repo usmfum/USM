@@ -192,9 +192,11 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _updateMinFumBuyPrice(uint debtRatio_, uint ethInPool, uint fumTotalSupply) internal {
         uint previous = minFumBuyPriceStored.value;
         if (debtRatio_ <= MAX_DEBT_RATIO) {                 // We've dropped below (or were already below, whatev) max debt ratio
-            minFumBuyPriceStored.timestamp = 0;             // Clear mfbp
-            minFumBuyPriceStored.value = 0;
-            emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
+            if (previous != 0) {
+                minFumBuyPriceStored.timestamp = 0;         // Clear mfbp
+                minFumBuyPriceStored.value = 0;
+                emit MinFumBuyPriceChanged(previous, 0);
+            }
         } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
             minFumBuyPriceStored.timestamp = uint32(block.timestamp);
