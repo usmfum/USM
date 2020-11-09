@@ -81,7 +81,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
         _mint(to, usmOut);
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.add(ethIn), usmTotalSupply.add(usmOut));
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
+        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
     }
 
     /**
@@ -106,7 +106,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(eth.transfer(to, ethOut), "ETH transfer fail");
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
         require(newDebtRatio <= WAD, "Debt ratio too high");
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
+        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
     }
 
     /**
@@ -128,13 +128,14 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateMinFumBuyPrice(oldDebtRatio, ethInPool, fumTotalSupply);
 
         // Then calculate:
-        fumOut = fumFromFund(ethUsmPrice, ethIn, ethInPool, usmTotalSupply, oldDebtRatio, fumTotalSupply);
+        uint adjustment = buySellAdjustment();
+        fumOut = fumFromFund(ethUsmPrice, ethIn, ethInPool, usmTotalSupply, oldDebtRatio, fumTotalSupply, adjustment);
 
         // Then update state:
         require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
         fum.mint(to, fumOut);
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.add(ethIn), usmTotalSupply);
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
+        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, adjustment);
     }
 
     /**
@@ -159,7 +160,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(eth.transfer(to, ethOut), "ETH transfer fail");
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio);
+        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
     }
 
     /**
@@ -210,17 +211,16 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param oldDebtRatio The debt ratio before the operation (eg, mint()) was done
      * @param newDebtRatio The current, post-op debt ratio
      */
-    function _updateBuySellAdjustmentIfNeeded(uint oldDebtRatio, uint newDebtRatio) internal {
+    function _updateBuySellAdjustmentIfNeeded(uint oldDebtRatio, uint newDebtRatio, uint oldAdjustment) internal {
         if (oldDebtRatio != 0 && newDebtRatio != 0) {
             uint previous = buySellAdjustmentStored.value;
             // Eg: if a user operation reduced debt ratio from 70% to 50%, it was either a fund() or a burn().  These are both
             // "long-ETH" operations.  So we can take old / new = 70% / 50% = 1.4 as the ratio by which to increase
             // buySellAdjustment, which is intended as a measure of "how long-ETH recent user activity has been":
-            uint adjustment = buySellAdjustment().mul(oldDebtRatio).div(newDebtRatio);
+            uint newAdjustment = oldAdjustment.mul(oldDebtRatio).div(newDebtRatio);
             buySellAdjustmentStored.timestamp = uint32(block.timestamp);
-            buySellAdjustmentStored.value = uint224(adjustment);
-
-            emit BuySellAdjustmentChanged(previous, buySellAdjustmentStored.value);
+            buySellAdjustmentStored.value = uint224(newAdjustment);
+            emit BuySellAdjustmentChanged(previous, newAdjustment);
         }
     }
 
@@ -288,7 +288,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice Calculate the *marginal* price of FUM (in ETH terms) - that is, of the next unit, before the price start sliding.
      * @return price FUM price in ETH terms
      */
-    function fumPrice(Side side, uint ethUsmPrice, uint ethInPool, uint usmTotalSupply, uint fumTotalSupply)
+    function fumPrice(Side side, uint ethUsmPrice, uint ethInPool, uint usmTotalSupply, uint fumTotalSupply, uint adjustment)
         internal view returns (uint price)
     {
         if (fumTotalSupply == 0) {
@@ -297,7 +297,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         int buffer = ethBuffer(ethUsmPrice, ethInPool, usmTotalSupply);
         price = (buffer < 0 ? 0 : uint(buffer).wadDiv(fumTotalSupply));
 
-        uint adjustment = buySellAdjustment();
         if (side == Side.Buy) {
             if (adjustment > WAD) {
                 price = price.wadMul(adjustment);
@@ -364,11 +363,11 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param ethIn The amount of ETH passed to fund()
      * @return fumOut The amount of FUM to receive in exchange
      */
-    function fumFromFund(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint debtRatio0, uint fumQty0)
+    function fumFromFund(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint debtRatio0, uint fumQty0, uint adjustment)
         internal view returns (uint fumOut)
     {
         // Create FUM at a sliding-up FUM price:
-        uint fumPrice0 = fumPrice(Side.Buy, ethUsmPrice, ethQty0, usmQty0, fumQty0);
+        uint fumPrice0 = fumPrice(Side.Buy, ethUsmPrice, ethQty0, usmQty0, fumQty0, adjustment);
         if (debtRatio0 == 0) {
             // No USM in the system - skip sliding-prices:
             fumOut = ethIn.wadDiv(fumPrice0);
@@ -392,7 +391,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     {
         // Burn FUM at a sliding-down FUM price:
         uint fumQty0 = fum.totalSupply();
-        uint fumPrice0 = fumPrice(Side.Sell, ethUsmPrice, ethQty0, usmQty0, fumQty0);
+        uint fumPrice0 = fumPrice(Side.Sell, ethUsmPrice, ethQty0, usmQty0, fumQty0, buySellAdjustment());
         if (debtRatio0 == 0) {
             // No USM in the system - skip sliding-prices:
             ethOut = fumIn.wadMul(fumPrice0);
@@ -491,6 +490,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return price FUM price in ETH terms
      */
     function fumPrice(Side side) external view returns (uint price) {
-        price = fumPrice(side, latestPrice(), ethPool(), totalSupply(), fum.totalSupply());
+        price = fumPrice(side, latestPrice(), ethPool(), totalSupply(), fum.totalSupply(), buySellAdjustment());
     }
 }
