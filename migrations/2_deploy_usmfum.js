@@ -38,7 +38,7 @@ module.exports = async function(deployer, network) {
     const uniswapTokensInReverseOrder = [false, true, true]   // See UniswapMedianOracle
     const uniswapScaleFactors = [e30, e30, e18]               // See UniswapMedianOracle
 
-    if (network === 'development') {
+    if (network !== 'mainnet' && network !== 'mainnet-ganache') {
         await deployer.deploy(WETH9);
         weth = await WETH9.deployed()
         wethAddress = weth.address

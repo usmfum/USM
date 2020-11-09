@@ -112,6 +112,7 @@ typings/
 # the .secret
 .secret
 .infuraKey
+keys/
 
 # coverage
 .coverage_artifacts/

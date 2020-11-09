@@ -1,5 +1,5 @@
 const USM = artifacts.require("USM");
-const WETH9 = artifacts.require("USM");
+const WETH9 = artifacts.require("WETH9");
 const Proxy = artifacts.require("Proxy");
 
 const wethAddresses = {
@@ -10,11 +10,11 @@ const wethAddresses = {
 module.exports = async function(deployer, network) {
     let weth
 
-    if (network === 'development') {
-        weth = await WETH9.deployed()
+    if (network === 'mainnet' || network === 'mainnet-ganache') {
+        weth = await WETH9.at(wethAddresses[network])
     }
     else {
-        weth = await WETH9.at(wethAddresses[network])
+        weth = await WETH9.deployed()
     }
 
     const usm = await USM.deployed()
