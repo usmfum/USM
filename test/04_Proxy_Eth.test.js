@@ -18,22 +18,24 @@ contract('USM - Proxy - Eth', (accounts) => {
     return wadMul(x, x)
   }
 
+  function wadCubed(x) {
+    return wadMul(wadMul(x, x), x)
+  }
+
   function wadDiv(x, y) {
     return ((x.mul(WAD)).add(y.div(TWO))).div(y)
   }
 
-  function wadSqrt(y) {
-    y = y.mul(WAD)
-    if (y.gt(THREE)) {
-      let z = y
-      let x = y.div(TWO).add(ONE)
-      while (x.lt(z)) {
-        z = x
-        x = y.div(x).add(x).div(TWO)
-      }
-      return z
-    } else if (y.ne(ZERO)) {
-      return ONE
+  function wadCbrt(y) {
+    if (y > 0 ) {
+      let root, newRoot
+      y = y.mul(WAD_SQUARED)
+      newRoot = y.add(TWO).div(THREE)
+      do {
+        root = newRoot
+        newRoot = root.add(root).add(y.div(root).div(root)).div(THREE)
+      } while (newRoot.lt(root))
+      return root
     }
     return ZERO
   }
@@ -43,6 +45,7 @@ contract('USM - Proxy - Eth', (accounts) => {
   const [ZERO, ONE, TWO, THREE, EIGHT, TEN] =
         [0, 1, 2, 3, 8, 10].map(function (n) { return new BN(n) })
   const WAD = new BN('1000000000000000000')
+  const WAD_SQUARED = WAD.mul(WAD)
 
   const sides = { BUY: 0, SELL: 1 }
   const ethTypes = { ETH: 0, WETH: 1 }
@@ -128,9 +131,8 @@ contract('USM - Proxy - Eth', (accounts) => {
             const ethBalance2 = new BN(await web3.eth.getBalance(user1))
             const ethOut = ethBalance2.sub(ethBalance)
             // Like most of this file, this math is cribbed from 03_USM.test.js (originally, from USM.sol, eg ethFromDefund()):
-            const integralFirstPart = wadMul(wadSquared(fumBalance).sub(wadSquared(fumBalance2)), wadSquared(fumSellPrice))
-            const targetEthPool2 = wadSqrt(wadSquared(ethPool).sub(wadDiv(integralFirstPart, debtRatio)))
-            const targetEthOut = ethPool.sub(targetEthPool2)
+            const integralFirstPart = wadMul(fumToBurn, fumSellPrice)
+            const targetEthOut = wadDiv(wadMul(ethPool, integralFirstPart), ethPool.add(integralFirstPart))
             ethOut.toString().should.equal(targetEthOut.toString())
           })
 
@@ -159,8 +161,9 @@ contract('USM - Proxy - Eth', (accounts) => {
 
             const ethBalance2 = new BN(await web3.eth.getBalance(user1))
             const ethOut = ethBalance2.sub(ethBalance)
-            const integralFirstPart = wadMul(wadSquared(usmBalance).sub(wadSquared(usmBalance2)), wadSquared(usmSellPrice))
-            const targetEthPool2 = wadSqrt(wadSquared(ethPool).sub(wadDiv(integralFirstPart, debtRatio)))
+            const integralFirstPart = ethPool.sub(wadMul(wadMul(usmSellPrice, usmBalance),
+                                                         WAD.sub(wadCubed(wadDiv(usmBalance2, usmBalance)))))
+            const targetEthPool2 = wadCbrt(wadMul(wadSquared(ethPool), integralFirstPart))
             const targetEthOut = ethPool.sub(targetEthPool2)
             ethOut.toString().should.equal(targetEthOut.toString())
           })
