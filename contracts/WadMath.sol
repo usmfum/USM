@@ -84,16 +84,12 @@ library WadMath {
     function wadCbrt(uint y) internal pure returns (uint root) {
         if (y > 0 ) {
             y = y.mul(WAD_SQUARED);
-            uint newRoot = wadCbrtStep(y, 1);
+            uint newRoot = y.add(2) / 3;
             do {
                 root = newRoot;
-                newRoot = wadCbrtStep(y, root);
+                newRoot = (root + root + ((y / root) / root)) / 3;
             } while (newRoot < root);
         }
 	//require(root ** 3 <= y && (root + 1) ** 3 > y);
-    }
-
-    function wadCbrtStep(uint y, uint oldRoot) internal pure returns (uint newRoot) {
-        newRoot = oldRoot.mul(2).add(y.div(oldRoot).div(oldRoot)) / 3;
     }
 }
