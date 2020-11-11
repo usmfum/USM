@@ -59,6 +59,10 @@ contract('USM', (accounts) => {
     return wadMul(x, x)
   }
 
+  function wadCubed(x) {
+    return wadMul(wadMul(x, x), x)
+  }
+
   function wadDiv(x, y) {
     return ((x.mul(WAD)).add(y.div(TWO))).div(y)
   }
@@ -339,19 +343,19 @@ contract('USM', (accounts) => {
               usmSellPrice3 = await usm.usmPrice(sides.SELL)
             })
 
-            it("calculates sqrt correctly", async () => {
+            it("calculates cbrt correctly", async () => {
               const roots = [1, 2, 3, 7, 10, 99, 1001, 10000, 99999, 1000001]
               const w = await WadMath.new()
-              let i, r, square, sqrt
+              let i, r, cube, cbrt
               for (i = 0; i < roots.length; ++i) {
                 r = (new BN(roots[i])).mul(WAD)
-                square = wadSquared(r)
-                sqrt = await w.wadSqrt(square)
-                shouldEqual(sqrt, r)            // wadSqrt(49000000000000000000) should return 7000000000000000000
-                sqrt = await w.wadSqrt(square.add(ONE))
-                shouldEqual(sqrt, r)            // wadSqrt(49000000000000000001) should return 7000000000000000000 too
-                sqrt = await w.wadSqrt(square.sub(ONE))
-                shouldEqual(sqrt, r.sub(ONE))   // wadSqrt(48999999999999999999) should return 6999999999999999999 (ie, round down)
+                cube = wadCubed(r)
+                cbrt = await w.wadCbrt(cube)
+                shouldEqual(cbrt, r)            // wadCbrt(343000000000000000000) should return 7000000000000000000
+                cbrt = await w.wadCbrt(cube.add(ONE))
+                shouldEqual(cbrt, r)            // wadCbrt(343000000000000000001) should return 7000000000000000000 too
+                cbrt = await w.wadCbrt(cube.sub(ONE))
+                shouldEqual(cbrt, r.sub(ONE))   // wadCbrt(342999999999999999999) should return 6999999999999999999 (ie, round down)
               }
             })
 

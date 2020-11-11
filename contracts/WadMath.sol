@@ -16,6 +16,7 @@ library WadMath {
     uint private constant WAD_OVER_10 = WAD / 10;
     uint private constant WAD_OVER_20 = WAD / 20;
     uint private constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
+    uint private constant WAD_SQUARED = WAD * WAD;
 
     //rounds to zero if x*y < WAD / 2
     function wadMul(uint x, uint y) internal pure returns (uint) {
@@ -24,6 +25,10 @@ library WadMath {
 
     function wadSquared(uint x) internal pure returns (uint) {
         return (x.mul(x)).add(WAD_OVER_2) / WAD;
+    }
+
+    function wadCubed(uint x) internal pure returns (uint) {
+        return (((x.mul(x)).add(WAD_OVER_2) / WAD).mul(x)).add(WAD_OVER_2) / WAD;
     }
 
     //rounds to zero if x/y < WAD / 2
@@ -76,19 +81,19 @@ library WadMath {
         }
     }
 
-    // Babylonian method, from Uniswap: https://github.com/Uniswap/uniswap-v2-core/blob/v1.0.1/contracts/libraries/Math.sol
-    // (via https://ethereum.stackexchange.com/a/87713/64318).
-    function wadSqrt(uint y) internal pure returns (uint z) {
-        y = y.mul(WAD);
-        if (y > 3) {
-            z = y;
-            uint x = y / 2 + 1;
-            while (x < z) {
-                z = x;
-                x = (y / x + x) / 2;
-            }
-        } else if (y != 0) {
-            z = 1;
+    function wadCbrt(uint y) internal pure returns (uint root) {
+        if (y > 0 ) {
+            y = y.mul(WAD_SQUARED);
+            uint newRoot = wadCbrtStep(y, 1);
+            do {
+                root = newRoot;
+                newRoot = wadCbrtStep(y, root);
+            } while (newRoot < root);
         }
+	//require(root ** 3 <= y && (root + 1) ** 3 > y);
+    }
+
+    function wadCbrtStep(uint y, uint oldRoot) internal pure returns (uint newRoot) {
+        newRoot = oldRoot.mul(2).add(y.div(oldRoot).div(oldRoot)) / 3;
     }
 }
