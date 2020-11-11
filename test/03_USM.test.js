@@ -16,6 +16,7 @@ contract('USM', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
   const [ZERO, ONE, TWO, THREE, FOUR, EIGHT, TEN, EIGHTEEN, THIRTY, HUNDRED, THOUSAND, WAD] =
         [0, 1, 2, 3, 4, 8, 10, 18, 30, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
+  const WAD_SQUARED = WAD.mul(WAD)
   const sides = { BUY: 0, SELL: 1 }
   const oneEth = WAD
   const oneUsm = WAD
@@ -67,18 +68,16 @@ contract('USM', (accounts) => {
     return ((x.mul(WAD)).add(y.div(TWO))).div(y)
   }
 
-  function wadSqrt(y) {
-    y = y.mul(WAD)
-    if (y.gt(THREE)) {
-      let z = y
-      let x = y.div(TWO).add(ONE)
-      while (x.lt(z)) {
-        z = x
-        x = y.div(x).add(x).div(TWO)
-      }
-      return z
-    } else if (y.ne(ZERO)) {
-      return ONE
+  function wadCbrt(y) {
+    if (y > 0 ) {
+      let root, newRoot
+      y = y.mul(WAD_SQUARED)
+      newRoot = y.add(TWO).div(THREE)
+      do {
+        root = newRoot
+        newRoot = root.add(root).add(y.div(root).div(root)).div(THREE)
+      } while (newRoot.lt(root))
+      return root
     }
     return ZERO
   }
@@ -364,9 +363,8 @@ contract('USM', (accounts) => {
               shouldEqual(ethPool3, targetEthPool3)
 
               // Check vs the integral math in USM.fumFromFund():
-              const integralFirstPart = wadMul(debtRatio2, wadSquared(ethPool3).sub(wadSquared(ethPool2)))
-              const targetFumBalance3 = wadDiv(wadSqrt(integralFirstPart.add(wadSquared(wadMul(totalFumSupply1, fumBuyPrice2)))),
-                                               fumBuyPrice2)
+              const fumOut = wadDiv(wadMul(ethPool2, ethPerFund), wadMul(ethPool3, fumBuyPrice2))
+              const targetFumBalance3 = user2FumBalance1.add(fumOut)
               shouldEqual(user2FumBalance3, targetFumBalance3)
               shouldEqual(totalFumSupply3, targetFumBalance3)
             })
@@ -449,9 +447,9 @@ contract('USM', (accounts) => {
               shouldEqual(ethPool3, targetEthPool3)
 
               // Check vs the integral math in USM.usmFromMint():
-              const integralFirstPart = wadMul(debtRatio2, wadSquared(ethPool3).sub(wadSquared(ethPool2)))
-              const targetUsmBalance3 = wadDiv(wadSqrt(integralFirstPart.add(wadSquared(wadMul(totalUsmSupply2, usmBuyPrice2)))),
-                                               usmBuyPrice2)
+              const integralFirstPart = wadDiv(wadMul(wadCubed(wadDiv(ethPool3, ethPool2)).sub(WAD), ethPool2), usmBuyPrice2).add(
+                user1UsmBalance2)
+              const targetUsmBalance3 = wadCbrt(wadMul(integralFirstPart, wadSquared(user1UsmBalance2)))
               shouldEqual(user1UsmBalance3, targetUsmBalance3)
               shouldEqual(totalUsmSupply3, targetUsmBalance3)
             })
@@ -509,9 +507,9 @@ contract('USM', (accounts) => {
               shouldEqual(totalFumSupply3, targetFumBalance3)
 
               // Check vs the integral math in USM.ethFromDefund():
-              const integralFirstPart = wadMul(wadSquared(totalFumSupply1).sub(wadSquared(totalFumSupply3)),
-                                               wadSquared(fumSellPrice2))
-              const targetEthPool3 = wadSqrt(wadSquared(ethPool2).sub(wadDiv(integralFirstPart, debtRatio2)))
+              const integralFirstPart = wadMul(fumToBurn, fumSellPrice2)
+              const ethOut = wadDiv(wadMul(ethPool2, integralFirstPart), ethPool2.add(integralFirstPart))
+              const targetEthPool3 = ethPool2.sub(ethOut)
               shouldEqual(ethPool3, targetEthPool3)
             })
 
@@ -597,9 +595,9 @@ contract('USM', (accounts) => {
               shouldEqual(totalUsmSupply3, targetUsmBalance3)
 
               // Check vs the integral math in USM.ethFromBurn():
-              const integralFirstPart = wadMul(wadSquared(totalUsmSupply2).sub(wadSquared(totalUsmSupply3)),
-                                               wadSquared(usmSellPrice2))
-              const targetEthPool3 = wadSqrt(wadSquared(ethPool2).sub(wadDiv(integralFirstPart, debtRatio2)))
+              const integralFirstPart = ethPool2.sub(wadMul(wadMul(usmSellPrice2, totalUsmSupply2),
+                                                            WAD.sub(wadCubed(wadDiv(totalUsmSupply3, totalUsmSupply2)))))
+              const targetEthPool3 = wadCbrt(wadMul(wadSquared(ethPool2), integralFirstPart))
               shouldEqual(ethPool3, targetEthPool3)
             })
 
