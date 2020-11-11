@@ -353,8 +353,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
         // Math: this is an integral - sum of all USM burned at a sliding price.  Follows the same mathematical invariant as
         // above: if debtRatio() *= k (here, k < 1), ETH price *= 1/k**2, ie, USM price in ETH terms *= k**2.
-        // e_0 - e = e_0 - (e_0**2 * (e_0 + ubp_0 * u_0 * ((u / u_0)**3 - 1)))**(1/3)
-        uint integralFirstPart = ethQty0.add(usmPrice0.wadMul(usmQty0).wadMul(usmQty1.wadDiv(usmQty0).wadCubed().sub(WAD)));
+        // e_0 - e = e_0 - (e_0**2 * (e_0 - usp_0 * u_0 * (1 - (u / u_0)**3)))**(1/3)
+        uint integralFirstPart = ethQty0.sub(usmPrice0.wadMul(usmQty0).wadMul(WAD.sub(usmQty1.wadDiv(usmQty0).wadCubed())));
         ethOut = ethQty0.sub(ethQty0.wadSquared().wadMul(integralFirstPart).wadCbrt());
     }
 
@@ -372,7 +372,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
             // No USM in the system - skip sliding-prices:
             fumOut = ethIn.wadDiv(fumPrice0);
         } else {
-            // Math: f = f_0 + e_0 * (e - e_0) / (e * fbp_0)
+            // Math: f - f_0 = e_0 * (e - e_0) / (e * fbp_0)
             uint ethQty1 = ethQty0.add(ethIn);
             fumOut = ethQty0.wadMul(ethIn).wadDiv(ethQty1.wadMul(fumPrice0));
         }
@@ -393,7 +393,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
             // No USM in the system - skip sliding-prices:
             ethOut = fumIn.wadMul(fumPrice0);
         } else {
-            // Math: e_0 - e = e_0 * (f_0 - f) * fbp_0 / (e_0 + (f_0 - f) * fbp_0)
+            // Math: e_0 - e = e_0 * (f_0 - f) * fsp_0 / (e_0 + (f_0 - f) * fsp_0)
             uint integralFirstPart = fumIn.wadMul(fumPrice0);
             ethOut = ethQty0.wadMul(integralFirstPart).wadDiv(ethQty0.add(integralFirstPart));
         }
