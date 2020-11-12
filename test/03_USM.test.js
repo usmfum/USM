@@ -68,20 +68,6 @@ contract('USM', (accounts) => {
     return ((x.mul(WAD)).add(y.div(TWO))).div(y)
   }
 
-  function wadCbrt(y) {
-    if (y > 0 ) {
-      let root, newRoot
-      y = y.mul(WAD_SQUARED)
-      newRoot = y.add(TWO).div(THREE)
-      do {
-        root = newRoot
-        newRoot = root.add(root).add(y.div(root).div(root)).div(THREE)
-      } while (newRoot.lt(root))
-      return root
-    }
-    return ZERO
-  }
-
   function wadDecay(adjustment, decayFactor) {
     return WAD.add(wadMul(adjustment, decayFactor)).sub(decayFactor)
   }
@@ -350,11 +336,11 @@ contract('USM', (accounts) => {
                 r = (new BN(roots[i])).mul(WAD)
                 cube = wadCubed(r)
                 cbrt = await w.wadCbrt(cube)
-                shouldEqual(cbrt, r)            // wadCbrt(343000000000000000000) should return 7000000000000000000
+                shouldEqualApprox(wadCubed(cbrt), cube)
                 cbrt = await w.wadCbrt(cube.add(ONE))
-                shouldEqual(cbrt, r)            // wadCbrt(343000000000000000001) should return 7000000000000000000 too
+                shouldEqualApprox(wadCubed(cbrt), cube)
                 cbrt = await w.wadCbrt(cube.sub(ONE))
-                shouldEqual(cbrt, r.sub(ONE))   // wadCbrt(342999999999999999999) should return 6999999999999999999 (ie, round down)
+                shouldEqualApprox(wadCubed(cbrt), cube)
               }
             })
 
@@ -449,9 +435,10 @@ contract('USM', (accounts) => {
               // Check vs the integral math in USM.usmFromMint():
               const integralFirstPart = wadDiv(wadMul(wadCubed(wadDiv(ethPool3, ethPool2)).sub(WAD), ethPool2), usmBuyPrice2).add(
                 user1UsmBalance2)
-              const targetUsmBalance3 = wadCbrt(wadMul(integralFirstPart, wadSquared(user1UsmBalance2)))
-              shouldEqual(user1UsmBalance3, targetUsmBalance3)
-              shouldEqual(totalUsmSupply3, targetUsmBalance3)
+              // Calculating the cube root of a BigNumber in JavaScript is slightly annoying, so instead compare the cubes:
+              const targetUsmBalance3Cubed = wadMul(integralFirstPart, wadSquared(user1UsmBalance2))
+              shouldEqualApprox(wadCubed(user1UsmBalance3), targetUsmBalance3Cubed)
+              shouldEqualApprox(wadCubed(totalUsmSupply3), targetUsmBalance3Cubed)
             })
 
             it("moves debtRatio towards 100% when minting USM", async () => {
@@ -597,8 +584,8 @@ contract('USM', (accounts) => {
               // Check vs the integral math in USM.ethFromBurn():
               const integralFirstPart = ethPool2.sub(wadMul(wadMul(usmSellPrice2, totalUsmSupply2),
                                                             WAD.sub(wadCubed(wadDiv(totalUsmSupply3, totalUsmSupply2)))))
-              const targetEthPool3 = wadCbrt(wadMul(wadSquared(ethPool2), integralFirstPart))
-              shouldEqual(ethPool3, targetEthPool3)
+              const targetEthPool3Cubed = wadMul(wadSquared(ethPool2), integralFirstPart)
+              shouldEqualApprox(wadCubed(ethPool3), targetEthPool3Cubed)
             })
 
             it("decreases debtRatio when burning USM", async () => {

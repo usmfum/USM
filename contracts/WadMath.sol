@@ -17,6 +17,8 @@ library WadMath {
     uint private constant WAD_OVER_20 = WAD / 20;
     uint private constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
     uint private constant WAD_SQUARED = WAD * WAD;
+    uint private constant BIG_INPUT_THRESHOLD = 1 << 93;
+    uint private constant TWO_WAD = 2 * WAD;
 
     //rounds to zero if x*y < WAD / 2
     function wadMul(uint x, uint y) internal pure returns (uint) {
@@ -81,15 +83,28 @@ library WadMath {
         }
     }
 
+    // Adapted from Lancaster's method: see http://web.archive.org/web/20131227144655/http://metamerist.com/cbrt/cbrt.htm.
     function wadCbrt(uint y) internal pure returns (uint root) {
         if (y > 0 ) {
-            y = y.mul(WAD_SQUARED);
-            uint newRoot = y.add(2) / 3;
+            // If y > 2**93 or so, our temp products below (around y**4 / WAD_SQUARED) will overflow.  So for these large y
+            // values, right-shift y by 3*bitShift digits (so it's manageable), and then (below) left-shift our output root by
+            // bitShift digits:
+            uint bitShift;
+            while (y > BIG_INPUT_THRESHOLD) {
+                y >>= 24;
+                bitShift += 8;
+            }
+
+            uint newRoot = y.add(TWO_WAD) / 3;
+            uint rootCubed;
+            uint rootCubedPlusY;
             do {
                 root = newRoot;
-                newRoot = (root + root + ((y / root) / root)) / 3;
+                rootCubed = (root.mul(root) / WAD).mul(root) / WAD;
+                rootCubedPlusY = rootCubed.add(y);
+                newRoot = root.mul(rootCubedPlusY.add(y)) / rootCubedPlusY.add(rootCubed);
             } while (newRoot < root);
+            root <<= bitShift;
         }
-	//require(root ** 3 <= y && (root + 1) ** 3 > y);
     }
 }

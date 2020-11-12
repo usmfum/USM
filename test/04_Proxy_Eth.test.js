@@ -26,18 +26,10 @@ contract('USM - Proxy - Eth', (accounts) => {
     return ((x.mul(WAD)).add(y.div(TWO))).div(y)
   }
 
-  function wadCbrt(y) {
-    if (y > 0 ) {
-      let root, newRoot
-      y = y.mul(WAD_SQUARED)
-      newRoot = y.add(TWO).div(THREE)
-      do {
-        root = newRoot
-        newRoot = root.add(root).add(y.div(root).div(root)).div(THREE)
-      } while (newRoot.lt(root))
-      return root
-    }
-    return ZERO
+  function shouldEqualApprox(x, y) {
+    // Check that abs(x - y) < 0.0000001(x + y):
+    const diff = (x.gt(y) ? x.sub(y) : y.sub(x))
+    diff.should.be.bignumber.lt(x.add(y).div(new BN(1000000)))
   }
 
   const [deployer, user1, user2] = accounts
@@ -163,9 +155,9 @@ contract('USM - Proxy - Eth', (accounts) => {
             const ethOut = ethBalance2.sub(ethBalance)
             const integralFirstPart = ethPool.sub(wadMul(wadMul(usmSellPrice, usmBalance),
                                                          WAD.sub(wadCubed(wadDiv(usmBalance2, usmBalance)))))
-            const targetEthPool2 = wadCbrt(wadMul(wadSquared(ethPool), integralFirstPart))
-            const targetEthOut = ethPool.sub(targetEthPool2)
-            ethOut.toString().should.equal(targetEthOut.toString())
+            const targetEthPool2Cubed = wadMul(wadSquared(ethPool), integralFirstPart)
+            const ethPool2Cubed = wadCubed(ethPool.sub(ethOut))
+            shouldEqualApprox(ethPool2Cubed, targetEthPool2Cubed)
           })
 
           it('does not burn USM if minimum not reached', async () => {
