@@ -83,28 +83,16 @@ library WadMath {
         }
     }
 
-    // Adapted from Lancaster's method: see http://web.archive.org/web/20131227144655/http://metamerist.com/cbrt/cbrt.htm.
+    // Using Newton's method (see eg https://stackoverflow.com/a/8827111/3996653), but with WAD fixed-point math.
     function wadCbrt(uint y) internal pure returns (uint root) {
         if (y > 0 ) {
-            // If y > 2**93 or so, our temp products below (around y**4 / WAD_SQUARED) will overflow.  So for these large y
-            // values, right-shift y by 3*bitShift digits (so it's manageable), and then (below) left-shift our output root by
-            // bitShift digits:
-            uint bitShift;
-            while (y > BIG_INPUT_THRESHOLD) {
-                y >>= 12;
-                bitShift += 4;
-            }
-
             uint newRoot = y.add(TWO_WAD) / 3;
-            uint rootCubed;
-            uint rootCubedPlusY;
+            uint yTimesWadSquared = y.mul(WAD_SQUARED);
             do {
                 root = newRoot;
-                rootCubed = (root.mul(root) / WAD).mul(root) / WAD;
-                rootCubedPlusY = rootCubed.add(y);
-                newRoot = root.mul(rootCubedPlusY.add(y)) / rootCubedPlusY.add(rootCubed);
+                newRoot = (root + root + ((yTimesWadSquared / root) / root)) / 3;
             } while (newRoot < root);
-            root <<= bitShift;
         }
+        //require(root ** 3 <= y && (root + 1) ** 3 > y);
     }
 }
