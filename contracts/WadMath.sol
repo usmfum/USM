@@ -91,8 +91,8 @@ library WadMath {
             // bitShift digits:
             uint bitShift;
             while (y > BIG_INPUT_THRESHOLD) {
-                y >>= 24;
-                bitShift += 8;
+                y >>= 12;
+                bitShift += 4;
             }
 
             uint newRoot = y.add(TWO_WAD) / 3;
