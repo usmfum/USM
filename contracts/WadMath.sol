@@ -28,7 +28,7 @@ library WadMath {
     }
 
     function wadCubed(uint x) internal pure returns (uint) {
-        return (((x.mul(x)).add(WAD_OVER_2) / WAD).mul(x)).add(WAD_OVER_2) / WAD;
+        return ((x.mul(x)).add(WAD_OVER_2).mul(x)).add(WAD_OVER_2) / WAD_SQUARED;
     }
 
     //rounds to zero if x/y < WAD / 2

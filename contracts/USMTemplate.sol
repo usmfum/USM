@@ -334,7 +334,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
             // Math: this is an integral - sum of all USM minted at a sliding-down ETH price:
             // u - u_0 = ((((e / e_0)**3 - 1) * e_0 / ubp_0 + u_0) * u_0**2)**(1/3) - u_0
-            uint integralFirstPart = ethQty1.wadDiv(ethQty0).wadCubed().sub(WAD).wadMul(ethQty0).wadDiv(usmPrice0).add(usmQty0);
+            uint integralFirstPart = ethQty1.wadDiv(ethQty0).wadCubed().sub(WAD).mul(ethQty0).div(usmPrice0).add(usmQty0);
             usmOut = integralFirstPart.wadMul(usmQty0.wadSquared()).wadCbrt().sub(usmQty0);
         }
     }
@@ -374,7 +374,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         } else {
             // Math: f - f_0 = e_0 * (e - e_0) / (e * fbp_0)
             uint ethQty1 = ethQty0.add(ethIn);
-            fumOut = ethQty0.wadMul(ethIn).wadDiv(ethQty1.wadMul(fumPrice0));
+            fumOut = ethQty0.mul(ethIn).div(ethQty1.wadMul(fumPrice0));
         }
     }
 
@@ -395,7 +395,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         } else {
             // Math: e_0 - e = e_0 * (f_0 - f) * fsp_0 / (e_0 + (f_0 - f) * fsp_0)
             uint integralFirstPart = fumIn.wadMul(fumPrice0);
-            ethOut = ethQty0.wadMul(integralFirstPart).wadDiv(ethQty0.add(integralFirstPart));
+            ethOut = ethQty0.mul(integralFirstPart).div(ethQty0.add(integralFirstPart));
         }
     }
 
