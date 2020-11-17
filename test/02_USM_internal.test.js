@@ -10,6 +10,7 @@ require('chai').use(require('chai-as-promised')).should()
 contract('USM - Internal functions', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
   let usm
+  const rounds = { DOWN: 0, UP: 1 }
 
   const ZERO = new BN('0')
   const WAD = new BN('1000000000000000000')
@@ -30,14 +31,14 @@ contract('USM - Internal functions', (accounts) => {
     it('returns the value of eth in usm', async () => {
       const oneEth = WAD
       const equivalentUSM = oneEth.mul(priceWAD).div(WAD)
-      const usmAmount = await usm.ethToUsm(oneEth)
+      const usmAmount = await usm.ethToUsm(oneEth, rounds.DOWN)
       usmAmount.toString().should.equal(equivalentUSM.toString())
     })
 
     it('returns the value of usm in eth', async () => {
       const oneUsm = WAD
       const equivalentEth = oneUsm.mul(WAD).div(priceWAD)
-      const ethAmount = await usm.usmToEth(oneUsm)
+      const ethAmount = await usm.usmToEth(oneUsm, rounds.DOWN)
       ethAmount.toString().should.equal(equivalentEth.toString())
     })
 

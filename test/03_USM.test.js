@@ -16,7 +16,11 @@ contract('USM', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
   const [ZERO, ONE, TWO, THREE, FOUR, EIGHT, TEN, EIGHTEEN, THIRTY, HUNDRED, THOUSAND, WAD] =
         [0, 1, 2, 3, 4, 8, 10, 18, 30, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
+  const WAD_MINUS_1 = WAD.sub(ONE)
+  const WAD_SQUARED = WAD.mul(WAD)
+  const WAD_SQUARED_MINUS_1 = WAD_SQUARED.sub(ONE)
   const sides = { BUY: 0, SELL: 1 }
+  const rounds = { DOWN: 0, UP: 1 }
   const oneEth = WAD
   const oneUsm = WAD
   const oneFum = WAD
@@ -50,37 +54,41 @@ contract('USM', (accounts) => {
   const daiEthReserve1 = '480578265664207487333589'
   const daiEthPrice = '371672890430975717452'               // = daiEthReserve0 * daiEthScaleFactor / daiEthReserve1
 
-
-  function wadMul(x, y) {
-    return ((x.mul(y)).add(WAD.div(TWO))).div(WAD)
+  function wadMul(x, y, upOrDown) {
+    return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
   }
 
-  function wadSquared(x) {
-    return wadMul(x, x)
+  function wadSquared(x, upOrDown) {
+    return wadMul(x, x, upOrDown)
   }
 
-  function wadDiv(x, y) {
-    return ((x.mul(WAD)).add(y.div(TWO))).div(y)
+  function wadCubed(x, upOrDown) {
+    return ((x.mul(x).mul(x)).add(upOrDown == rounds.DOWN ? ZERO : WAD_SQUARED_MINUS_1)).div(WAD_SQUARED)
   }
 
-  function wadSqrt(y) {
-    y = y.mul(WAD)
-    if (y.gt(THREE)) {
-      let z = y
-      let x = y.div(TWO).add(ONE)
-      while (x.lt(z)) {
-        z = x
-        x = y.div(x).add(x).div(TWO)
+  function wadDiv(x, y, upOrDown) {
+    return ((x.mul(WAD)).add(y.sub(ONE))).div(y)
+  }
+
+  function wadCbrt(y, upOrDown) {
+    if (y.gt(ZERO)) {
+      let root, newRoot
+      newRoot = y.add(TWO.mul(WAD)).div(THREE)
+      const yTimesWadSquared = y.mul(WAD_SQUARED)
+      do {
+        root = newRoot
+        newRoot = root.add(root).add(yTimesWadSquared.div(root.mul(root))).div(THREE)
+      } while (newRoot.lt(root))
+      if ((upOrDown == rounds.UP) && root.pow(THREE).lt(y.mul(WAD_SQUARED))) {
+        root = root.add(ONE)
       }
-      return z
-    } else if (y.ne(ZERO)) {
-      return ONE
+      return root
     }
     return ZERO
   }
 
   function wadDecay(adjustment, decayFactor) {
-    return WAD.add(wadMul(adjustment, decayFactor)).sub(decayFactor)
+    return WAD.add(wadMul(adjustment, decayFactor, rounds.DOWN)).sub(decayFactor)
   }
 
   function shouldEqual(x, y) {
@@ -128,7 +136,7 @@ contract('USM', (accounts) => {
       fum = await FUM.at(await usm.fum())
 
       priceWAD = await usm.latestPrice()
-      oneDollarInEth = wadDiv(WAD, priceWAD)
+      oneDollarInEth = wadDiv(WAD, priceWAD, rounds.UP)
 
       ethPerFund = oneEth.mul(TWO)                  // Can be any (?) number
       const totalEthToFund = ethPerFund.mul(THREE)  // Based on three cumulative calls to fund() in tests below
@@ -157,10 +165,10 @@ contract('USM', (accounts) => {
       it("starts with correct FUM price", async () => {
         const fumBuyPrice = await usm.fumPrice(sides.BUY)
         // The FUM price should start off equal to $1, in ETH terms = 1 / price:
-        shouldEqual(fumBuyPrice, oneDollarInEth)
+        shouldEqualApprox(fumBuyPrice, oneDollarInEth)
         
         const fumSellPrice = await usm.fumPrice(sides.SELL)
-        shouldEqual(fumSellPrice, oneDollarInEth)
+        shouldEqualApprox(fumSellPrice, oneDollarInEth)
       })
     })
 
@@ -219,14 +227,14 @@ contract('USM', (accounts) => {
           shouldEqual(ethPool1, targetEthPool1)
 
           // Check that the FUM created was just based on straight linear pricing - qty * price:
-          const targetFumBalance1 = wadMul(ethPool1, priceWAD)
+          const targetFumBalance1 = wadMul(ethPool1, priceWAD, rounds.DOWN)
           shouldEqualApprox(user2FumBalance1, targetFumBalance1)    // Only approx b/c fumFromFund() loses some precision
           shouldEqualApprox(totalFumSupply1, targetFumBalance1)
 
           // And relatedly, buySellAdjustment should be unchanged (1), and FUM buy price and FUM sell price should still be $1:
           shouldEqual(buySellAdj1, WAD)
-          shouldEqual(fumBuyPrice1, oneDollarInEth)
-          shouldEqual(fumSellPrice1, oneDollarInEth)
+          shouldEqualApprox(fumBuyPrice1, oneDollarInEth)
+          shouldEqualApprox(fumSellPrice1, oneDollarInEth)
         })
 
         /* ____________________ Minting USM (aka mint()) ____________________ */
@@ -273,20 +281,20 @@ contract('USM', (accounts) => {
 
             // The first mint() call doesn't use sliding prices, or update buySellAdjustment, because before this call the debt
             // ratio is 0.  Only once debt ratio becomes non-zero after this call does the system start applying sliding prices.
-            const targetUsmBalance2 = wadMul(ethPerMint, priceWAD)
+            const targetUsmBalance2 = wadMul(ethPerMint, priceWAD, rounds.DOWN)
             shouldEqualApprox(user1UsmBalance2, targetUsmBalance2)  // Only approx b/c usmFromMint() loses some precision
             shouldEqualApprox(totalUsmSupply2, targetUsmBalance2)
 
             shouldEqual(buySellAdj2, WAD)
-            shouldEqual(fumBuyPrice2, oneDollarInEth)
-            shouldEqual(fumSellPrice2, oneDollarInEth)
+            shouldEqualApprox(fumBuyPrice2, oneDollarInEth)
+            shouldEqualApprox(fumSellPrice2, oneDollarInEth)
           })
 
           it("reduces minFumBuyPrice over time", async () => {
             // Move price to get debt ratio just *above* MAX:
             const targetDebtRatio3 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
-            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
-            const targetPrice3 = wadMul(price0, priceChangeFactor3)
+            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.UP)
+            const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.DOWN)
             await usm.setPrice(targetPrice3)
             const price3 = await usm.latestPrice()
             shouldEqual(price3, targetPrice3)
@@ -296,7 +304,7 @@ contract('USM', (accounts) => {
 
             // Calculate targetMinFumBuyPrice using the math in USM._updateMinFumBuyPrice():
             const fumSupply = await fum.totalSupply()
-            const targetMinFumBuyPrice4 = wadDiv(wadMul(WAD.sub(MAX_DEBT_RATIO), ethPool2), fumSupply)
+            const targetMinFumBuyPrice4 = wadDiv(wadMul(WAD.sub(MAX_DEBT_RATIO), ethPool2, rounds.UP), fumSupply, rounds.UP)
 
             // Make one tiny call to fund(), just to actually trigger the internal call to _updateMinFumBuyPrice():
             await usm.fund(user3, user3, bitOfEth, { from: user3 })
@@ -314,8 +322,8 @@ contract('USM', (accounts) => {
             shouldEqual(t1, t0 + timeDelay)
 
             const minFumBuyPrice5 = await usm.minFumBuyPrice()
-            const decayFactor5 = wadDiv(ONE, EIGHT)
-            const targetMinFumBuyPrice5 = wadMul(minFumBuyPrice4, decayFactor5)
+            const decayFactor5 = wadDiv(ONE, EIGHT, rounds.UP)
+            const targetMinFumBuyPrice5 = wadMul(minFumBuyPrice4, decayFactor5, rounds.UP)
             shouldEqual(minFumBuyPrice5, targetMinFumBuyPrice5)
           })
 
@@ -339,19 +347,34 @@ contract('USM', (accounts) => {
               usmSellPrice3 = await usm.usmPrice(sides.SELL)
             })
 
-            it("calculates sqrt correctly", async () => {
+            it("calculates cbrt correctly", async () => {
               const roots = [1, 2, 3, 7, 10, 99, 1001, 10000, 99999, 1000001]
               const w = await WadMath.new()
-              let i, r, square, sqrt
+              let i, r, cube, cbrt
               for (i = 0; i < roots.length; ++i) {
                 r = (new BN(roots[i])).mul(WAD)
-                square = wadSquared(r)
-                sqrt = await w.wadSqrt(square)
-                shouldEqual(sqrt, r)            // wadSqrt(49000000000000000000) should return 7000000000000000000
-                sqrt = await w.wadSqrt(square.add(ONE))
-                shouldEqual(sqrt, r)            // wadSqrt(49000000000000000001) should return 7000000000000000000 too
-                sqrt = await w.wadSqrt(square.sub(ONE))
-                shouldEqual(sqrt, r.sub(ONE))   // wadSqrt(48999999999999999999) should return 6999999999999999999 (ie, round down)
+                cube = wadCubed(r, rounds.DOWN)
+
+                cbrt = await w.wadCbrtDown(cube)
+                shouldEqual(wadCbrt(cube, rounds.DOWN), cbrt)
+                shouldEqual(wadCubed(cbrt, rounds.DOWN), cube)
+                cbrt = await w.wadCbrtUp(cube)
+                shouldEqual(wadCbrt(cube, rounds.UP), cbrt)
+                shouldEqual(wadCubed(cbrt, rounds.DOWN), cube)
+
+                cbrt = await w.wadCbrtDown(cube.add(ONE))
+                shouldEqual(wadCbrt(cube.add(ONE), rounds.DOWN), cbrt)
+                shouldEqual(wadCubed(cbrt, rounds.DOWN), cube)
+                cbrt = await w.wadCbrtUp(cube.add(ONE))
+                shouldEqual(wadCbrt(cube.add(ONE), rounds.UP), cbrt)
+                shouldEqual(wadCubed(cbrt.sub(ONE), rounds.DOWN), cube)
+
+                cbrt = await w.wadCbrtDown(cube.sub(ONE))
+                shouldEqual(wadCbrt(cube.sub(ONE), rounds.DOWN), cbrt)
+                shouldEqual(wadCubed(cbrt.add(ONE), rounds.DOWN), cube)
+                cbrt = await w.wadCbrtUp(cube.sub(ONE))
+                shouldEqual(wadCbrt(cube.sub(ONE), rounds.UP), cbrt)
+                shouldEqual(wadCubed(cbrt, rounds.DOWN), cube)
               }
             })
 
@@ -360,9 +383,8 @@ contract('USM', (accounts) => {
               shouldEqual(ethPool3, targetEthPool3)
 
               // Check vs the integral math in USM.fumFromFund():
-              const integralFirstPart = wadMul(debtRatio2, wadSquared(ethPool3).sub(wadSquared(ethPool2)))
-              const targetFumBalance3 = wadDiv(wadSqrt(integralFirstPart.add(wadSquared(wadMul(totalFumSupply1, fumBuyPrice2)))),
-                                               fumBuyPrice2)
+              const targetFumOut = ethPool2.mul(ethPerFund).div(wadMul(ethPool3, fumBuyPrice2, rounds.UP))
+              const targetFumBalance3 = user2FumBalance1.add(targetFumOut)
               shouldEqual(user2FumBalance3, targetFumBalance3)
               shouldEqual(totalFumSupply3, targetFumBalance3)
             })
@@ -409,9 +431,9 @@ contract('USM', (accounts) => {
               shouldEqual(t1, t0 + timeDelay)
 
               const buySellAdj4 = await usm.buySellAdjustment()
-              const decayFactor4 = wadDiv(ONE, EIGHT)
+              const decayFactor4 = wadDiv(ONE, EIGHT, rounds.DOWN)
               const targetBuySellAdj4 = wadDecay(buySellAdj3, decayFactor4)
-              shouldEqual(buySellAdj4, targetBuySellAdj4)
+              shouldEqualApprox(buySellAdj4, targetBuySellAdj4)
             })
           })
 
@@ -445,9 +467,10 @@ contract('USM', (accounts) => {
               shouldEqual(ethPool3, targetEthPool3)
 
               // Check vs the integral math in USM.usmFromMint():
-              const integralFirstPart = wadMul(debtRatio2, wadSquared(ethPool3).sub(wadSquared(ethPool2)))
-              const targetUsmBalance3 = wadDiv(wadSqrt(integralFirstPart.add(wadSquared(wadMul(totalUsmSupply2, usmBuyPrice2)))),
-                                               usmBuyPrice2)
+              const firstPart = wadCubed(wadDiv(ethPool3, ethPool2, rounds.DOWN),
+                                         rounds.DOWN).sub(WAD).mul(ethPool2).div(usmBuyPrice2).add(user1UsmBalance2)
+              const targetUsmBalance3 = wadCbrt(wadMul(firstPart, wadSquared(user1UsmBalance2, rounds.DOWN), rounds.DOWN),
+                                                rounds.DOWN)
               shouldEqual(user1UsmBalance3, targetUsmBalance3)
               shouldEqual(totalUsmSupply3, targetUsmBalance3)
             })
@@ -505,9 +528,9 @@ contract('USM', (accounts) => {
               shouldEqual(totalFumSupply3, targetFumBalance3)
 
               // Check vs the integral math in USM.ethFromDefund():
-              const integralFirstPart = wadMul(wadSquared(totalFumSupply1).sub(wadSquared(totalFumSupply3)),
-                                               wadSquared(fumSellPrice2))
-              const targetEthPool3 = wadSqrt(wadSquared(ethPool2).sub(wadDiv(integralFirstPart, debtRatio2)))
+              const targetEthOut = ethPool2.mul(wadMul(fumToBurn, fumSellPrice2, rounds.DOWN)).div(
+                  ethPool2.add(wadMul(fumToBurn, fumSellPrice2, rounds.UP)))
+              const targetEthPool3 = ethPool2.sub(targetEthOut)
               shouldEqual(ethPool3, targetEthPool3)
             })
 
@@ -532,8 +555,8 @@ contract('USM', (accounts) => {
             // Move price to get debt ratio just *below* MAX.  Eg, if debt ratio is currently 156%, increasing the price by
             // (156% / 79%%) should bring debt ratio to just about 79%:
             const targetDebtRatio3 = MAX_DEBT_RATIO.sub(WAD.div(HUNDRED)) // Eg, 80% - 1% = 79%
-            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
-            const targetPrice3 = wadMul(price0, priceChangeFactor3)
+            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.DOWN)
+            const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.UP)
             await usm.setPrice(targetPrice3)
             const price3 = await usm.latestPrice()
             shouldEqual(price3, targetPrice3)
@@ -547,8 +570,8 @@ contract('USM', (accounts) => {
             const debtRatio4 = await usm.debtRatio()
             // Next, similarly move price to get debt ratio just *above* MAX:
             const targetDebtRatio5 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
-            const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5)
-            const targetPrice5 = wadMul(price3, priceChangeFactor5)
+            const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5, rounds.UP)
+            const targetPrice5 = wadMul(price3, priceChangeFactor5, rounds.DOWN)
             await usm.setPrice(targetPrice5)
             const price5 = await usm.latestPrice()
             shouldEqual(price5, targetPrice5)
@@ -593,9 +616,11 @@ contract('USM', (accounts) => {
               shouldEqual(totalUsmSupply3, targetUsmBalance3)
 
               // Check vs the integral math in USM.ethFromBurn():
-              const integralFirstPart = wadMul(wadSquared(totalUsmSupply2).sub(wadSquared(totalUsmSupply3)),
-                                               wadSquared(usmSellPrice2))
-              const targetEthPool3 = wadSqrt(wadSquared(ethPool2).sub(wadDiv(integralFirstPart, debtRatio2)))
+              const firstPart = wadMul(wadMul(usmSellPrice2, totalUsmSupply2, rounds.DOWN),
+                                       WAD.sub(wadCubed(wadDiv(totalUsmSupply3, totalUsmSupply2, rounds.UP), rounds.UP)),
+                                       rounds.DOWN)
+              const targetEthPool3 = wadCbrt(wadMul(wadSquared(ethPool2, rounds.UP), ethPool2.sub(firstPart), rounds.UP),
+                                             rounds.UP)
               shouldEqual(ethPool3, targetEthPool3)
             })
 
@@ -619,8 +644,8 @@ contract('USM', (accounts) => {
           it("doesn't allow burning USM if debt ratio over 100%", async () => {
             // Move price to get debt ratio just *below* 100%:
             const targetDebtRatio3 = WAD.mul(HUNDRED.sub(ONE)).div(HUNDRED) // 99%
-            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3)
-            const targetPrice3 = wadMul(price0, priceChangeFactor3)
+            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.DOWN)
+            const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.UP)
             await usm.setPrice(targetPrice3)
             const price3 = await usm.latestPrice()
             shouldEqual(price3, targetPrice3)
@@ -634,8 +659,8 @@ contract('USM', (accounts) => {
             // Next, similarly move price to get debt ratio just *above* 100%:
             const debtRatio4 = await usm.debtRatio()
             const targetDebtRatio5 = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
-            const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5)
-            const targetPrice5 = wadMul(price3, priceChangeFactor5)
+            const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5, rounds.UP)
+            const targetPrice5 = wadMul(price3, priceChangeFactor5, rounds.DOWN)
             await usm.setPrice(targetPrice5)
             const price5 = await usm.latestPrice()
             shouldEqual(price5, targetPrice5)

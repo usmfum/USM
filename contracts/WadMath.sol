@@ -10,25 +10,55 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 library WadMath {
     using SafeMath for uint;
 
-    uint private constant WAD = 10 ** 18;
+    enum Round {Down, Up}
 
-    uint private constant WAD_OVER_2 = WAD / 2;
+    uint private constant WAD = 10 ** 18;
+    uint private constant WAD_MINUS_1 = WAD - 1;
+    uint private constant WAD_SQUARED = WAD * WAD;
+    uint private constant WAD_SQUARED_MINUS_1 = WAD_SQUARED - 1;
     uint private constant WAD_OVER_10 = WAD / 10;
     uint private constant WAD_OVER_20 = WAD / 20;
     uint private constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
+    uint private constant TWO_WAD = 2 * WAD;
 
-    //rounds to zero if x*y < WAD / 2
-    function wadMul(uint x, uint y) internal pure returns (uint) {
-        return (x.mul(y)).add(WAD_OVER_2) / WAD;
+    function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint) {
+        return upOrDown == Round.Down ? wadMulDown(x, y) : wadMulUp(x, y);
     }
 
-    function wadSquared(uint x) internal pure returns (uint) {
-        return (x.mul(x)).add(WAD_OVER_2) / WAD;
+    function wadMulDown(uint x, uint y) internal pure returns (uint) {
+        return x.mul(y) / WAD;
     }
 
-    //rounds to zero if x/y < WAD / 2
-    function wadDiv(uint x, uint y) internal pure returns (uint) {
-        return ((x.mul(WAD)).add(y / 2)).div(y);
+    function wadMulUp(uint x, uint y) internal pure returns (uint) {
+        return (x.mul(y)).add(WAD_MINUS_1) / WAD;
+    }
+
+    function wadSquaredDown(uint x) internal pure returns (uint) {
+        return (x.mul(x)) / WAD;
+    }
+
+    function wadSquaredUp(uint x) internal pure returns (uint) {
+        return (x.mul(x)).add(WAD_MINUS_1) / WAD;
+    }
+
+    function wadCubedDown(uint x) internal pure returns (uint) {
+        return (x.mul(x)).mul(x) / WAD_SQUARED;
+    }
+
+    function wadCubedUp(uint x) internal pure returns (uint) {
+        return ((x.mul(x)).mul(x)).add(WAD_SQUARED_MINUS_1) / WAD_SQUARED;
+    }
+
+    function wadDiv(uint x, uint y, Round upOrDown) internal pure returns (uint) {
+        return upOrDown == Round.Down ? wadDivDown(x, y) : wadDivUp(x, y);
+    }
+
+    function wadDivDown(uint x, uint y) internal pure returns (uint) {
+        return (x.mul(WAD)).div(y);
+    }
+
+    function wadDivUp(uint x, uint y) internal pure returns (uint) {
+        return ((x.mul(WAD)).add(y - 1)).div(y);    // Can use "-" instead of sub() since div(y) will catch y = 0 case anyway
     }
 
     function wadHalfExp(uint power) internal pure returns (uint) {
@@ -68,27 +98,34 @@ library WadMath {
         z = n % 2 != 0 ? x : WAD;
 
         for (n /= 2; n != 0; n /= 2) {
-            x = wadSquared(x);
+            x = wadSquaredDown(x);
 
             if (n % 2 != 0) {
-                z = wadMul(z, x);
+                z = wadMulDown(z, x);
             }
         }
     }
 
-    // Babylonian method, from Uniswap: https://github.com/Uniswap/uniswap-v2-core/blob/v1.0.1/contracts/libraries/Math.sol
-    // (via https://ethereum.stackexchange.com/a/87713/64318).
-    function wadSqrt(uint y) internal pure returns (uint z) {
-        y = y.mul(WAD);
-        if (y > 3) {
-            z = y;
-            uint x = y / 2 + 1;
-            while (x < z) {
-                z = x;
-                x = (y / x + x) / 2;
-            }
-        } else if (y != 0) {
-            z = 1;
+    // Using Newton's method (see eg https://stackoverflow.com/a/8827111/3996653), but with WAD fixed-point math.
+    function wadCbrtDown(uint y) internal pure returns (uint root) {
+        if (y > 0 ) {
+            uint newRoot = y.add(TWO_WAD) / 3;
+            uint yTimesWadSquared = y.mul(WAD_SQUARED);
+            do {
+                root = newRoot;
+                newRoot = (root + root + (yTimesWadSquared / (root * root))) / 3;
+            } while (newRoot < root);
         }
+        //require(root**3 <= y.mul(WAD_SQUARED) && y.mul(WAD_SQUARED) < (root + 1)**3);
+    }
+
+    function wadCbrtUp(uint y) internal pure returns (uint root) {
+        root = wadCbrtDown(y);
+        // The only case where wadCbrtUp(y) *isn't* equal to wadCbrtDown(y) + 1 is when y is a perfect cube; so check for that.
+        // These "*"s are safe because: 1. root**3 <= y.mul(WAD_SQUARED), and 2. y.mul(WAD_SQUARED) is calculated (safely) above.
+        if (root * root * root != y * WAD_SQUARED ) {
+            ++root;
+        }
+        //require((root - 1)**3 < y.mul(WAD_SQUARED) && y.mul(WAD_SQUARED) <= root**3);
     }
 }

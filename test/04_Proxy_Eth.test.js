@@ -10,46 +10,54 @@ const Proxy = artifacts.require('Proxy')
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Proxy - Eth', (accounts) => {
-  function wadMul(x, y) {
-    return ((x.mul(y)).add(WAD.div(TWO))).div(WAD)
-  }
-
-  function wadSquared(x) {
-    return wadMul(x, x)
-  }
-
-  function wadDiv(x, y) {
-    return ((x.mul(WAD)).add(y.div(TWO))).div(y)
-  }
-
-  function wadSqrt(y) {
-    y = y.mul(WAD)
-    if (y.gt(THREE)) {
-      let z = y
-      let x = y.div(TWO).add(ONE)
-      while (x.lt(z)) {
-        z = x
-        x = y.div(x).add(x).div(TWO)
-      }
-      return z
-    } else if (y.ne(ZERO)) {
-      return ONE
-    }
-    return ZERO
-  }
-
   const [deployer, user1, user2] = accounts
-
   const [ZERO, ONE, TWO, THREE, EIGHT, TEN] =
         [0, 1, 2, 3, 8, 10].map(function (n) { return new BN(n) })
   const WAD = new BN('1000000000000000000')
+  const WAD_MINUS_1 = WAD.sub(ONE)
+  const WAD_SQUARED = WAD.mul(WAD)
+  const WAD_SQUARED_MINUS_1 = WAD_SQUARED.sub(ONE)
 
   const sides = { BUY: 0, SELL: 1 }
+  const rounds = { DOWN: 0, UP: 1 }
   const ethTypes = { ETH: 0, WETH: 1 }
   const MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
   const oneEth = WAD
   const price = new BN(250)
   const priceWAD = price.mul(WAD)
+
+  function wadMul(x, y, upOrDown) {
+    return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
+  }
+
+  function wadSquared(x, upOrDown) {
+    return wadMul(x, x, upOrDown)
+  }
+
+  function wadCubed(x, upOrDown) {
+    return ((x.mul(x).mul(x)).add(upOrDown == rounds.DOWN ? ZERO : WAD_SQUARED_MINUS_1)).div(WAD_SQUARED)
+  }
+
+  function wadDiv(x, y, upOrDown) {
+    return ((x.mul(WAD)).add(y.sub(ONE))).div(y)
+  }
+
+  function wadCbrt(y, upOrDown) {
+    if (y.gt(ZERO)) {
+      let root, newRoot
+      newRoot = y.add(TWO.mul(WAD)).div(THREE)
+      const yTimesWadSquared = y.mul(WAD_SQUARED)
+      do {
+        root = newRoot
+        newRoot = root.add(root).add(yTimesWadSquared.div(root.mul(root))).div(THREE)
+      } while (newRoot.lt(root))
+      if ((upOrDown == rounds.UP) && root.pow(THREE).lt(y.mul(WAD_SQUARED))) {
+        root = root.add(ONE)
+      }
+      return root
+    }
+    return ZERO
+  }
 
   describe('mints and burns a static amount', () => {
     let weth, usm, proxy
@@ -95,7 +103,7 @@ contract('USM - Proxy - Eth', (accounts) => {
           ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
 
           const usmBalance2 = (await usm.balanceOf(user1))
-          usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD).toString()) // Just qty * price, no sliding prices yet
+          usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD, rounds.DOWN).toString()) // Just qty * price, no sliding prices yet
         })
 
         it('does not mint USM if minimum not reached', async () => {
@@ -117,7 +125,7 @@ contract('USM - Proxy - Eth', (accounts) => {
 
             const fumBalance = (await fum.balanceOf(user1))
             const ethBalance = new BN(await web3.eth.getBalance(user1))
-            const targetFumBalance = wadMul(oneEth, priceWAD) // see "allows minting FUM" above
+            const targetFumBalance = wadMul(oneEth, priceWAD, rounds.DOWN) // see "allows minting FUM" above
             fumBalance.toString().should.equal(targetFumBalance.toString())
 
             const fumToBurn = priceWAD.div(TWO)
@@ -128,9 +136,8 @@ contract('USM - Proxy - Eth', (accounts) => {
             const ethBalance2 = new BN(await web3.eth.getBalance(user1))
             const ethOut = ethBalance2.sub(ethBalance)
             // Like most of this file, this math is cribbed from 03_USM.test.js (originally, from USM.sol, eg ethFromDefund()):
-            const integralFirstPart = wadMul(wadSquared(fumBalance).sub(wadSquared(fumBalance2)), wadSquared(fumSellPrice))
-            const targetEthPool2 = wadSqrt(wadSquared(ethPool).sub(wadDiv(integralFirstPart, debtRatio)))
-            const targetEthOut = ethPool.sub(targetEthPool2)
+            const targetEthOut = ethPool.mul(wadMul(fumToBurn, fumSellPrice, rounds.DOWN)).div(
+                ethPool.add(wadMul(fumToBurn, fumSellPrice, rounds.UP)))
             ethOut.toString().should.equal(targetEthOut.toString())
           })
 
@@ -159,10 +166,11 @@ contract('USM - Proxy - Eth', (accounts) => {
 
             const ethBalance2 = new BN(await web3.eth.getBalance(user1))
             const ethOut = ethBalance2.sub(ethBalance)
-            const integralFirstPart = wadMul(wadSquared(usmBalance).sub(wadSquared(usmBalance2)), wadSquared(usmSellPrice))
-            const targetEthPool2 = wadSqrt(wadSquared(ethPool).sub(wadDiv(integralFirstPart, debtRatio)))
-            const targetEthOut = ethPool.sub(targetEthPool2)
-            ethOut.toString().should.equal(targetEthOut.toString())
+            const ethPool2 = ethPool.sub(ethOut)
+            const firstPart = wadMul(wadMul(usmSellPrice, usmBalance, rounds.DOWN),
+                                     WAD.sub(wadCubed(wadDiv(usmBalance2, usmBalance, rounds.UP), rounds.UP)), rounds.DOWN)
+            const targetEthPool2 = wadCbrt(wadMul(wadSquared(ethPool, rounds.UP), ethPool.sub(firstPart), rounds.UP), rounds.UP)
+            ethPool2.toString().should.equal(targetEthPool2.toString())
           })
 
           it('does not burn USM if minimum not reached', async () => {
