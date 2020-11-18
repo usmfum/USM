@@ -13,14 +13,13 @@ contract Proxy {
     enum EthType {ETH, WETH}
 
     using Address for address payable;
-
     IUSM public immutable usm;
     IWETH9 public immutable weth;
 
     constructor(address usm_, address weth_)
         public
     {
-        usm = IUSM(usm_); 
+        usm = IUSM(usm_);
         weth = IWETH9(weth_);
     }
 
@@ -40,7 +39,7 @@ contract Proxy {
             weth.transferFrom(msg.sender, address(this), ethIn);
             weth.withdraw(ethIn);
         }
-        
+
         uint usmOut = usm.mint{ value: ethIn }(msg.sender, msg.sender);
         require(usmOut >= minUsmOut, "Limit not reached");
         return usmOut;

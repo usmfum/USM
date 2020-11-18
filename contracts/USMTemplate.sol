@@ -17,7 +17,7 @@ import "./oracles/Oracle.sol";
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  *
- * This abstract USM contract must be inherited by a concrete implementation, that also adds an Oracle implementation - eg, by 
+ * This abstract USM contract must be inherited by a concrete implementation, that also adds an Oracle implementation - eg, by
  * also inheriting a concrete Oracle implementation.  See USM (and MockUSM) for an example.
  *
  * We use this inheritance-based design (rather than the more natural, and frankly normally more correct, composition-based design
@@ -38,8 +38,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                 // 80%
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
-
-    uint ethPool;
 
     IERC20 public eth;
     FUM public fum;
@@ -71,7 +69,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         returns (uint usmOut)
     {
         // First check that fund() has been called first - no minting before funding:
-        uint ethInPool = ethPool;
+        uint ethInPool = ethPool();
         require(ethInPool > 0, "Fund before minting");
 
         // Then calculate:
@@ -82,7 +80,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
         // Then update state:
         _mint(to, usmOut);
-        updateEthPool(int256(msg.value));
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.add(msg.value), usmTotalSupply.add(usmOut));
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
     }
@@ -99,14 +96,13 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     {
         // First calculate:
         uint ethUsmPrice = latestPrice();
-        uint ethInPool = ethPool;
+        uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         ethOut = ethFromBurn(ethUsmPrice, usmToBurn, ethInPool, usmTotalSupply);
 
         // Then update state:
         _burn(from, usmToBurn);
-        updateEthPool(-int256(ethOut));
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
         require(newDebtRatio <= WAD, "Debt ratio too high");
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
@@ -124,7 +120,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     {
         // First refresh mfbp:
         uint ethUsmPrice = latestPrice();
-        uint ethInPool = ethPool;
+        uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         uint fumTotalSupply = fum.totalSupply();
@@ -135,7 +131,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         fumOut = fumFromFund(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, fumTotalSupply, adjustment);
 
         // Then update state:
-        updateEthPool(int256(msg.value));
         fum.mint(to, fumOut);
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.add(msg.value), usmTotalSupply);
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, adjustment);
@@ -153,14 +148,13 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     {
         // First calculate:
         uint ethUsmPrice = latestPrice();
-        uint ethInPool = ethPool;
+        uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         ethOut = ethFromDefund(ethUsmPrice, fumToBurn, ethInPool, usmTotalSupply);
 
         // Then update state:
         fum.burn(from, fumToBurn);
-        updateEthPool(-int256(ethOut));
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
@@ -234,13 +228,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice Total amount of ETH in the pool (ie, in the contract).
      * @return pool ETH pool
      */
-    function updateEthPool() public returns (uint) {
-        ethPool = address(this).balance;
-    }
-
-    function updateEthPool(int256 delta) internal returns (uint) {
-        ethPool = delta > 0 ? ethPool + uint256(delta) : ethPool - uint256(delta * -1);
-        // ethPool = ethPool + uint256(delta) might just work as well
+    function ethPool() public view returns (uint pool) {
+        pool = address(this).balance;
     }
 
     /**
@@ -454,7 +443,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return buffer ETH buffer
      */
     function ethBuffer(WadMath.Round upOrDown) external view returns (int buffer) {
-        buffer = ethBuffer(latestPrice(), ethPool, totalSupply(), upOrDown);
+        buffer = ethBuffer(latestPrice(), ethPool(), totalSupply(), upOrDown);
     }
 
     /**
@@ -480,7 +469,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ratio Debt ratio
      */
     function debtRatio() external view returns (uint ratio) {
-        ratio = debtRatio(latestPrice(), ethPool, totalSupply());
+        ratio = debtRatio(latestPrice(), ethPool(), totalSupply());
     }
 
     /**
@@ -496,6 +485,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return price FUM price in ETH terms
      */
     function fumPrice(Side side) external view returns (uint price) {
-        price = fumPrice(side, latestPrice(), ethPool, totalSupply(), fum.totalSupply(), buySellAdjustment());
+        price = fumPrice(side, latestPrice(), ethPool(), totalSupply(), fum.totalSupply(), buySellAdjustment());
     }
 }
