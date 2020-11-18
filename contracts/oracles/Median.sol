@@ -2,12 +2,13 @@
 pragma solidity ^0.6.6;
 
 library Median {
-    function median(uint[3] memory xs)
+    /**
+     * @notice Currently only supports three inputs
+     * @return median value
+     */
+    function median(uint a, uint b, uint c)
         internal pure returns (uint)
     {
-        uint a = xs[0];
-        uint b = xs[1];
-        uint c = xs[2];
         bool ab = a > b;
         bool bc = b > c;
         bool ca = c > a;
