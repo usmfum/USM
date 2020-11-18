@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
+import "./external/IWETH9.sol";
 import "./IUSM.sol";
 import "./Delegable.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
 import "./oracles/Oracle.sol";
-// import "@nomiclabs/buidler/console.sol";
+
 
 /**
  * @title USMTemplate
@@ -24,10 +25,12 @@ import "./oracles/Oracle.sol";
  * than calls to a separate oracle contract (or multiple contracts) - which leads to a significant saving in gas.
  */
 abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
+    enum EthType {ETH, WETH}
+    enum Side {Buy, Sell}
+
+    using Address for address payable;
     using SafeMath for uint;
     using WadMath for uint;
-
-    enum Side {Buy, Sell}
 
     event MinFumBuyPriceChanged(uint previous, uint latest);
     event BuySellAdjustmentChanged(uint previous, uint latest);
@@ -37,7 +40,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
 
-    IERC20 public eth;
+    IWETH9 public eth;
     FUM public fum;
 
     struct TimedValue {
@@ -50,11 +53,14 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
     constructor(address eth_) public ERC20Permit("Minimal USD", "USM")
     {
-        eth = IERC20(eth_);
+        eth = IWETH9(eth_);
         fum = new FUM(address(this));
     }
 
     /** EXTERNAL TRANSACTIONAL FUNCTIONS **/
+
+    /// @dev The WETH9 contract will send ether to Proxy on `weth.withdraw` using this function.
+    receive() external payable { }
 
     /**
      * @notice Mint ETH for USM with checks and asset transfers.  Uses msg.value as the ETH deposit.
@@ -65,6 +71,139 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function mint(address from, address to, uint ethIn)
         external override
         onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint usmOut)
+    {
+        return _mint(from, to, ethIn);
+    }
+
+    /**
+     * @notice Burn USM for ETH with checks and asset transfers.
+     * @param usmToBurn Amount of USM to burn
+     * @return ethOut ETH sent
+     */
+    function burn(address from, address to, uint usmToBurn)
+        external override
+        onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint ethOut)
+    {
+        return _burn(from, to, usmToBurn);
+    }
+
+    /**
+     * @notice Fund the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over.
+     * @param ethIn Amount of wrapped Ether to use for minting FUM
+     * @return fumOut FUM sent
+     */
+    function fund(address from, address to, uint ethIn)
+        external override
+        onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint fumOut)
+    {
+        return _fund(from, to, ethIn);
+    }
+
+    /**
+     * @notice Defund the pool by redeeming FUM in exchange for equivalent ETH from the pool.
+     * @param fumToBurn Amount of FUM to burn
+     * @return ethOut ETH sent
+     */
+    function defund(address from, address to, uint fumToBurn)
+        external override
+        onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint ethOut)
+    {
+        return _defund(from, to, fumToBurn);
+    }
+
+    /// @dev Users use `mint()` in Proxy to input either WETH or ETH: either one results in passing WETH to `USM.mint()`.
+    /// @param ethIn Amount of WETH/ETH to use for minting USM.
+    /// @param minUsmOut Minimum accepted USM for a successful mint.
+    /// @param inputType Whether the user passes in WETH, or ETH (which is immediately converted to WETH).
+    function mintLimit(uint ethIn, uint minUsmOut, EthType inputType)
+        external payable returns (uint)
+    {
+        address payer = (inputType == EthType.ETH ? address(this) : msg.sender);
+        if (inputType == EthType.ETH) {
+            require(msg.value == ethIn, "ETH input misspecified");
+            eth.deposit{ value: msg.value }();
+        }
+        uint usmOut = _mint(payer, msg.sender, ethIn);
+        require(usmOut >= minUsmOut, "Limit not reached");
+        return usmOut;
+    }
+
+    /// @dev Users wishing to withdraw their WETH from USM, either as WETH or as ETH, should use this function.
+    /// Users must have called `controller.addDelegate(Proxy.address)` to authorize Proxy to act in their behalf.
+    /// @param usmToBurn Amount of USM to burn.
+    /// @param minEthOut Minimum accepted WETH/ETH for a successful burn.
+    /// @param outputType Whether to send the user WETH, or first convert it to ETH.
+    function burnLimit(uint usmToBurn, uint minEthOut, EthType outputType)
+        external returns (uint)
+    {
+        address receiver = (outputType == EthType.ETH ? address(this) : msg.sender);
+        uint ethOut = _burn(msg.sender, receiver, usmToBurn);
+        require(ethOut >= minEthOut, "Limit not reached");
+        if (outputType == EthType.ETH) {
+            eth.withdraw(ethOut);
+            msg.sender.sendValue(ethOut);
+        }
+        return ethOut;
+    }
+
+    /// @notice Funds the pool either with WETH, or with ETH (then converted to WETH)
+    /// @param ethIn Amount of WETH/ETH to use for minting FUM.
+    /// @param minFumOut Minimum accepted FUM for a successful fund.
+    /// @param inputType Whether the user passes in WETH, or ETH (which is immediately converted to WETH).
+    function fundLimit(uint ethIn, uint minFumOut, EthType inputType)
+        external payable returns (uint)
+    {
+        address payer = (inputType == EthType.ETH ? address(this) : msg.sender);
+        if (inputType == EthType.ETH) {
+            require(msg.value == ethIn, "ETH input misspecified");
+            eth.deposit{ value: msg.value }();
+        }
+        uint fumOut = _fund(payer, msg.sender, ethIn);
+        require(fumOut >= minFumOut, "Limit not reached");
+        return fumOut;
+    }
+
+    /// @notice Defunds the pool by redeeming FUM in exchange for equivalent WETH from the pool (optionally then converted to ETH)
+    /// @param fumToBurn Amount of FUM to burn.
+    /// @param minEthOut Minimum accepted WETH/ETH for a successful defund.
+    /// @param outputType Whether to send the user WETH, or first convert it to ETH.
+    function defundLimit(uint fumToBurn, uint minEthOut, EthType outputType)
+        external returns (uint)
+    {
+        address receiver = (outputType == EthType.ETH ? address(this) : msg.sender);
+        uint ethOut = _defund(msg.sender, receiver, fumToBurn);
+        require(ethOut >= minEthOut, "Limit not reached");
+        if (outputType == EthType.ETH) {
+            eth.withdraw(ethOut);
+            msg.sender.sendValue(ethOut);
+        }
+        return ethOut;
+    }
+
+    /**
+     * @notice Regular transfer, disallowing transfers to this contract.
+     * @return success Transfer successfumPrice
+     */
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
+        require(recipient != address(this) && recipient != address(fum), "Don't transfer here");
+        _transfer(_msgSender(), recipient, amount);
+        success = true;
+    }
+
+    /** INTERNAL TRANSACTIONAL FUNCTIONS */
+
+    /**
+     * @notice Mint ETH for USM with checks and asset transfers.  Uses msg.value as the ETH deposit.
+     * FUM needs to be funded before USM can be minted.
+     * @param ethIn Amount of wrapped Ether to use for minting USM
+     * @return usmOut USM minted
+     */
+    function _mint(address from, address to, uint ethIn)
+        internal
         returns (uint usmOut)
     {
         // First check that fund() has been called first - no minting before funding:
@@ -89,9 +228,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param usmToBurn Amount of USM to burn
      * @return ethOut ETH sent
      */
-    function burn(address from, address to, uint usmToBurn)
-        external override
-        onlyHolderOrDelegate(from, "Only holder or delegate")
+    function _burn(address from, address to, uint usmToBurn)
+        internal
         returns (uint ethOut)
     {
         // First calculate:
@@ -114,9 +252,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param ethIn Amount of wrapped Ether to use for minting FUM
      * @return fumOut FUM sent
      */
-    function fund(address from, address to, uint ethIn)
-        external override
-        onlyHolderOrDelegate(from, "Only holder or delegate")
+    function _fund(address from, address to, uint ethIn)
+        internal
         returns (uint fumOut)
     {
         // First refresh mfbp:
@@ -143,9 +280,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param fumToBurn Amount of FUM to burn
      * @return ethOut ETH sent
      */
-    function defund(address from, address to, uint fumToBurn)
-        external override
-        onlyHolderOrDelegate(from, "Only holder or delegate")
+    function _defund(address from, address to, uint fumToBurn)
+        internal
         returns (uint ethOut)
     {
         // First calculate:
@@ -162,18 +298,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
         _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
     }
-
-    /**
-     * @notice Regular transfer, disallowing transfers to this contract.
-     * @return success Transfer successfumPrice
-     */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
-        require(recipient != address(this) && recipient != address(fum), "Don't transfer here");
-        _transfer(_msgSender(), recipient, amount);
-        success = true;
-    }
-
-    /** INTERNAL TRANSACTIONAL FUNCTIONS */
 
     /**
      * @notice Set the min FUM price, based on the current oracle price and debt ratio. Emits a MinFumBuyPriceChanged event.
