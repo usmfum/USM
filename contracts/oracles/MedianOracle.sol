@@ -23,8 +23,8 @@ contract MedianOracle is Oracle, ChainlinkOracle, CompoundOpenOracle, UniswapMed
     function latestPrice() public override(Oracle, ChainlinkOracle, CompoundOpenOracle, UniswapMedianOracle)
         view returns (uint price)
     {
-        price = Median.median([ChainlinkOracle.latestPrice(),
-                               CompoundOpenOracle.latestPrice(),
-                               UniswapMedianOracle.latestPrice()]);
+        price = Median.median([latestChainlinkPrice(),
+                               latestCompoundPrice(),
+                               latestUniswapMedianPrice()]);
     }
 }

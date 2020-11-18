@@ -28,6 +28,10 @@ contract CompoundOpenOracle is Oracle {
      * @return price
      */
     function latestPrice() public virtual override view returns (uint price) {
+        price = latestCompoundPrice();
+    }
+
+    function latestCompoundPrice() public view returns (uint price) {
         price = anchoredView.price("ETH").mul(SCALE_FACTOR);
     }
 }

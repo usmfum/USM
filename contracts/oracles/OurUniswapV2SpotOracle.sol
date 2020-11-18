@@ -28,6 +28,10 @@ contract OurUniswapV2SpotOracle is Oracle {
     }
 
     function latestPrice() public virtual override view returns (uint price) {
+        price = latestUniswapPrice();
+    }
+
+    function latestUniswapPrice() public view returns (uint price) {
         // Modeled off of https://github.com/anydotcrypto/uniswap-v2-periphery/blob/64dcf659928f9b9f002fdb58b4c655a099991472/contracts/UniswapV2Router04.sol -
         // thanks @stonecoldpat for the tip.
         (uint112 reserve0, uint112 reserve1,) = pair.pair.getReserves();
