@@ -42,15 +42,15 @@ contract UniswapMedianOracle is Oracle {
                                latestUniswapPairPrice(pairs[2])]);
     }
 
-    function latestUniswapPair0Price() public view returns (uint price) {
+    function latestUniswapPair1Price() public view returns (uint price) {
         price = latestUniswapPairPrice(pairs[0]);
     }
 
-    function latestUniswapPair1Price() public view returns (uint price) {
+    function latestUniswapPair2Price() public view returns (uint price) {
         price = latestUniswapPairPrice(pairs[1]);
     }
 
-    function latestUniswapPair2Price() public view returns (uint price) {
+    function latestUniswapPair3Price() public view returns (uint price) {
         price = latestUniswapPairPrice(pairs[2]);
     }
 
