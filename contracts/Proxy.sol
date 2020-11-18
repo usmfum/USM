@@ -13,6 +13,7 @@ contract Proxy {
     enum EthType {ETH, WETH}
 
     using Address for address payable;
+
     IUSM public immutable usm;
     IWETH9 public immutable weth;
 
@@ -33,13 +34,14 @@ contract Proxy {
     function mint(uint ethIn, uint minUsmOut, EthType inputType)
         external payable returns (uint)
     {
-        address payer = (inputType == EthType.ETH ? address(this) : msg.sender);
         if (inputType == EthType.ETH) {
             require(msg.value == ethIn, "ETH input misspecified");
-            weth.deposit{ value: msg.value }();
+        } else {
+            weth.transferFrom(msg.sender, address(this), ethIn);
+            weth.withdraw(ethIn);
         }
-        if (weth.allowance(address(this), address(usm)) < uint(-1)) weth.approve(address(usm), uint(-1));
-        uint usmOut = usm.mint(payer, msg.sender, ethIn);
+        
+        uint usmOut = usm.mint{ value: ethIn }(msg.sender, msg.sender);
         require(usmOut >= minUsmOut, "Limit not reached");
         return usmOut;
     }
@@ -52,11 +54,11 @@ contract Proxy {
     function burn(uint usmToBurn, uint minEthOut, EthType outputType)
         external returns (uint)
     {
-        address receiver = (outputType == EthType.ETH ? address(this) : msg.sender);
+        address payable receiver = (outputType == EthType.ETH ? msg.sender : address(this));
         uint ethOut = usm.burn(msg.sender, receiver, usmToBurn);
         require(ethOut >= minEthOut, "Limit not reached");
-        if (outputType == EthType.ETH) {
-            weth.withdraw(ethOut);
+        if (outputType == EthType.WETH) {
+            weth.deposit{ value: ethOut }();
             msg.sender.sendValue(ethOut);
         }
         return ethOut;
@@ -69,13 +71,13 @@ contract Proxy {
     function fund(uint ethIn, uint minFumOut, EthType inputType)
         external payable returns (uint)
     {
-        address payer = (inputType == EthType.ETH ? address(this) : msg.sender);
         if (inputType == EthType.ETH) {
             require(msg.value == ethIn, "ETH input misspecified");
-            weth.deposit{ value: msg.value }();
+        } else {
+            weth.transferFrom(msg.sender, address(this), ethIn);
+            weth.withdraw(ethIn);
         }
-        if (weth.allowance(address(this), address(usm)) < uint(-1)) weth.approve(address(usm), uint(-1));
-        uint fumOut = usm.fund(payer, msg.sender, ethIn);
+        uint fumOut = usm.fund{ value : ethIn }(msg.sender, msg.sender);
         require(fumOut >= minFumOut, "Limit not reached");
         return fumOut;
     }
@@ -87,11 +89,11 @@ contract Proxy {
     function defund(uint fumToBurn, uint minEthOut, EthType outputType)
         external returns (uint)
     {
-        address receiver = (outputType == EthType.ETH ? address(this) : msg.sender);
+        address payable receiver = (outputType == EthType.ETH ? msg.sender : address(this));
         uint ethOut = usm.defund(msg.sender, receiver, fumToBurn);
         require(ethOut >= minEthOut, "Limit not reached");
-        if (outputType == EthType.ETH) {
-            weth.withdraw(ethOut);
+        if (outputType == EthType.WETH) {
+            weth.deposit{ value: ethOut }();
             msg.sender.sendValue(ethOut);
         }
         return ethOut;
