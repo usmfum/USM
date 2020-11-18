@@ -32,10 +32,26 @@ contract UniswapMedianOracle is Oracle {
     }
 
     function latestPrice() public virtual override view returns (uint price) {
+        price = latestUniswapMedianPrice();
+    }
+
+    function latestUniswapMedianPrice() public view returns (uint price) {
         // For maximum gas efficiency...
         price = Median.median([latestUniswapPairPrice(pairs[0]),
                                latestUniswapPairPrice(pairs[1]),
                                latestUniswapPairPrice(pairs[2])]);
+    }
+
+    function latestUniswapPair0Price() public view returns (uint price) {
+        price = latestUniswapPairPrice(pairs[0]);
+    }
+
+    function latestUniswapPair1Price() public view returns (uint price) {
+        price = latestUniswapPairPrice(pairs[1]);
+    }
+
+    function latestUniswapPair2Price() public view returns (uint price) {
+        price = latestUniswapPairPrice(pairs[2]);
     }
 
     /**

@@ -21,8 +21,12 @@ contract MakerOracle is Oracle {
         medianizer = IMakerPriceFeed(medianizer_);
     }
 
-    function latestPrice() public override view returns (uint) {
+    function latestPrice() public virtual override view returns (uint price) {
+        price = latestMakerPrice();
+    }
+
+    function latestMakerPrice() public view returns (uint price) {
         // From https://studydefi.com/read-maker-medianizer/:
-        return uint(medianizer.read());     // No need to scale, medianizer price is already 18 dec places
+        price = uint(medianizer.read());    // No need to scale, medianizer price is already 18 dec places
     }
 }

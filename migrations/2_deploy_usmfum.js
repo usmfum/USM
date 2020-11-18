@@ -7,8 +7,8 @@ const USM = artifacts.require('USM')
 module.exports = async function(deployer, network) {
     
     const chainlinkAddresses = {
-        'mainnet' : '0xaEA2808407B7319A31A383B6F8B60f04BCa23cE2',
-        'mainnet-ganache' : '0xaEA2808407B7319A31A383B6F8B60f04BCa23cE2'
+        'mainnet' : '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
+        'mainnet-ganache' : '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419'
     }
     const compoundAddresses = {
         'mainnet' : '0x922018674c12a7f0d394ebeef9b58f186cde13c1',
