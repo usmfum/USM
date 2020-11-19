@@ -184,22 +184,22 @@ contract('USM', (accounts) => {
       })
 
       it("doesn't allow minting USM before minting FUM", async () => {
-        await expectRevert(usm.mint(user2, ethPerMint, ethTypes.WETH, user1, 0/*, { from: user2 }*/), "Fund before minting")
+        await expectRevert(usm.mintFrom(user2, ethPerMint, ethTypes.WETH, user1, 0, { from: user2 }), "Fund before minting")
       })
 
       /* ____________________ Minting FUM (aka fund()) ____________________ */
 
       it("allows minting FUM", async () => {
-        await usm.fund(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 }) // fund() call #1
-        await usm.fund(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 }) // fund() call #2 (check #1 wasn't special)
+        await usm.fundFrom(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 }) // fund() call #1
+        await usm.fundFrom(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 }) // fund() call #2 (check #1 wasn't special)
       })
 
       describe("with existing FUM supply", () => {
         let ethPool1, user2FumBalance1, totalFumSupply1, buySellAdj1, fumBuyPrice1, fumSellPrice1
 
         beforeEach(async () => {
-          await usm.fund(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 })
-          await usm.fund(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 }) // Again 2 calls, check #1 wasn't special
+          await usm.fundFrom(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 })
+          await usm.fundFrom(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 }) // Again 2 calls, check #1 wasn't special
 
           ethPool1 = await usm.ethPool()
           user2FumBalance1 = await fum.balanceOf(user2)
@@ -241,7 +241,7 @@ contract('USM', (accounts) => {
         /* ____________________ Minting USM (aka mint()) ____________________ */
 
         it("allows minting USM", async () => {
-          await usm.mint(user2, ethPerMint, ethTypes.WETH, user1, 0/*, { from: user2 }*/)
+          await usm.mintFrom(user2, ethPerMint, ethTypes.WETH, user1, 0, { from: user2 })
         })
 
         describe("with existing USM supply", () => {
@@ -249,7 +249,7 @@ contract('USM', (accounts) => {
               usmSellPrice2
 
           beforeEach(async () => {
-            await usm.mint(user2, ethPerMint, ethTypes.WETH, user1, 0/*, { from: user2 }*/)
+            await usm.mintFrom(user2, ethPerMint, ethTypes.WETH, user1, 0, { from: user2 })
 
             ethPool2 = await usm.ethPool()
             debtRatio2 = await usm.debtRatio()
@@ -308,7 +308,7 @@ contract('USM', (accounts) => {
             const targetMinFumBuyPrice4 = wadDiv(wadMul(WAD.sub(MAX_DEBT_RATIO), ethPool2, rounds.UP), fumSupply, rounds.UP)
 
             // Make one tiny call to fund(), just to actually trigger the internal call to _updateMinFumBuyPrice():
-            await usm.fund(user3, bitOfEth, ethTypes.WETH, user3, 0, { from: user3 })
+            await usm.fundFrom(user3, bitOfEth, ethTypes.WETH, user3, 0, { from: user3 })
 
             const minFumBuyPrice4 = await usm.minFumBuyPrice()
             shouldEqualApprox(minFumBuyPrice4, targetMinFumBuyPrice4)
@@ -335,7 +335,7 @@ contract('USM', (accounts) => {
                 usmSellPrice3
 
             beforeEach(async () => {
-              await usm.fund(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 })
+              await usm.fundFrom(user1, ethPerFund, ethTypes.WETH, user2, 0, { from: user1 })
 
               ethPool3 = await usm.ethPool()
               debtRatio3 = await usm.debtRatio()
@@ -440,7 +440,7 @@ contract('USM', (accounts) => {
 
           it("allows minting USM with sliding price", async () => {
             // Now for the second mint() call, which *should* create USM at a sliding price, since debt ratio is no longer 0:
-            await usm.mint(user2, ethPerMint, ethTypes.WETH, user1, 0/*, { from: user2 }*/)
+            await usm.mintFrom(user2, ethPerMint, ethTypes.WETH, user1, 0, { from: user2 })
           })
 
           /* ____________________ Minting USM (aka mint()), now at sliding price ____________________ */
@@ -450,7 +450,7 @@ contract('USM', (accounts) => {
                 usmSellPrice3
 
             beforeEach(async () => {
-              await usm.mint(user2, ethPerMint, ethTypes.WETH, user1, 0/*, { from: user2 }*/)
+              await usm.mintFrom(user2, ethPerMint, ethTypes.WETH, user1, 0, { from: user2 })
 
               ethPool3 = await usm.ethPool()
               debtRatio3 = await usm.debtRatio()
@@ -501,7 +501,7 @@ contract('USM', (accounts) => {
 
           it("allows burning FUM", async () => {
             const fumToBurn = user2FumBalance1.div(TWO) // defund 50% of the user's FUM
-            await usm.defund(user2, fumToBurn, user1, 0, ethTypes.WETH/*, { from: user2 }*/)
+            await usm.defundFrom(user2, fumToBurn, user1, 0, ethTypes.WETH, { from: user2 })
           })
 
           describe("with FUM burned at sliding price", () => {
@@ -510,7 +510,7 @@ contract('USM', (accounts) => {
 
             beforeEach(async () => {
               fumToBurn = user2FumBalance1.div(TWO)
-              await usm.defund(user2, fumToBurn, user1, 0, ethTypes.WETH/*, { from: user2 }*/)
+              await usm.defundFrom(user2, fumToBurn, user1, 0, ethTypes.WETH, { from: user2 })
 
               ethPool3 = await usm.ethPool()
               debtRatio3 = await usm.debtRatio()
@@ -566,7 +566,7 @@ contract('USM', (accounts) => {
             debtRatio3.should.be.bignumber.lt(MAX_DEBT_RATIO)
 
             // Now this tiny defund() should succeed:
-            await usm.defund(user2, oneFum, user1, 0, ethTypes.WETH/*, { from: user2 }*/)
+            await usm.defundFrom(user2, oneFum, user1, 0, ethTypes.WETH, { from: user2 })
 
             const debtRatio4 = await usm.debtRatio()
             // Next, similarly move price to get debt ratio just *above* MAX:
@@ -581,14 +581,14 @@ contract('USM', (accounts) => {
             debtRatio5.should.be.bignumber.gt(MAX_DEBT_RATIO)
 
             // And now defund() should fail:
-            await expectRevert(usm.defund(user2, oneFum, user1, 0, ethTypes.WETH/*, { from: user2 }*/), "Max debt ratio breach")
+            await expectRevert(usm.defundFrom(user2, oneFum, user1, 0, ethTypes.WETH, { from: user2 }), "Max debt ratio breach")
           })
 
           /* ____________________ Burning USM (aka burn()) ____________________ */
 
           it("allows burning USM", async () => {
             const usmToBurn = user1UsmBalance2.div(TWO) // defund 50% of the user's USM
-            await usm.burn(user1, usmToBurn, user2, 0, ethTypes.WETH, { from: user1 })
+            await usm.burnFrom(user1, usmToBurn, user2, 0, ethTypes.WETH, { from: user1 })
           })
 
           describe("with USM burned at sliding price", () => {
@@ -597,7 +597,7 @@ contract('USM', (accounts) => {
 
             beforeEach(async () => {
               usmToBurn = user1UsmBalance2.div(TWO) // Burning 100% of USM is an esoteric case - instead burn 50%
-              await usm.burn(user1, usmToBurn, user2, 0, ethTypes.WETH, { from: user1 })
+              await usm.burnFrom(user1, usmToBurn, user2, 0, ethTypes.WETH, { from: user1 })
 
               ethPool3 = await usm.ethPool()
               debtRatio3 = await usm.debtRatio()
@@ -655,7 +655,7 @@ contract('USM', (accounts) => {
             debtRatio3.should.be.bignumber.lt(WAD)
 
             // Now this tiny burn() should succeed:
-            await usm.burn(user1, oneUsm, user2, 0, ethTypes.WETH, { from: user1 })
+            await usm.burnFrom(user1, oneUsm, user2, 0, ethTypes.WETH, { from: user1 })
 
             // Next, similarly move price to get debt ratio just *above* 100%:
             const debtRatio4 = await usm.debtRatio()
@@ -670,7 +670,7 @@ contract('USM', (accounts) => {
             debtRatio5.should.be.bignumber.gt(WAD)
 
             // And now the same burn() should fail:
-            await expectRevert(usm.burn(user1, oneUsm, user2, 0, ethTypes.WETH, { from: user1 }), "Debt ratio too high")
+            await expectRevert(usm.burnFrom(user1, oneUsm, user2, 0, ethTypes.WETH, { from: user1 }), "Debt ratio too high")
           })
         })
       })

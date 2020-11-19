@@ -10,7 +10,7 @@ import "./WadMath.sol";
 import "./FUM.sol";
 import "./external/IWETH9.sol";
 import "./oracles/Oracle.sol";
-// import "@nomiclabs/buidler/console.sol";
+import "@nomiclabs/buidler/console.sol";
 
 /**
  * @title USMTemplate
@@ -96,9 +96,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param inputType Whether the user passes in WETH, or ETH (which is immediately converted to WETH).
      * @param minUsmOut Minimum accepted USM for a successful mint.
      */
-    function mint(address from, uint ethIn, EthType inputType, address to, uint minUsmOut)
+    function mintFrom(address from, uint ethIn, EthType inputType, address to, uint minUsmOut)
         external payable override
-        //onlyHolderOrDelegate(from, "Only holder or delegate")
+        // onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint usmOut)
     {
         usmOut = _mint(from, ethIn, inputType, to, minUsmOut);
@@ -119,7 +119,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param minEthOut Minimum accepted WETH/ETH for a successful burn.
      * @param outputType Whether to send the user WETH, or first convert it to ETH.
      */
-    function burn(address from, uint usmToBurn, address to, uint minEthOut, EthType outputType)
+    function burnFrom(address from, uint usmToBurn, address to, uint minEthOut, EthType outputType)
         external override
         //onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
@@ -141,7 +141,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param inputType Whether the user passes in WETH, or ETH (which is immediately converted to WETH).
      * @param minFumOut Minimum accepted FUM for a successful fund.
      */
-    function fund(address from, uint ethIn, EthType inputType, address to, uint minFumOut)
+    function fundFrom(address from, uint ethIn, EthType inputType, address to, uint minFumOut)
         external payable override
         //onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint fumOut)
@@ -164,7 +164,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param minEthOut Minimum accepted WETH/ETH for a successful defund.
      * @param outputType Whether to send the user WETH, or first convert it to ETH.
      */
-    function defund(address from, uint fumToBurn, address to, uint minEthOut, EthType outputType)
+    function defundFrom(address from, uint fumToBurn, address to, uint minEthOut, EthType outputType)
         external override
         //onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
