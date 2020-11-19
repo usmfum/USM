@@ -98,7 +98,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      */
     function mintFrom(address from, uint ethIn, EthType inputType, address to, uint minUsmOut)
         external payable override
-        // onlyHolderOrDelegate(from, "Only holder or delegate")
+        onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint usmOut)
     {
         usmOut = _mint(from, ethIn, inputType, to, minUsmOut);
@@ -121,7 +121,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      */
     function burnFrom(address from, uint usmToBurn, address to, uint minEthOut, EthType outputType)
         external override
-        //onlyHolderOrDelegate(from, "Only holder or delegate")
+        onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
     {
         ethOut = _burn(from, usmToBurn, to, minEthOut, outputType);
@@ -143,7 +143,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      */
     function fundFrom(address from, uint ethIn, EthType inputType, address to, uint minFumOut)
         external payable override
-        //onlyHolderOrDelegate(from, "Only holder or delegate")
+        onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint fumOut)
     {
         fumOut = _fund(from, ethIn, inputType, to, minFumOut);
@@ -166,7 +166,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      */
     function defundFrom(address from, uint fumToBurn, address to, uint minEthOut, EthType outputType)
         external override
-        //onlyHolderOrDelegate(from, "Only holder or delegate")
+        onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
     {
         ethOut = _defund(from, fumToBurn, to, minEthOut, outputType);
