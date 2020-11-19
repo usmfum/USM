@@ -3,6 +3,7 @@ pragma solidity ^0.6.6;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
+import "./IUSM.sol";
 
 /**
  * @title FUM Token
@@ -11,20 +12,23 @@ import "erc20permit/contracts/ERC20Permit.sol";
  * @notice This should be owned by the stablecoin.
  */
 contract FUM is ERC20Permit, Ownable {
-
-    address public usm;
+    IUSM public usm;
 
     constructor(address usm_) public ERC20Permit("Minimal Funding", "FUM") {
-        usm = usm_;
+        usm = IUSM(usm_);
     }
 
     /**
-     * @notice Regular transfer, disallowing transfers to this contract.
+     * @notice If a user sends FUM tokens directly to this contract (or to the USM contract), assume they intend it as a `defund`.
+     * @return success Transfer success
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        require(recipient != address(this) && recipient != address(usm), "Don't transfer here");
-        _transfer(_msgSender(), recipient, amount);
-        return true;
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
+        if (recipient == address(this) || recipient == address(usm)) {
+            usm.defund(amount);
+        } else {
+            _transfer(_msgSender(), recipient, amount);
+        }
+        success = true;
     }
 
     /**
