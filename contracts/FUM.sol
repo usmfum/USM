@@ -12,10 +12,10 @@ import "./IUSM.sol";
  * @notice This should be owned by the stablecoin.
  */
 contract FUM is ERC20Permit, Ownable {
-    IUSM public usm;
+    IUSM public immutable usm;
 
-    constructor(address usm_) public ERC20Permit("Minimal Funding", "FUM") {
-        usm = IUSM(usm_);
+    constructor(IUSM usm_) public ERC20Permit("Minimal Funding", "FUM") {
+        usm = usm_;
     }
 
     /**

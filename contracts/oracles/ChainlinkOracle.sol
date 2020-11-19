@@ -15,9 +15,9 @@ contract ChainlinkOracle is Oracle {
 
     AggregatorV3Interface private aggregator;
 
-    constructor(address aggregator_) public
+    constructor(AggregatorV3Interface aggregator_) public
     {
-        aggregator = AggregatorV3Interface(aggregator_);
+        aggregator = aggregator_;
     }
 
     /**

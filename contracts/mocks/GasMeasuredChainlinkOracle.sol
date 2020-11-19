@@ -5,5 +5,5 @@ import "./GasMeasuredOracle.sol";
 import "../oracles/ChainlinkOracle.sol";
 
 contract GasMeasuredChainlinkOracle is ChainlinkOracle, GasMeasuredOracle("chainlink") {
-    constructor(address chainlinkAggregator) public ChainlinkOracle(chainlinkAggregator) {}
+    constructor(AggregatorV3Interface chainlinkAggregator) public ChainlinkOracle(chainlinkAggregator) {}
 }

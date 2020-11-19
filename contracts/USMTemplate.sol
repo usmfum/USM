@@ -40,7 +40,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
 
     IWETH9 public immutable weth;
-    FUM public fum;
+    FUM public immutable fum;
 
     struct TimedValue {
         uint32 timestamp;
@@ -50,10 +50,10 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     TimedValue public minFumBuyPriceStored;
     TimedValue public buySellAdjustmentStored = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
-    constructor(address weth_) public ERC20Permit("Minimal USD", "USM")
+    constructor(IWETH9 weth_) public ERC20Permit("Minimal USD", "USM")
     {
-        weth = IWETH9(weth_);
-        fum = new FUM(address(this));
+        weth = weth_;
+        fum = new FUM(this);
     }
 
     /** EXTERNAL TRANSACTIONAL FUNCTIONS **/
