@@ -19,12 +19,16 @@ contract FUM is ERC20Permit, Ownable {
     }
 
     /**
-     * @notice Regular transfer, disallowing transfers to this contract.
+     * @notice If a user sends FUM tokens directly to this contract (or to the USM contract), assume they intend it as a `defund`.
+     * @return success Transfer success
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        require(recipient != address(this) && recipient != address(usm), "Don't transfer here");
-        _transfer(_msgSender(), recipient, amount);
-        return true;
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
+        if (recipient == address(this) || recipient == address(usm)) {
+            usm.defundTo(_msgSender(), _msgSender(), amount, 0);
+        } else {
+            _transfer(_msgSender(), recipient, amount);
+        }
+        success = true;
     }
 
     /**
