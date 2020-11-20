@@ -5,6 +5,6 @@ import "./GasMeasuredOracle.sol";
 import "../oracles/OurUniswapV2SpotOracle.sol";
 
 contract GasMeasuredOurUniswapV2SpotOracle is OurUniswapV2SpotOracle, GasMeasuredOracle("uniswap") {
-    constructor(address pair, bool tokensInReverseOrder, uint scaleFactor) public
+    constructor(IUniswapV2Pair pair, bool tokensInReverseOrder, uint scaleFactor) public
         OurUniswapV2SpotOracle(pair, tokensInReverseOrder, scaleFactor) {}
 }

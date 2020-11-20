@@ -3,6 +3,7 @@ pragma solidity ^0.6.6;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
+import "./IUSM.sol";
 
 /**
  * @title FUM Token
@@ -11,10 +12,9 @@ import "erc20permit/contracts/ERC20Permit.sol";
  * @notice This should be owned by the stablecoin.
  */
 contract FUM is ERC20Permit, Ownable {
+    IUSM public immutable usm;
 
-    address public usm;
-
-    constructor(address usm_) public ERC20Permit("Minimal Funding", "FUM") {
+    constructor(IUSM usm_) public ERC20Permit("Minimal Funding", "FUM") {
         usm = usm_;
     }
 

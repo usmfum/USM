@@ -16,9 +16,9 @@ contract MakerOracle is Oracle {
 
     IMakerPriceFeed private medianizer;
 
-    constructor(address medianizer_) public
+    constructor(IMakerPriceFeed medianizer_) public
     {
-        medianizer = IMakerPriceFeed(medianizer_);
+        medianizer = medianizer_;
     }
 
     function latestPrice() public virtual override view returns (uint price) {

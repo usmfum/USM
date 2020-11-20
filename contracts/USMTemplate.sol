@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
@@ -16,7 +16,7 @@ import "./oracles/Oracle.sol";
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  *
- * This abstract USM contract must be inherited by a concrete implementation, that also adds an Oracle implementation - eg, by 
+ * This abstract USM contract must be inherited by a concrete implementation, that also adds an Oracle implementation - eg, by
  * also inheriting a concrete Oracle implementation.  See USM (and MockUSM) for an example.
  *
  * We use this inheritance-based design (rather than the more natural, and frankly normally more correct, composition-based design
@@ -24,6 +24,7 @@ import "./oracles/Oracle.sol";
  * than calls to a separate oracle contract (or multiple contracts) - which leads to a significant saving in gas.
  */
 abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
+    using Address for address payable;
     using SafeMath for uint;
     using WadMath for uint;
 
@@ -37,8 +38,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
 
-    IERC20 public eth;
-    FUM public fum;
+    FUM public immutable fum;
 
     struct TimedValue {
         uint32 timestamp;
@@ -48,10 +48,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     TimedValue public minFumBuyPriceStored;
     TimedValue public buySellAdjustmentStored = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
-    constructor(address eth_) public ERC20Permit("Minimal USD", "USM")
+    constructor() public ERC20Permit("Minimal USD", "USM")
     {
-        eth = IERC20(eth_);
-        fum = new FUM(address(this));
+        fum = new FUM(this);
     }
 
     /** EXTERNAL TRANSACTIONAL FUNCTIONS **/
@@ -59,29 +58,20 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     /**
      * @notice Mint ETH for USM with checks and asset transfers.  Uses msg.value as the ETH deposit.
      * FUM needs to be funded before USM can be minted.
-     * @param ethIn Amount of wrapped Ether to use for minting USM
      * @return usmOut USM minted
      */
-    function mint(address from, address to, uint ethIn)
-        external override
-        onlyHolderOrDelegate(from, "Only holder or delegate")
-        returns (uint usmOut)
-    {
-        // First check that fund() has been called first - no minting before funding:
-        uint ethInPool = ethPool();
-        require(ethInPool > 0, "Fund before minting");
+    function mint() external payable override returns (uint usmOut) {
+        usmOut = _mintTo(msg.sender, 0);
+    }
 
-        // Then calculate:
-        uint ethUsmPrice = latestPrice();
-        uint usmTotalSupply = totalSupply();
-        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
-        usmOut = usmFromMint(ethUsmPrice, ethIn, ethInPool, usmTotalSupply);
-
-        // Then update state:
-        require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
-        _mint(to, usmOut);
-        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.add(ethIn), usmTotalSupply.add(usmOut));
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+    /**
+     * @notice Mint new USM, sending it to the given address, and only if the amount minted >= minUsmOut.  The amount of ETH is
+     * passed in as msg.value.
+     * @param to address to send the USM to.
+     * @param minUsmOut Minimum accepted USM for a successful mint.
+     */
+    function mintTo(address to, uint minUsmOut) external payable override returns (uint usmOut) {
+        usmOut = _mintTo(to, minUsmOut);
     }
 
     /**
@@ -89,53 +79,42 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param usmToBurn Amount of USM to burn
      * @return ethOut ETH sent
      */
-    function burn(address from, address to, uint usmToBurn)
+    function burn(uint usmToBurn) external override returns (uint ethOut) {
+        ethOut = _burnTo(msg.sender, msg.sender, usmToBurn, 0);
+    }
+
+    /**
+     * @dev Burn USM in exchange for ETH.
+     * @param from address to deduct the USM from.
+     * @param to address to send the ETH to.
+     * @param usmToBurn Amount of USM to burn.
+     * @param minEthOut Minimum accepted ETH for a successful burn.
+     */
+    function burnTo(address from, address payable to, uint usmToBurn, uint minEthOut)
         external override
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
     {
-        // First calculate:
-        uint ethUsmPrice = latestPrice();
-        uint ethInPool = ethPool();
-        uint usmTotalSupply = totalSupply();
-        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
-        ethOut = ethFromBurn(ethUsmPrice, usmToBurn, ethInPool, usmTotalSupply);
-
-        // Then update state:
-        _burn(from, usmToBurn);
-        require(eth.transfer(to, ethOut), "ETH transfer fail");
-        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
-        require(newDebtRatio <= WAD, "Debt ratio too high");
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        ethOut = _burnTo(from, to, usmToBurn, minEthOut);
     }
 
     /**
      * @notice Fund the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over.
-     * @param ethIn Amount of wrapped Ether to use for minting FUM
+     * Uses msg.value as the ETH deposit.
      * @return fumOut FUM sent
      */
-    function fund(address from, address to, uint ethIn)
-        external override
-        onlyHolderOrDelegate(from, "Only holder or delegate")
-        returns (uint fumOut)
-    {
-        // First refresh mfbp:
-        uint ethUsmPrice = latestPrice();
-        uint ethInPool = ethPool();
-        uint usmTotalSupply = totalSupply();
-        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
-        uint fumTotalSupply = fum.totalSupply();
-        _updateMinFumBuyPrice(oldDebtRatio, ethInPool, fumTotalSupply);
+    function fund() external payable override returns (uint fumOut) {
+        fumOut = _fundTo(msg.sender, 0);
+    }
 
-        // Then calculate:
-        uint adjustment = buySellAdjustment();
-        fumOut = fumFromFund(ethUsmPrice, ethIn, ethInPool, usmTotalSupply, fumTotalSupply, adjustment);
-
-        // Then update state:
-        require(eth.transferFrom(from, address(this), ethIn), "ETH transfer fail");
-        fum.mint(to, fumOut);
-        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.add(ethIn), usmTotalSupply);
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, adjustment);
+    /**
+     * @notice Funds the pool with ETH, minting new FUM and sending it to the given address, but only if the amount minted >=
+     * minFumOut.  The amount of ETH is passed in as msg.value.
+     * @param to address to send the FUM to.
+     * @param minFumOut Minimum accepted FUM for a successful fund.
+     */
+    function fundTo(address to, uint minFumOut) external payable override returns (uint fumOut) {
+        fumOut = _fundTo(to, minFumOut);
     }
 
     /**
@@ -143,24 +122,23 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param fumToBurn Amount of FUM to burn
      * @return ethOut ETH sent
      */
-    function defund(address from, address to, uint fumToBurn)
+    function defund(uint fumToBurn) external override returns (uint ethOut) {
+        ethOut = _defundTo(msg.sender, msg.sender, fumToBurn, 0);
+    }
+
+    /**
+     * @notice Defunds the pool by redeeming FUM in exchange for equivalent ETH from the pool.
+     * @param from address to deduct the FUM from.
+     * @param to address to send the ETH to.
+     * @param fumToBurn Amount of FUM to burn.
+     * @param minEthOut Minimum accepted ETH for a successful defund.
+     */
+    function defundTo(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
     {
-        // First calculate:
-        uint ethUsmPrice = latestPrice();
-        uint ethInPool = ethPool();
-        uint usmTotalSupply = totalSupply();
-        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
-        ethOut = ethFromDefund(ethUsmPrice, fumToBurn, ethInPool, usmTotalSupply);
-
-        // Then update state:
-        fum.burn(from, fumToBurn);
-        require(eth.transfer(to, ethOut), "ETH transfer fail");
-        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
-        require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        ethOut = _defundTo(from, to, fumToBurn, minEthOut);
     }
 
     /**
@@ -174,6 +152,84 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     }
 
     /** INTERNAL TRANSACTIONAL FUNCTIONS */
+
+    function _mintTo(address to, uint minUsmOut) internal returns (uint usmOut)
+    {
+        // 1. Check that fund() has been called first - no minting before funding:
+        uint rawEthInPool = ethPool();
+        uint ethInPool = rawEthInPool.sub(msg.value);   // Backing out the ETH just received, which our calculations should ignore
+        require(ethInPool > 0, "Fund before minting");
+
+        // 2. Calculate usmOut:
+        uint ethUsmPrice = latestPrice();
+        uint usmTotalSupply = totalSupply();
+        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
+        usmOut = usmFromMint(ethUsmPrice, msg.value, ethInPool, usmTotalSupply);
+        require(usmOut >= minUsmOut, "Limit not reached");
+
+        // 3. Update state and mint the user's new USM:
+        uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply.add(usmOut));
+        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        _mint(to, usmOut);
+    }
+
+    function _burnTo(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
+    {
+        // 1. Calculate ethOut:
+        uint ethUsmPrice = latestPrice();
+        uint ethInPool = ethPool();
+        uint usmTotalSupply = totalSupply();
+        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
+        ethOut = ethFromBurn(ethUsmPrice, usmToBurn, ethInPool, usmTotalSupply);
+        require(ethOut >= minEthOut, "Limit not reached");
+
+        // 2. Update state and return the user's ETH:
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
+        require(newDebtRatio <= WAD, "Debt ratio too high");
+        _burn(from, usmToBurn);
+        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        to.sendValue(ethOut);
+    }
+
+    function _fundTo(address to, uint minFumOut) internal returns (uint fumOut)
+    {
+        // 1. Refresh mfbp:
+        uint ethUsmPrice = latestPrice();
+        uint rawEthInPool = ethPool();
+        uint ethInPool = rawEthInPool.sub(msg.value);   // Backing out the ETH just received, which our calculations should ignore
+        uint usmTotalSupply = totalSupply();
+        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
+        uint fumTotalSupply = fum.totalSupply();
+        _updateMinFumBuyPrice(oldDebtRatio, ethInPool, fumTotalSupply);
+
+        // 2. Calculate fumOut:
+        uint adjustment = buySellAdjustment();
+        fumOut = fumFromFund(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, fumTotalSupply, adjustment);
+        require(fumOut >= minFumOut, "Limit not reached");
+
+        // 3. Update state and mint the user's new FUM:
+        uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply);
+        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, adjustment);
+        fum.mint(to, fumOut);
+    }
+
+    function _defundTo(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
+    {
+        // 1. Calculate ethOut:
+        uint ethUsmPrice = latestPrice();
+        uint ethInPool = ethPool();
+        uint usmTotalSupply = totalSupply();
+        uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
+        ethOut = ethFromDefund(ethUsmPrice, fumToBurn, ethInPool, usmTotalSupply);
+        require(ethOut >= minEthOut, "Limit not reached");
+
+        // 2. Update state and return the user's ETH:
+        uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
+        require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
+        fum.burn(from, fumToBurn);
+        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        to.sendValue(ethOut);
+    }
 
     /**
      * @notice Set the min FUM price, based on the current oracle price and debt ratio. Emits a MinFumBuyPriceChanged event.
@@ -231,7 +287,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return pool ETH pool
      */
     function ethPool() public view returns (uint pool) {
-        pool = eth.balanceOf(address(this));
+        pool = address(this).balance;
     }
 
     /**

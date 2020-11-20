@@ -13,9 +13,13 @@ contract MedianOracle is Oracle, ChainlinkOracle, CompoundOpenOracle, UniswapMed
 
     uint private constant NUM_UNISWAP_PAIRS = 3;
 
-    constructor(address chainlinkAggregator, address compoundView,
-                address[NUM_UNISWAP_PAIRS] memory uniswapPairs, bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder,
-                uint[NUM_UNISWAP_PAIRS] memory uniswapScaleFactors) public
+    constructor(
+        AggregatorV3Interface chainlinkAggregator,
+        UniswapAnchoredView compoundView,
+        IUniswapV2Pair[NUM_UNISWAP_PAIRS] memory uniswapPairs,
+        bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder,
+        uint[NUM_UNISWAP_PAIRS] memory uniswapScaleFactors
+    ) public
         ChainlinkOracle(chainlinkAggregator)
         CompoundOpenOracle(compoundView)
         UniswapMedianOracle(uniswapPairs, uniswapTokensInReverseOrder, uniswapScaleFactors) {}

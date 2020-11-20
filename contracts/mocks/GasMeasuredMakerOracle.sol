@@ -5,5 +5,5 @@ import "./GasMeasuredOracle.sol";
 import "../oracles/MakerOracle.sol";
 
 contract GasMeasuredMakerOracle is MakerOracle, GasMeasuredOracle("maker") {
-    constructor(address medianizer) public MakerOracle(medianizer) {}
+    constructor(IMakerPriceFeed medianizer) public MakerOracle(medianizer) {}
 }

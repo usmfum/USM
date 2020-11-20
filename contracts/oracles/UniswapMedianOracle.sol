@@ -22,12 +22,12 @@ contract UniswapMedianOracle is Oracle {
     /**
      *  See OurUniswapV2SpotOracle for example pairs to pass in
      */
-    constructor(address[NUM_SOURCE_ORACLES] memory pairs_,
+    constructor(IUniswapV2Pair[NUM_SOURCE_ORACLES] memory pairs_,
                 bool[NUM_SOURCE_ORACLES] memory tokensInReverseOrder,
                 uint[NUM_SOURCE_ORACLES] memory scaleFactors) public
     {
         for (uint i = 0; i < NUM_SOURCE_ORACLES; ++i) {
-            pairs[i] = UniswapPriceablePair(IUniswapV2Pair(pairs_[i]), tokensInReverseOrder[i], scaleFactors[i]);
+            pairs[i] = UniswapPriceablePair(pairs_[i], tokensInReverseOrder[i], scaleFactors[i]);
         }
     }
 

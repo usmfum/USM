@@ -18,9 +18,9 @@ contract CompoundOpenOracle is Oracle {
 
     UniswapAnchoredView private anchoredView;
 
-    constructor(address anchoredView_) public
+    constructor(UniswapAnchoredView anchoredView_) public
     {
-        anchoredView = UniswapAnchoredView(anchoredView_);
+        anchoredView = anchoredView_;
     }
 
     /**

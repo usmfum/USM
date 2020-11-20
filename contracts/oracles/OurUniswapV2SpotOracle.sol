@@ -23,8 +23,8 @@ contract OurUniswapV2SpotOracle is Oracle {
      *  USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, true, 10 ** 30 (since USDC/ETH has -12 dec places, and we want 18)
      *  DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, true, 10 ** 18 (since DAI/ETH has 0 dec places, and we want 18)
      */
-    constructor(address pair_, bool tokensInReverseOrder, uint scaleFactor) public {
-        pair = UniswapPriceablePair(IUniswapV2Pair(pair_), tokensInReverseOrder, scaleFactor);
+    constructor(IUniswapV2Pair pair_, bool tokensInReverseOrder, uint scaleFactor) public {
+        pair = UniswapPriceablePair(pair_, tokensInReverseOrder, scaleFactor);
     }
 
     function latestPrice() public virtual override view returns (uint price) {

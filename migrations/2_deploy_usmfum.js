@@ -91,7 +91,7 @@ module.exports = async function(deployer, network) {
 
     await deployer.deploy(
         USM,
-        wethAddress, aggregatorAddress, anchoredViewAddress,
+        aggregatorAddress, anchoredViewAddress,
         [ethUsdtPairAddress, usdcEthPairAddress, daiEthPairAddress],
         uniswapTokensInReverseOrder, uniswapScaleFactors
     )
