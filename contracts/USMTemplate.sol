@@ -142,6 +142,21 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     }
 
     /**
+     * @notice Defunds the pool by redeeming FUM from an arbitrary address in exchange for equivalent ETH from the pool.
+     * Called only by the FUM contract, when FUM is sent to it.
+     * @param from address to deduct the FUM from.
+     * @param to address to send the ETH to.
+     * @param fumToBurn Amount of FUM to burn.
+     */
+    function defundFromFUM(address from, address payable to, uint fumToBurn)
+        external override
+        returns (uint ethOut)
+    {
+        require(msg.sender == address(fum), "Restricted to FUM");
+        ethOut = _defundTo(from, to, fumToBurn, 0);
+    }
+
+    /**
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.
      */
     receive() external payable {

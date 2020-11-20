@@ -22,14 +22,9 @@ contract Proxy {
     }
 
     /**
-     * @notice The WETH9 contract will send ETH to this contract on `weth.withdraw` using this function.  If anyone other than the
-     * WETH contract sends ETH here, assume they intend it as a `mint`.
+     * @notice The WETH9 contract will send ETH to this contract on `weth.withdraw` using this function.
      */
-    receive() external payable {
-        if (msg.sender != address(weth)) {
-            usm.mintTo(msg.sender, 0);
-        }
-    }
+    receive() external payable {}
 
     /**
      * @notice Accepts WETH, converts it to ETH, and passes it to `usm.mintTo`.
