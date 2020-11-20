@@ -9,13 +9,12 @@ contract USM is USMTemplate, MedianOracle {
     uint private constant NUM_UNISWAP_PAIRS = 3;
 
     constructor(
-        IWETH9 eth,
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
         IUniswapV2Pair[NUM_UNISWAP_PAIRS] memory uniswapPairs,
         bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder,
         uint[NUM_UNISWAP_PAIRS] memory uniswapScaleFactors
     ) public
-        USMTemplate(eth)
+        USMTemplate()
         MedianOracle(chainlinkAggregator, compoundView, uniswapPairs, uniswapTokensInReverseOrder, uniswapScaleFactors) {}
 }

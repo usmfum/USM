@@ -1,7 +1,6 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 
 const USM = artifacts.require('MockTestOracleUSM')
-const WETH9 = artifacts.require('WETH9')
 
 const EVM_REVERT = 'VM Exception while processing transaction: revert'
 
@@ -18,8 +17,7 @@ contract('USM - Internal functions', (accounts) => {
   const priceWAD = price.mul(WAD)
 
   beforeEach(async () => {
-    weth = await WETH9.new({ from: deployer })
-    usm = await USM.new(weth.address, priceWAD, { from: deployer })
+    usm = await USM.new(priceWAD, { from: deployer })
   })
 
   describe('functionality', async () => {
