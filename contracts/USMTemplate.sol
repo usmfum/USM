@@ -142,12 +142,37 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     }
 
     /**
-     * @notice Regular transfer, disallowing transfers to this contract.
-     * @return success Transfer successfumPrice
+     * @notice Defunds the pool by redeeming FUM from an arbitrary address in exchange for equivalent ETH from the pool.
+     * Called only by the FUM contract, when FUM is sent to it.
+     * @param from address to deduct the FUM from.
+     * @param to address to send the ETH to.
+     * @param fumToBurn Amount of FUM to burn.
+     */
+    function defundFromFUM(address from, address payable to, uint fumToBurn)
+        external override
+        returns (uint ethOut)
+    {
+        require(msg.sender == address(fum), "Restricted to FUM");
+        ethOut = _defundTo(from, to, fumToBurn, 0);
+    }
+
+    /**
+     * @notice If anyone sends ETH here, assume they intend it as a `mint`.
+     */
+    receive() external payable {
+        _mintTo(msg.sender, 0);
+    }
+
+    /**
+     * @notice If a user sends USM tokens directly to this contract (or to the FUM contract), assume they intend it as a `burn`.
+     * @return success Transfer success
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
-        require(recipient != address(this) && recipient != address(fum), "Don't transfer here");
-        _transfer(_msgSender(), recipient, amount);
+        if (recipient == address(this) || recipient == address(fum)) {
+            _burnTo(msg.sender, msg.sender, amount, 0);
+        } else {
+            _transfer(_msgSender(), recipient, amount);
+        }
         success = true;
     }
 
