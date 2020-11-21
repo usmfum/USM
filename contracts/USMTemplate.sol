@@ -8,6 +8,7 @@ import "./IUSM.sol";
 import "./Delegable.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
+import "./MinOut.sol";
 import "./oracles/Oracle.sol";
 // import "@nomiclabs/buidler/console.sol";
 
@@ -61,7 +62,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return usmOut USM minted
      */
     function mint() external payable override returns (uint usmOut) {
-        usmOut = _mintTo(msg.sender, 0);
+        usmOut = _mintTo(msg.sender, MinOut.inferMinTokenOut(msg.value));
     }
 
     /**
@@ -80,7 +81,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ethOut ETH sent
      */
     function burn(uint usmToBurn) external override returns (uint ethOut) {
-        ethOut = _burnTo(msg.sender, msg.sender, usmToBurn, 0);
+        ethOut = _burnTo(msg.sender, msg.sender, usmToBurn, MinOut.inferMinEthOut(usmToBurn));
     }
 
     /**
@@ -104,7 +105,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return fumOut FUM sent
      */
     function fund() external payable override returns (uint fumOut) {
-        fumOut = _fundTo(msg.sender, 0);
+        fumOut = _fundTo(msg.sender, MinOut.inferMinTokenOut(msg.value));
     }
 
     /**
@@ -123,7 +124,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ethOut ETH sent
      */
     function defund(uint fumToBurn) external override returns (uint ethOut) {
-        ethOut = _defundTo(msg.sender, msg.sender, fumToBurn, 0);
+        ethOut = _defundTo(msg.sender, msg.sender, fumToBurn, MinOut.inferMinEthOut(fumToBurn));
     }
 
     /**
@@ -145,7 +146,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.
      */
     receive() external payable {
-        _mintTo(msg.sender, 0);
+        _mintTo(msg.sender, MinOut.inferMinTokenOut(msg.value));
     }
 
     /**
@@ -154,7 +155,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
         if (recipient == address(this) || recipient == address(fum)) {
-            _burnTo(msg.sender, msg.sender, amount, 0);
+            _burnTo(msg.sender, msg.sender, amount, MinOut.inferMinEthOut(amount));
         } else {
             _transfer(_msgSender(), recipient, amount);
         }

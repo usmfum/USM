@@ -4,6 +4,7 @@ pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
+import "./MinOut.sol";
 
 /**
  * @title FUM Token
@@ -19,12 +20,19 @@ contract FUM is ERC20Permit, Ownable {
     }
 
     /**
+     * @notice If anyone sends ETH here, assume they intend it as a `fund`.
+     */
+    receive() external payable {
+        usm.fundTo(msg.sender, MinOut.inferMinTokenOut(msg.value));
+    }
+
+    /**
      * @notice If a user sends FUM tokens directly to this contract (or to the USM contract), assume they intend it as a `defund`.
      * @return success Transfer success
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
         if (recipient == address(this) || recipient == address(usm)) {
-            usm.defundTo(_msgSender(), _msgSender(), amount, 0);
+            usm.defundTo(_msgSender(), _msgSender(), amount, MinOut.inferMinEthOut(amount));
         } else {
             _transfer(_msgSender(), recipient, amount);
         }
