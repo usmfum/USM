@@ -119,6 +119,29 @@ contract('USM - Proxy - Eth', (accounts) => {
             await proxy.mint(user1, user1, oneEth, 0, { from: user1 })
           })
 
+          it('allows minting USM by sending ETH, if no minUsmOut specified (1)', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000000000' })
+          })
+
+          it('allows minting USM by sending ETH, if no minUsmOut specified (2)', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000200000000' })
+          })
+
+          it('allows minting USM by sending ETH, if minUsmOut incorrectly specified', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000197891338' }) // "1338" is wrong
+          })
+
+          it('allows minting USM by sending ETH, if minUsmOut specified but met', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000197881337' }) // returns >= 197.88 USM per ETH
+          })
+
+          it('does not mint USM by sending ETH, if minUsmOut specified and missed', async () => {
+            await expectRevert(
+              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000197891337' }), // returns < 197.89 USM per ETH
+              "Limit not reached",
+            )
+          })
+
           it('allows burning FUM', async () => {
             const ethPool = (await usm.ethPool())
             const debtRatio = (await usm.debtRatio())
@@ -129,7 +152,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             const targetFumBalance = wadMul(oneEth, priceWAD, rounds.DOWN) // see "allows minting FUM" above
             fumBalance.toString().should.equal(targetFumBalance.toString())
 
-            const fumToBurn = priceWAD.div(TWO)
+            const fumToBurn = priceWAD.div(TWO).div(TWO)
             await proxy.defund(user1, user1, fumToBurn, 0, { from: user1, gasPrice: 0 }) // Don't use eth on gas
             const fumBalance2 = (await fum.balanceOf(user1))
             fumBalance2.toString().should.equal(fumBalance.sub(fumToBurn).toString())
