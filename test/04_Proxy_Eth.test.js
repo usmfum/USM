@@ -152,7 +152,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             const targetFumBalance = wadMul(oneEth, priceWAD, rounds.DOWN) // see "allows minting FUM" above
             fumBalance.toString().should.equal(targetFumBalance.toString())
 
-            const fumToBurn = priceWAD.div(TWO).div(TWO)
+            const fumToBurn = priceWAD.div(TWO)
             await proxy.defund(user1, user1, fumToBurn, 0, { from: user1, gasPrice: 0 }) // Don't use eth on gas
             const fumBalance2 = (await fum.balanceOf(user1))
             fumBalance2.toString().should.equal(fumBalance.sub(fumToBurn).toString())
