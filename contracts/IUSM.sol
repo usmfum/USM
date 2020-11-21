@@ -10,4 +10,5 @@ interface IUSM {
     function fundTo(address to, uint minFumOut) external payable returns (uint);
     function defund(uint fumToBurn) external returns (uint);
     function defundTo(address from, address payable to, uint fumToBurn, uint minEthOut) external returns (uint);
+    function defundFromFUM(address from, address payable to, uint fumToBurn) external returns (uint);
 }

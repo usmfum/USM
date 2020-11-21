@@ -22,13 +22,11 @@ contract Proxy {
     }
 
     /**
-     * @notice The WETH9 contract will send ETH to this contract on `weth.withdraw` using this function.  If anyone other than the
-     * WETH contract sends ETH here, assume they intend it as a `mint`.
+     * @notice The USM contract's `burn`/`defund` functions will send ETH back to this contract, and the WETH9 contract will send
+     * ETH here on `weth.withdraw` using this function.  If anyone else tries to send ETH here, reject it.
      */
     receive() external payable {
-        if (msg.sender != address(weth)) {
-            usm.mintTo(msg.sender, 0);
-        }
+        require(msg.sender == address(usm) || msg.sender == address(weth), "Don't transfer here");
     }
 
     /**
