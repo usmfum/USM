@@ -57,31 +57,13 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     /** EXTERNAL TRANSACTIONAL FUNCTIONS **/
 
     /**
-     * @notice Mint ETH for USM with checks and asset transfers.  Uses msg.value as the ETH deposit.
-     * FUM needs to be funded before USM can be minted.
-     * @return usmOut USM minted
-     */
-    function mint() external payable override returns (uint usmOut) {
-        usmOut = _mintTo(msg.sender, MinOut.inferMinTokenOut(msg.value));
-    }
-
-    /**
      * @notice Mint new USM, sending it to the given address, and only if the amount minted >= minUsmOut.  The amount of ETH is
      * passed in as msg.value.
      * @param to address to send the USM to.
      * @param minUsmOut Minimum accepted USM for a successful mint.
      */
-    function mintTo(address to, uint minUsmOut) external payable override returns (uint usmOut) {
-        usmOut = _mintTo(to, minUsmOut);
-    }
-
-    /**
-     * @notice Burn USM for ETH with checks and asset transfers.
-     * @param usmToBurn Amount of USM to burn
-     * @return ethOut ETH sent
-     */
-    function burn(uint usmToBurn) external override returns (uint ethOut) {
-        ethOut = _burnTo(msg.sender, msg.sender, usmToBurn, MinOut.inferMinEthOut(usmToBurn));
+    function mint(address to, uint minUsmOut) external payable override returns (uint usmOut) {
+        usmOut = _mintUsm(to, minUsmOut);
     }
 
     /**
@@ -91,21 +73,12 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param usmToBurn Amount of USM to burn.
      * @param minEthOut Minimum accepted ETH for a successful burn.
      */
-    function burnTo(address from, address payable to, uint usmToBurn, uint minEthOut)
+    function burn(address from, address payable to, uint usmToBurn, uint minEthOut)
         external override
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
     {
-        ethOut = _burnTo(from, to, usmToBurn, minEthOut);
-    }
-
-    /**
-     * @notice Fund the pool with ETH, minting FUM at its current price and considering if the debt ratio goes from under to over.
-     * Uses msg.value as the ETH deposit.
-     * @return fumOut FUM sent
-     */
-    function fund() external payable override returns (uint fumOut) {
-        fumOut = _fundTo(msg.sender, MinOut.inferMinTokenOut(msg.value));
+        ethOut = _burnUsm(from, to, usmToBurn, minEthOut);
     }
 
     /**
@@ -114,17 +87,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param to address to send the FUM to.
      * @param minFumOut Minimum accepted FUM for a successful fund.
      */
-    function fundTo(address to, uint minFumOut) external payable override returns (uint fumOut) {
-        fumOut = _fundTo(to, minFumOut);
-    }
-
-    /**
-     * @notice Defund the pool by redeeming FUM in exchange for equivalent ETH from the pool.
-     * @param fumToBurn Amount of FUM to burn
-     * @return ethOut ETH sent
-     */
-    function defund(uint fumToBurn) external override returns (uint ethOut) {
-        ethOut = _defundTo(msg.sender, msg.sender, fumToBurn, MinOut.inferMinEthOut(fumToBurn));
+    function fund(address to, uint minFumOut) external payable override returns (uint fumOut) {
+        fumOut = _fundFum(to, minFumOut);
     }
 
     /**
@@ -134,12 +98,12 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param fumToBurn Amount of FUM to burn.
      * @param minEthOut Minimum accepted ETH for a successful defund.
      */
-    function defundTo(address from, address payable to, uint fumToBurn, uint minEthOut)
+    function defund(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
         onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
     {
-        ethOut = _defundTo(from, to, fumToBurn, minEthOut);
+        ethOut = _defundFum(from, to, fumToBurn, minEthOut);
     }
 
     /**
@@ -154,14 +118,14 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         returns (uint ethOut)
     {
         require(msg.sender == address(fum), "Restricted to FUM");
-        ethOut = _defundTo(from, to, fumToBurn, MinOut.inferMinEthOut(fumToBurn));
+        ethOut = _defundFum(from, to, fumToBurn, MinOut.parseMinEthOut(fumToBurn));
     }
 
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.
      */
     receive() external payable {
-        _mintTo(msg.sender, MinOut.inferMinTokenOut(msg.value));
+        _mintUsm(msg.sender, MinOut.parseMinTokenOut(msg.value));
     }
 
     /**
@@ -169,8 +133,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return success Transfer success
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
-        if (recipient == address(this) || recipient == address(fum)) {
-            _burnTo(msg.sender, msg.sender, amount, MinOut.inferMinEthOut(amount));
+        if (recipient == address(this) || recipient == address(fum) || recipient == address(0)) {
+            _burnUsm(msg.sender, msg.sender, amount, MinOut.parseMinEthOut(amount));
         } else {
             _transfer(_msgSender(), recipient, amount);
         }
@@ -179,7 +143,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
     /** INTERNAL TRANSACTIONAL FUNCTIONS */
 
-    function _mintTo(address to, uint minUsmOut) internal returns (uint usmOut)
+    function _mintUsm(address to, uint minUsmOut) internal returns (uint usmOut)
     {
         // 1. Check that fund() has been called first - no minting before funding:
         uint rawEthInPool = ethPool();
@@ -199,7 +163,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _mint(to, usmOut);
     }
 
-    function _burnTo(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
+    function _burnUsm(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
         uint ethUsmPrice = latestPrice();
@@ -217,7 +181,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         to.sendValue(ethOut);
     }
 
-    function _fundTo(address to, uint minFumOut) internal returns (uint fumOut)
+    function _fundFum(address to, uint minFumOut) internal returns (uint fumOut)
     {
         // 1. Refresh mfbp:
         uint ethUsmPrice = latestPrice();
@@ -239,7 +203,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         fum.mint(to, fumOut);
     }
 
-    function _defundTo(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
+    function _defundFum(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
         uint ethUsmPrice = latestPrice();

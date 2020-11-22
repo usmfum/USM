@@ -30,7 +30,7 @@ contract Proxy {
     }
 
     /**
-     * @notice Accepts WETH, converts it to ETH, and passes it to `usm.mintTo`.
+     * @notice Accepts WETH, converts it to ETH, and passes it to `usm.mint`.
      * @param from address to deduct the WETH from.
      * @param to address to send the minted USM to.
      * @param ethIn WETH to deduct.
@@ -41,7 +41,7 @@ contract Proxy {
     {
         require(weth.transferFrom(from, address(this), ethIn), "WETH transfer fail");
         weth.withdraw(ethIn);
-        usmOut = usm.mintTo{ value: ethIn }(to, minUsmOut);
+        usmOut = usm.mint{ value: ethIn }(to, minUsmOut);
     }
 
     /**
@@ -54,13 +54,13 @@ contract Proxy {
     function burn(address from, address to, uint usmToBurn, uint minEthOut)
         external returns (uint ethOut)
     {
-        ethOut = usm.burnTo(from, address(this), usmToBurn, minEthOut);
+        ethOut = usm.burn(from, address(this), usmToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
         require(weth.transferFrom(address(this), to, ethOut), "WETH transfer fail");
     }
 
     /**
-     * @notice Accepts WETH, converts it to ETH, and funds the pool by passing the ETH to `usm.fundTo`.
+     * @notice Accepts WETH, converts it to ETH, and funds the pool by passing the ETH to `usm.fund`.
      * @param from address to deduct the WETH from.
      * @param to address to send the minted FUM to.
      * @param ethIn WETH to deduct.
@@ -71,7 +71,7 @@ contract Proxy {
     {
         require(weth.transferFrom(from, address(this), ethIn), "WETH transfer fail");
         weth.withdraw(ethIn);
-        fumOut = usm.fundTo{ value: ethIn }(to, minFumOut);
+        fumOut = usm.fund{ value: ethIn }(to, minFumOut);
     }
 
     /**
@@ -85,7 +85,7 @@ contract Proxy {
     function defund(address from, address to, uint fumToBurn, uint minEthOut)
         external returns (uint ethOut)
     {
-        ethOut = usm.defundTo(from, address(this), fumToBurn, minEthOut);
+        ethOut = usm.defund(from, address(this), fumToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
         require(weth.transferFrom(address(this), to, ethOut), "WETH transfer fail");
     }

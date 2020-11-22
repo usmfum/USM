@@ -2,17 +2,17 @@
 pragma solidity ^0.6.6;
 
 library MinOut {
-    uint private constant MIN_OUT_FLAG = 0x539;
-
-    function inferMinTokenOut(uint ethIn) internal pure returns (uint minTokenOut) {
-        if (ethIn % 10000 == MIN_OUT_FLAG) {
-            minTokenOut = ethIn * ((ethIn / 10000) % 10000000) / 100;
+    function parseMinTokenOut(uint ethIn) internal pure returns (uint minTokenOut) {
+        uint minPrice = ethIn % 100000000000;
+        if (minPrice != 0 && minPrice < 10000000) {
+            minTokenOut = ethIn * minPrice / 100;
         }
     }
 
-    function inferMinEthOut(uint tokenIn) internal pure returns (uint minEthOut) {
-        if (tokenIn % 10000 == MIN_OUT_FLAG) {
-            minEthOut = tokenIn * 100 / ((tokenIn / 10000) % 10000000);
+    function parseMinEthOut(uint tokenIn) internal pure returns (uint minEthOut) {
+        uint maxPrice = tokenIn % 100000000000;
+        if (maxPrice != 0 && maxPrice < 10000000) {
+            minEthOut = tokenIn * 100 / maxPrice;
         }
     }
 }

@@ -23,7 +23,7 @@ contract FUM is ERC20Permit, Ownable {
      * @notice If anyone sends ETH here, assume they intend it as a `fund`.
      */
     receive() external payable {
-        usm.fundTo{ value: msg.value }(msg.sender, MinOut.inferMinTokenOut(msg.value));
+        usm.fund{ value: msg.value }(msg.sender, MinOut.parseMinTokenOut(msg.value));
     }
 
     /**
@@ -31,7 +31,7 @@ contract FUM is ERC20Permit, Ownable {
      * @return success Transfer success
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
-        if (recipient == address(this) || recipient == address(usm)) {
+        if (recipient == address(this) || recipient == address(usm) || recipient == address(0)) {
             usm.defundFromFUM(_msgSender(), _msgSender(), amount);
         } else {
             _transfer(_msgSender(), recipient, amount);
