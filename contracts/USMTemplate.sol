@@ -112,17 +112,20 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param from address to deduct the FUM from.
      * @param to address to send the ETH to.
      * @param fumToBurn Amount of FUM to burn.
+     * @param minEthOut Minimum accepted ETH for a successful defund.
      */
-    function defundFromFUM(address from, address payable to, uint fumToBurn)
+    function defundFromFUM(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
         returns (uint ethOut)
     {
         require(msg.sender == address(fum), "Restricted to FUM");
-        ethOut = _defundFum(from, to, fumToBurn, MinOut.parseMinEthOut(fumToBurn));
+        ethOut = _defundFum(from, to, fumToBurn, minEthOut);
     }
 
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.
+     * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
+     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma. 
      */
     receive() external payable {
         _mintUsm(msg.sender, MinOut.parseMinTokenOut(msg.value));
@@ -130,6 +133,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
     /**
      * @notice If a user sends USM tokens directly to this contract (or to the FUM contract), assume they intend it as a `burn`.
+     * If using `transfer` as `burn`, and if decimals 8 to 11 (included) of the amount transferred received
+     * are `0000` then the next 7 will be parsed as the maximum USM price accepted, with 5 digits before and 2 digits after the comma.
      * @return success Transfer success
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
