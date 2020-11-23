@@ -71,6 +71,7 @@ contract('USM - Proxy - Eth', (accounts) => {
       await weth.deposit({ from: user1, value: oneEth.mul(TWO) }) // One 1-ETH fund() + one 1-ETH mint()
       await weth.approve(proxy.address, MAX, { from: user1 })
       await usm.addDelegate(proxy.address, { from: user1 })
+      await usm.approve(user1, MAX, { from: user1 })
     })
 
     describe('minting and burning', () => {
@@ -117,6 +118,66 @@ contract('USM - Proxy - Eth', (accounts) => {
         describe('with existing USM supply', () => {
           beforeEach(async () => {
             await proxy.mint(user1, user1, oneEth, 0, { from: user1 })
+          })
+
+          it('allows minting USM by sending ETH, if no minUsmOut specified (1)', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000000000' }) // Special case: all 0s = no flag
+          })
+
+          it('allows minting USM by sending ETH, if no minUsmOut specified (2)', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000010000000' }) // 0001 spoils the flag
+          })
+
+          it('allows minting USM by sending ETH, if no minUsmOut specified (3)', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000010000000000' }) // 1000 spoils the flag
+          })
+
+          it('allows minting USM by sending ETH, if no minUsmOut specified (4)', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000100000000000' }) // Back to the all-0s special case
+          })
+
+          it('allows minting USM by sending ETH, if minUsmOut specified but met (1)', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000000001' }) // Returns >= 0.01 USM per ETH
+          })
+
+          it('allows minting USM by sending ETH, if minUsmOut specified but met (2)', async () => {
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000019788' }) // Returns >= 197.88 USM per ETH
+          })
+
+          it('does not mint USM by sending ETH, if minUsmOut specified and missed (1)', async () => {
+            await expectRevert(
+              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000019789' }), // Returns < 197.89 USM per ETH
+              "Limit not reached",
+            )
+          })
+
+          it('does not mint USM by sending ETH, if minUsmOut specified and missed (2)', async () => {
+            await expectRevert(
+              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000001000000' }), // Returns < 10,000.00 USM per ETH
+              "Limit not reached",
+            )
+          })
+
+          it('allows burning USM by sending it, if no minEthOut specified', async () => {
+            await usm.transfer(usm.address, '1000000000000000000', { from: user1 }) // Special case: all 0s = no flag
+          })
+
+          it('allows burning USM by sending it, if minEthOut specified but met', async () => {
+            await usm.transfer(usm.address, '1000000000000025051', { from: user1 }) // Pays <= 250.51 USM per ETH
+          })
+
+          it('does not burn USM by sending it, if minEthOut specified and missed (1)', async () => {
+            await expectRevert(
+              usm.transfer(usm.address, '1000000000000025050', { from: user1 }), // Pays > 250.50 USM per ETH
+              "Limit not reached",
+            )
+          })
+
+          it('does not burn USM by sending it, if minEthOut specified and missed (2)', async () => {
+            await expectRevert(
+              usm.transfer(usm.address, '1000000000000000001', { from: user1 }), // Pays > 0.01 USM per ETH
+              "Limit not reached",
+            )
           })
 
           it('allows burning FUM', async () => {
