@@ -133,17 +133,15 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
     /**
      * @notice If a user sends USM tokens directly to this contract (or to the FUM contract), assume they intend it as a `burn`.
-     * If using `transfer` as `burn`, and if decimals 8 to 11 (included) of the amount transferred received
+     * If using `transfer`/`transferFrom` as `burn`, and if decimals 8 to 11 (included) of the amount transferred received
      * are `0000` then the next 7 will be parsed as the maximum USM price accepted, with 5 digits before and 2 digits after the comma.
-     * @return success Transfer success
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
+    function _transfer(address sender, address recipient, uint256 amount) internal override {
         if (recipient == address(this) || recipient == address(fum) || recipient == address(0)) {
-            _burnUsm(msg.sender, msg.sender, amount, MinOut.parseMinEthOut(amount));
+            _burnUsm(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {
-            _transfer(_msgSender(), recipient, amount);
+            super._transfer(sender, recipient, amount);
         }
-        success = true;
     }
 
     /** INTERNAL TRANSACTIONAL FUNCTIONS */
