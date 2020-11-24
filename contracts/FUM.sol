@@ -30,7 +30,7 @@ contract FUM is ERC20Permit, Ownable {
 
     /**
      * @notice If a user sends FUM tokens directly to this contract (or to the USM contract), assume they intend it as a `defund`.
-     * If using `transfer`/`transferFrom` as `defund, and if decimals 8 to 11 (included) of the amount transferred received
+     * If using `transfer`/`transferFrom` as `defund`, and if decimals 8 to 11 (included) of the amount transferred received
      * are `0000` then the next 7 will be parsed as the maximum FUM price accepted, with 5 digits before and 2 digits after the comma.
      */
     function _transfer(address sender, address recipient, uint256 amount) internal override {
