@@ -21,6 +21,8 @@ contract FUM is ERC20Permit, Ownable {
 
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `fund`.
+     * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
+     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma. 
      */
     receive() external payable {
         usm.fund{ value: msg.value }(msg.sender, MinOut.parseMinTokenOut(msg.value));
@@ -28,11 +30,13 @@ contract FUM is ERC20Permit, Ownable {
 
     /**
      * @notice If a user sends FUM tokens directly to this contract (or to the USM contract), assume they intend it as a `defund`.
+     * If using `transfer` as `defund, and if decimals 8 to 11 (included) of the amount transferred received
+     * are `0000` then the next 7 will be parsed as the maximum FUM price accepted, with 5 digits before and 2 digits after the comma.
      * @return success Transfer success
      */
     function transfer(address recipient, uint256 amount) public virtual override returns (bool success) {
         if (recipient == address(this) || recipient == address(usm) || recipient == address(0)) {
-            usm.defundFromFUM(_msgSender(), _msgSender(), amount);
+            usm.defundFromFUM(_msgSender(), _msgSender(), amount, MinOut.parseMinEthOut(amount));
         } else {
             _transfer(_msgSender(), recipient, amount);
         }
