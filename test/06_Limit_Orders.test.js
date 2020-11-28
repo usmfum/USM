@@ -44,11 +44,6 @@ contract('USM', (accounts) => {
       fum = await FUM.at(await usm.fum())
       orderBook = await FUMLimitOrderBook.new(usm.address)
 
-      await usm.approve(user1, MAX, { from: user1 })
-      await fum.approve(user1, MAX, { from: user1 })
-      await usm.addDelegate(fum.address, { from: user1 })
-      await usm.addDelegate(usm.address, { from: user1 })
-
       oneDollarInEth = wadDiv(WAD, priceWAD, rounds.UP)
 
       ethPerFund = oneEth.mul(TWO)                  // Can be any (?) number
