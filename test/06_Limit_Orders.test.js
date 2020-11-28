@@ -8,7 +8,7 @@ const FUMLimitOrderBook = artifacts.require('FUMLimitOrderBook')
 
 require('chai').use(require('chai-as-promised')).should()
 
-contract('USM', (accounts) => {
+contract('USM - Limit Order Book', (accounts) => {
   const [deployer, user1, user2] = accounts
   const [ONE, TWO, FOUR, WAD] =
         [1, 2, 4, '1000000000000000000'].map(function (n) { return new BN(n) })
