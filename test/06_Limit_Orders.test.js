@@ -35,6 +35,10 @@ contract('USM - Limit Order Book', (accounts) => {
     diff.should.be.bignumber.lt(x.add(y).div(new BN(1000000)))
   }
 
+  function fl(w) { // Converts a WAD fixed-point (eg, 2.7e18) to an unscaled float (2.7).  Of course may lose a bit of precision
+    return parseFloat(w) / 10**18
+  }
+
   describe("mints and burns a static amount", () => {
     let usm, fum, orderBook, ethPerFund, ethPerMint, bidSize, bidPrices, snapshot, snapshotId
 
@@ -80,21 +84,23 @@ contract('USM - Limit Order Book', (accounts) => {
         for (let j = -1; j < bidPrices.length; ++j) {
           if (j >= 0) { // So we print the heap both at the start and at the end of the operations loop
             console.log("Submitting " + bidPrices[j] + "...")
-            await orderBook.submitBid(WAD.mul(new BN(bidPrices[j])).div(new BN(1000)), { from: user1, value: bidSize })
-            console.log("Submitted.")
+            const maxPrice = WAD.mul(new BN(bidPrices[j])).div(new BN(1000))
+            //const orderNum = await orderBook.submitBid(maxPrice, { from: user1, value: bidSize }) // Returns tx, not orderNum...
+            await orderBook.submitBid(maxPrice, { from: user1, value: bidSize })
+            console.log("Submitted bid #" + (j + 1) + ".")
           }
 
           // I wish I knew how to move shared web3 test code like this heap logging into a shared function, but I don't
           const ethBal = await web3.eth.getBalance(orderBook.address)
           const fumBal = await fum.totalSupply()
-          console.log(ethBal + " ETH, " + fumBal + " FUM.  Heap:")
+          console.log(fl(ethBal) + " ETH, " + fl(fumBal) + " FUM.  Heap:")
           const heapSize = await orderBook.bidHeapSize()
           for (let i = 1; i <= heapSize; ++i) {
             const orderNum = await orderBook.getOrderNumber(new BN(i))
             if (orderNum != 0) {
               const {sender, qty, price, heapIndex} = await orderBook.getBidDetails(orderNum)
               shouldEqual(heapIndex, i)
-              console.log("    " + i + ": bid #" + orderNum + ":\t" + qty + " ETH @ " + price + " ETH per FUM")
+              console.log("    " + i + ": #" + orderNum + ":\t" + fl(qty) + " ETH @ " + fl(price) + " ETH per FUM")
             }
           }
         }
@@ -103,7 +109,8 @@ contract('USM - Limit Order Book', (accounts) => {
       describe("with existing limit orders", () => {
         beforeEach(async () => {
           for (let j = 0; j < bidPrices.length; ++j) {
-            await orderBook.submitBid(WAD.mul(new BN(bidPrices[j])).div(new BN(1000)), { from: user1, value: bidSize })
+            const maxPrice = WAD.mul(new BN(bidPrices[j])).div(new BN(1000))
+            await orderBook.submitBid(maxPrice, { from: user1, value: bidSize })
           }
         })
 
@@ -118,14 +125,14 @@ contract('USM - Limit Order Book', (accounts) => {
 
             const ethBal = await web3.eth.getBalance(orderBook.address)
             const fumBal = await fum.totalSupply()
-            console.log(ethBal + " ETH, " + fumBal + " FUM.  Heap:")
+            console.log(fl(ethBal) + " ETH, " + fl(fumBal) + " FUM.  Heap:")
             const heapSize = await orderBook.bidHeapSize()
             for (let i = 1; i <= heapSize; ++i) {
               const orderNum = await orderBook.getOrderNumber(new BN(i))
               if (orderNum != 0) {
                 const {sender, qty, price, heapIndex} = await orderBook.getBidDetails(orderNum)
                 shouldEqual(heapIndex, i)
-                console.log("    " + i + ": bid #" + orderNum + ":\t" + qty + " ETH @ " + price + " ETH per FUM")
+                console.log("    " + i + ": #" + orderNum + ":\t" + fl(qty) + " ETH @ " + fl(price) + " ETH per FUM")
               }
             }
           }
@@ -147,14 +154,14 @@ contract('USM - Limit Order Book', (accounts) => {
 
             const ethBal = await web3.eth.getBalance(orderBook.address)
             const fumBal = await fum.totalSupply()
-            console.log(ethBal + " ETH, " + fumBal + " FUM.  Heap:")
+            console.log(fl(ethBal) + " ETH, " + fl(fumBal) + " FUM.  Heap:")
             const heapSize = await orderBook.bidHeapSize()
             for (let i = 1; i <= heapSize; ++i) {
               const orderNum = await orderBook.getOrderNumber(new BN(i))
               if (orderNum != 0) {
                 const {sender, qty, price, heapIndex} = await orderBook.getBidDetails(orderNum)
                 shouldEqual(heapIndex, i)
-                console.log("    " + i + ": bid #" + orderNum + ":\t" + qty + " ETH @ " + price + " ETH per FUM")
+                console.log("    " + i + ": #" + orderNum + ":\t" + fl(qty) + " ETH @ " + fl(price) + " ETH per FUM")
               }
             }
           }
