@@ -16,7 +16,7 @@ library OurUniswap {
     }
 
     function createPair(IUniswapV2Pair uniswapPair, uint token0Decimals, uint token1Decimals, bool tokensInReverseOrder)
-        internal returns (Pair memory pair)
+        internal pure returns (Pair memory pair)
     {
         pair.uniswapPair = uniswapPair;
         pair.token0Decimals = token0Decimals;
