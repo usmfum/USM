@@ -4,7 +4,6 @@ pragma solidity ^0.6.6;
 import "./USMTemplate.sol";
 import "./oracles/MedianOracle.sol";
 
-
 contract USM is USMTemplate, MedianOracle {
     uint private constant NUM_UNISWAP_PAIRS = 3;
 
@@ -19,4 +18,8 @@ contract USM is USMTemplate, MedianOracle {
         USMTemplate()
         MedianOracle(chainlinkAggregator, compoundView,
                      uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals, uniswapTokensInReverseOrder) {}
+
+    function cacheLatestPrice() public virtual override(Oracle, MedianOracle) returns (uint price) {
+        price = MedianOracle.cacheLatestPrice();
+    }
 }

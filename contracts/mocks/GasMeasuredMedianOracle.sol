@@ -17,4 +17,8 @@ contract GasMeasuredMedianOracle is MedianOracle, GasMeasuredOracle("median") {
     ) public
         MedianOracle(chainlinkAggregator, compoundView,
                      uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals, uniswapTokensInReverseOrder) {}
+
+    function cacheLatestPrice() public override(Oracle, MedianOracle) returns (uint price) {
+        price = MedianOracle.cacheLatestPrice();
+    }
 }

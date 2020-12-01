@@ -43,17 +43,32 @@ contract('USM', (accounts) => {
   const uniswapTokens1Decimals = [SIX, EIGHTEEN, EIGHTEEN]  // See UniswapMedianSpotOracle
   const uniswapTokensInReverseOrder = [false, true, true]   // See UniswapMedianSpotOracle
 
-  const ethUsdtReserve0 = '646310144553926227215994'
-  const ethUsdtReserve1 = '254384028636585'
-  const ethUsdtPrice = '393594361437970499059'              // = ethUsdtReserve1 * ethUsdtScaleFactor / ethUsdtReserve0
+  const ethUsdtReserve0 = new BN('646310144553926227215994') // From the ETH/USDT pair.  See OurUniswapV2SpotOracle
+  const ethUsdtReserve1 = new BN('254384028636585')
+  const ethUsdtCumPrice0_0 = new BN('30197009659458262808281833965635')
+  const ethUsdtCumPrice1_0 = new BN('276776388531768266239160661937116320880685460468473')
+  const ethUsdtTimestamp_0 = new BN('1606780564')
+  const ethUsdtCumPrice0_1 = new BN('30198349396553956234684790868151')
+  const ethUsdtCumPrice1_1 = new BN('276779938284455484990752289414970402581013223198265')
+  const ethUsdtTimestamp_1 = new BN('1606780984')
 
-  const usdcEthReserve0 = '260787673159143'
-  const usdcEthReserve1 = '696170744128378724814084'
-  const usdcEthPrice = '374603034325515896918'              // = usdcEthReserve0 * usdcEthScaleFactor / usdcEthReserve1
+  const usdcEthReserve0 = new BN('260787673159143')         // From the USDC/ETH pair
+  const usdcEthReserve1 = new BN('696170744128378724814084')
+  const usdcEthCumPrice0_0 = new BN('307631784275278277546624451305316303382174855535226')
+  const usdcEthCumPrice1_0 = new BN('31377639132666967530700283664103')
+  const usdcEthTimestamp_0 = new BN('1606780664')
+  const usdcEthCumPrice0_1 = new BN('307634635050611880719301156089846577363471806696356')
+  const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')
+  const usdcEthTimestamp_1 = new BN('1606781003')
 
-  const daiEthReserve0 = '178617913077721329213551886'
-  const daiEthReserve1 = '480578265664207487333589'
-  const daiEthPrice = '371672890430975717452'               // = daiEthReserve0 * daiEthScaleFactor / daiEthReserve1
+  const daiEthReserve0 = new BN('178617913077721329213551886') // From the DAI/ETH pair
+  const daiEthReserve1 = new BN('480578265664207487333589')
+  const daiEthCumPrice0_0 = new BN('291033362911607134656453476145906896216')
+  const daiEthCumPrice1_0 = new BN('30339833685805974401597062880404438583745289')
+  const daiEthTimestamp_0 = new BN('1606780728')
+  const daiEthCumPrice0_1 = new BN('291036072023637413832938851532265880018')
+  const daiEthCumPrice1_1 = new BN('30340852730044753766501469633003499944051151')
+  const daiEthTimestamp_1 = new BN('1606781048')
 
   function wadMul(x, y, upOrDown) {
     return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
@@ -121,13 +136,16 @@ contract('USM', (accounts) => {
       await anchoredView.set(compoundPrice)
 
       ethUsdtPair = await UniswapV2Pair.new({ from: deployer })
-      await ethUsdtPair.set(ethUsdtReserve0, ethUsdtReserve1)
+      await ethUsdtPair.setReserves(ethUsdtReserve0, ethUsdtReserve1, ethUsdtTimestamp_0)
+      await ethUsdtPair.setCumulativePrices(ethUsdtCumPrice0_0, ethUsdtCumPrice1_0)
 
       usdcEthPair = await UniswapV2Pair.new({ from: deployer })
-      await usdcEthPair.set(usdcEthReserve0, usdcEthReserve1)
+      await usdcEthPair.setReserves(usdcEthReserve0, usdcEthReserve1, usdcEthTimestamp_0)
+      await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_0, usdcEthCumPrice1_0)
 
       daiEthPair = await UniswapV2Pair.new({ from: deployer })
-      await daiEthPair.set(daiEthReserve0, daiEthReserve1)
+      await daiEthPair.setReserves(daiEthReserve0, daiEthReserve1, daiEthTimestamp_0)
+      await daiEthPair.setCumulativePrices(daiEthCumPrice0_0, daiEthCumPrice1_0)
 
       // USM
       usm = await USM.new(aggregator.address, anchoredView.address,
@@ -135,6 +153,14 @@ contract('USM', (accounts) => {
                           uniswapTokens0Decimals, uniswapTokens1Decimals, uniswapTokensInReverseOrder,
                           { from: deployer })
       fum = await FUM.at(await usm.fum())
+      await usm.cacheLatestPrice()
+
+      await ethUsdtPair.setReserves(ethUsdtReserve0, ethUsdtReserve1, ethUsdtTimestamp_1)
+      await ethUsdtPair.setCumulativePrices(ethUsdtCumPrice0_1, ethUsdtCumPrice1_1)
+      await usdcEthPair.setReserves(usdcEthReserve0, usdcEthReserve1, usdcEthTimestamp_1)
+      await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
+      await daiEthPair.setReserves(daiEthReserve0, daiEthReserve1, daiEthTimestamp_1)
+      await daiEthPair.setCumulativePrices(daiEthCumPrice0_1, daiEthCumPrice1_1)
 
       priceWAD = await usm.latestPrice()
       oneDollarInEth = wadDiv(WAD, priceWAD, rounds.UP)

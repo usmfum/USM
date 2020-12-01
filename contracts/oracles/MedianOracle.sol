@@ -4,10 +4,10 @@ pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./ChainlinkOracle.sol";
 import "./CompoundOpenOracle.sol";
-import "./UniswapMedianSpotOracle.sol";
+import "./UniswapMedianTWAPOracle.sol";
 import "./Median.sol";
 
-contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapMedianSpotOracle {
+contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapMedianTWAPOracle {
     using SafeMath for uint;
 
     uint private constant NUM_UNISWAP_PAIRS = 3;
@@ -22,14 +22,18 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapMedianSpotO
     ) public
         ChainlinkOracle(chainlinkAggregator)
         CompoundOpenOracle(compoundView)
-        UniswapMedianSpotOracle(uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals,
+        UniswapMedianTWAPOracle(uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals,
                                 uniswapTokensInReverseOrder) {}
 
-    function latestPrice() public override(ChainlinkOracle, CompoundOpenOracle, UniswapMedianSpotOracle)
+    function latestPrice() public override(ChainlinkOracle, CompoundOpenOracle, UniswapMedianTWAPOracle)
         view returns (uint price)
     {
         price = Median.median(latestChainlinkPrice(),
                               latestCompoundPrice(),
-                              latestUniswapMedianSpotPrice());
+                              latestUniswapMedianTWAPPrice());
+    }
+
+    function cacheLatestPrice() public virtual override(Oracle, UniswapMedianTWAPOracle) returns (uint price) {
+        price = UniswapMedianTWAPOracle.cacheLatestPrice();
     }
 }
