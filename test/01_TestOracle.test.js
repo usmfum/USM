@@ -12,9 +12,9 @@ const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
 const GasCompoundOracle = artifacts.require('GasMeasuredCompoundOpenOracle')
 
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
-const GasUniswapOracle = artifacts.require('GasMeasuredOurUniswapV2SpotOracle')
+const GasUniswapSpotOracle = artifacts.require('GasMeasuredOurUniswapV2SpotOracle')
 
-const GasUniswapMedianOracle = artifacts.require('GasMeasuredUniswapMedianOracle')
+const GasUniswapMedianSpotOracle = artifacts.require('GasMeasuredUniswapMedianSpotOracle')
 
 const GasMedianOracle = artifacts.require('GasMeasuredMedianOracle')
 
@@ -30,6 +30,11 @@ contract('Oracle pricing', (accounts) => {
 
   const compoundPrice = '414174999'                         // Compound view (UniswapAnchoredView) stores 6 dec places
   const compoundPriceWAD = compoundPrice + '000000000000'   // We want 18 dec places, so add 12 0s
+
+  const ethDecimals = new BN(18)                            // See OurUniswapV2SpotOracle
+  const usdtDecimals = new BN(6)
+  const usdcDecimals = new BN(6)
+  const daiDecimals = new BN(18)
 
   const ethUsdtReserve0 = '646310144553926227215994'        // From the ETH/USDT pair.  See OurUniswapV2SpotOracle
   const ethUsdtReserve1 = '254384028636585'
@@ -139,7 +144,8 @@ contract('Oracle pricing', (accounts) => {
       pair = await UniswapV2Pair.new({ from: deployer })
       await pair.set(ethUsdtReserve0, ethUsdtReserve1)
 
-      oracle = await GasUniswapOracle.new(pair.address, ethUsdtTokensInReverseOrder, ethUsdtScaleFactor, { from: deployer })
+      oracle = await GasUniswapSpotOracle.new(pair.address, ethDecimals, usdtDecimals, ethUsdtTokensInReverseOrder,
+                                              { from: deployer })
     })
 
     it('returns the correct price', async () => {
@@ -153,7 +159,7 @@ contract('Oracle pricing', (accounts) => {
     })
   })
 
-  describe("with UniswapMedianOracle", () => {
+  describe("with UniswapMedianSpotOracle", () => {
     const [deployer] = accounts
     let oracle
     let ethUsdtPair, usdcEthPair, daiEthPair
@@ -168,10 +174,11 @@ contract('Oracle pricing', (accounts) => {
       daiEthPair = await UniswapV2Pair.new({ from: deployer })
       await daiEthPair.set(daiEthReserve0, daiEthReserve1)
 
-      oracle = await GasUniswapMedianOracle.new(
+      oracle = await GasUniswapMedianSpotOracle.new(
           [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
-          [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder],
-          [ethUsdtScaleFactor, usdcEthScaleFactor, daiEthScaleFactor], { from: deployer })
+          [ethDecimals, usdcDecimals, daiDecimals],
+          [usdtDecimals, ethDecimals, ethDecimals],
+          [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder], { from: deployer })
     })
 
     it('returns the correct price', async () => {
@@ -212,8 +219,9 @@ contract('Oracle pricing', (accounts) => {
 
       oracle = await GasMedianOracle.new(chainlinkAggregator.address, compoundView.address,
         [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
-        [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder],
-        [ethUsdtScaleFactor, usdcEthScaleFactor, daiEthScaleFactor], { from: deployer })
+        [ethDecimals, usdcDecimals, daiDecimals],
+        [usdtDecimals, ethDecimals, ethDecimals],
+        [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder], { from: deployer })
     })
 
     it('returns the correct price', async () => {

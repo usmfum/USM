@@ -2,13 +2,12 @@
 pragma solidity ^0.6.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "./Oracle.sol";
 import "./ChainlinkOracle.sol";
 import "./CompoundOpenOracle.sol";
-import "./UniswapMedianOracle.sol";
+import "./UniswapMedianSpotOracle.sol";
 import "./Median.sol";
 
-contract MedianOracle is Oracle, ChainlinkOracle, CompoundOpenOracle, UniswapMedianOracle {
+contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapMedianSpotOracle {
     using SafeMath for uint;
 
     uint private constant NUM_UNISWAP_PAIRS = 3;
@@ -17,18 +16,20 @@ contract MedianOracle is Oracle, ChainlinkOracle, CompoundOpenOracle, UniswapMed
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
         IUniswapV2Pair[NUM_UNISWAP_PAIRS] memory uniswapPairs,
-        bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder,
-        uint[NUM_UNISWAP_PAIRS] memory uniswapScaleFactors
+        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens0Decimals,
+        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens1Decimals,
+        bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder
     ) public
         ChainlinkOracle(chainlinkAggregator)
         CompoundOpenOracle(compoundView)
-        UniswapMedianOracle(uniswapPairs, uniswapTokensInReverseOrder, uniswapScaleFactors) {}
+        UniswapMedianSpotOracle(uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals,
+                                uniswapTokensInReverseOrder) {}
 
-    function latestPrice() public override(Oracle, ChainlinkOracle, CompoundOpenOracle, UniswapMedianOracle)
+    function latestPrice() public override(ChainlinkOracle, CompoundOpenOracle, UniswapMedianSpotOracle)
         view returns (uint price)
     {
         price = Median.median(latestChainlinkPrice(),
                               latestCompoundPrice(),
-                              latestUniswapMedianPrice());
+                              latestUniswapMedianSpotPrice());
     }
 }

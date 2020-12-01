@@ -12,9 +12,11 @@ contract USM is USMTemplate, MedianOracle {
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
         IUniswapV2Pair[NUM_UNISWAP_PAIRS] memory uniswapPairs,
-        bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder,
-        uint[NUM_UNISWAP_PAIRS] memory uniswapScaleFactors
+        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens0Decimals,
+        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens1Decimals,
+        bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder
     ) public
         USMTemplate()
-        MedianOracle(chainlinkAggregator, compoundView, uniswapPairs, uniswapTokensInReverseOrder, uniswapScaleFactors) {}
+        MedianOracle(chainlinkAggregator, compoundView,
+                     uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals, uniswapTokensInReverseOrder) {}
 }

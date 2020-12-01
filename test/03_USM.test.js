@@ -14,8 +14,8 @@ require('chai').use(require('chai-as-promised')).should()
 
 contract('USM', (accounts) => {
   const [deployer, user1, user2, user3] = accounts
-  const [ZERO, ONE, TWO, THREE, FOUR, EIGHT, TEN, EIGHTEEN, THIRTY, HUNDRED, THOUSAND, WAD] =
-        [0, 1, 2, 3, 4, 8, 10, 18, 30, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
+  const [ZERO, ONE, TWO, THREE, FOUR, SIX, EIGHT, TEN, EIGHTEEN, THIRTY, HUNDRED, THOUSAND, WAD] =
+        [0, 1, 2, 3, 4, 6, 8, 10, 18, 30, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
   const WAD_MINUS_1 = WAD.sub(ONE)
   const WAD_SQUARED = WAD.mul(WAD)
   const WAD_SQUARED_MINUS_1 = WAD_SQUARED.sub(ONE)
@@ -39,8 +39,9 @@ contract('USM', (accounts) => {
   const compoundPrice = '414174999' // 6 dec places: see CompoundOpenOracle
 
   let ethUsdtPair, usdcEthPair, daiEthPair
-  const uniswapTokensInReverseOrder = [false, true, true]                               // See UniswapMedianOracle
-  const uniswapScaleFactors = [TEN.pow(THIRTY), TEN.pow(THIRTY), TEN.pow(EIGHTEEN)]     // See UniswapMedianOracle
+  const uniswapTokens0Decimals = [EIGHTEEN, SIX, EIGHTEEN]  // See UniswapMedianSpotOracle
+  const uniswapTokens1Decimals = [SIX, EIGHTEEN, EIGHTEEN]  // See UniswapMedianSpotOracle
+  const uniswapTokensInReverseOrder = [false, true, true]   // See UniswapMedianSpotOracle
 
   const ethUsdtReserve0 = '646310144553926227215994'
   const ethUsdtReserve1 = '254384028636585'
@@ -131,7 +132,8 @@ contract('USM', (accounts) => {
       // USM
       usm = await USM.new(aggregator.address, anchoredView.address,
                           [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
-                          uniswapTokensInReverseOrder, uniswapScaleFactors, { from: deployer })
+                          uniswapTokens0Decimals, uniswapTokens1Decimals, uniswapTokensInReverseOrder,
+                          { from: deployer })
       fum = await FUM.at(await usm.fum())
 
       priceWAD = await usm.latestPrice()

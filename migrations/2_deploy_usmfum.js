@@ -35,8 +35,9 @@ module.exports = async function(deployer, network) {
     const e18 = '1000000000000000000'
     let weth, aggregator, anchoredView, ethUsdtPair, usdcEthPair, daiEthPair
     let wethAddress, aggregatorAddress, anchoredViewAddress, ethUsdtPairAddress, usdcEthPairAddress, daiEthPairAddress
+    const uniswapTokens0Decimals = [18, 6, 18]                // See UniswapMedianOracle
+    const uniswapTokens1Decimals = [6, 18, 18]                // See UniswapMedianOracle
     const uniswapTokensInReverseOrder = [false, true, true]   // See UniswapMedianOracle
-    const uniswapScaleFactors = [e30, e30, e18]               // See UniswapMedianOracle
 
     if (network === 'development') {
         await deployer.deploy(WETH9);
@@ -93,6 +94,6 @@ module.exports = async function(deployer, network) {
         USM,
         aggregatorAddress, anchoredViewAddress,
         [ethUsdtPairAddress, usdcEthPairAddress, daiEthPairAddress],
-        uniswapTokensInReverseOrder, uniswapScaleFactors
+        uniswapTokens0Decimals, uniswapTokens1Decimals, uniswapTokensInReverseOrder
     )
 }
