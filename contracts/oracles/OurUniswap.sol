@@ -23,7 +23,6 @@ library OurUniswap {
         pair.token1Decimals = token1Decimals;
         pair.tokensInReverseOrder = tokensInReverseOrder;
 
-        pair.uniswapPair = uniswapPair;
         (uint aDecimals, uint bDecimals) = tokensInReverseOrder ?
             (token1Decimals, token0Decimals) :
             (token0Decimals, token1Decimals);
