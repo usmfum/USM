@@ -68,10 +68,10 @@ library OurUniswap {
     }
 
     /**
-     * @param oldTimestamp in seconds (eg, 1606764888) - not WAD-scaled!
-     * @param oldPriceSeconds WAD-scaled.
-     * @param newTimestamp in raw seconds again.
+     * @param newTimestamp in seconds (eg, 1606764888) - not WAD-scaled!
      * @param newPriceSeconds WAD-scaled.
+     * @param oldTimestamp in raw seconds again.
+     * @param oldPriceSeconds WAD-scaled.
      * @return price WAD-scaled.
      */
     function calculateTWAP(uint newTimestamp, uint newPriceSeconds, uint oldTimestamp, uint oldPriceSeconds)
