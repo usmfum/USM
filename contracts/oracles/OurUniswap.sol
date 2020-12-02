@@ -50,9 +50,9 @@ library OurUniswap {
     /**
      * @return timestamp Timestamp at which Uniswap stored the priceSeconds.
      * @return priceSeconds The pair's cumulative "price-seconds", using Uniswap's TWAP logic.  Eg, if at time t0
-     * priceSeconds = 10,000,000 (returned here as 10,000,000 * 10**18, ie, in WAD fixed-point format), and during the 30 seconds
-     * between t0 and t1 = t0 + 30, the price is $45.67, then at time t1, priceSeconds = 10,000,000 + 30 * 45.67 = 10,001,370.1
-     * (stored as 10,001,370.1 * 10**18).
+     * priceSeconds = 10,000,000 (returned here as 10,000,000 * 10**18, ie, in WAD fixed-point format), and during the 30
+     * seconds between t0 and t1 = t0 + 30, the price is $45.67, then at time t1, priceSeconds = 10,000,000 + 30 * 45.67 =
+     * 10,001,370.1 (stored as 10,001,370.1 * 10**18).
      */
     function cumulativePrice(Pair storage pair)
         internal view returns (uint timestamp, uint priceSeconds)

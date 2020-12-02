@@ -16,6 +16,6 @@ contract GasMeasuredUniswapMedianTWAPOracle is UniswapMedianTWAPOracle, GasMeasu
         UniswapMedianTWAPOracle(pairs, tokens0Decimals, tokens1Decimals, tokensInReverseOrder) {}
 
     function cacheLatestPrice() public override(Oracle, UniswapMedianTWAPOracle) returns (uint price) {
-        price = UniswapMedianTWAPOracle.cacheLatestPrice();
+        price = super.cacheLatestPrice();
     }
 }

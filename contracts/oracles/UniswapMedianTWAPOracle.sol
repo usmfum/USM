@@ -10,27 +10,22 @@ import "./Median.sol";
 contract UniswapMedianTWAPOracle is Oracle {
     using SafeMath for uint;
 
+    // Minimum age of the stored CumulativePrices we calculate our TWAP vs, and minimum gap between stored CumulativePrices.
+    // See also the more detailed explanation in OurUniswapV2TWAPOracle.
+    uint public constant MIN_TWAP_PERIOD = 2 minutes;
+
     uint private constant WAD = 10 ** 18;
     uint private constant WAD_OVER_100 = WAD / 100;
-    uint private constant UINT32_MAX = 2 ** 32 - 1;      // This should really be type(uint32).max, but requires Solidity 0.6.8...
-    uint private constant TWO_TO_THE_48 = 2 ** 48;       // See below for how we use this
+    uint private constant UINT32_MAX = 2 ** 32 - 1;     // Should really be type(uint32).max, but that needs Solidity 0.6.8...
+    uint private constant TWO_TO_THE_48 = 2 ** 48;      // See below for how we use this
     uint private constant MAX_PRICE_SECONDS_CHANGE_WE_CAN_STORE = TWO_TO_THE_48 * WAD_OVER_100; // See unpackPriceSeconds()
 
     uint private constant NUM_SOURCE_ORACLES = 3;
 
-    // Minimum age of the stored CumulativePrices we calculate our TWAP vs, and minimum gap between stored CumulativePrices.  See
-    // also the more detailed explanation in OurUniswapV2TWAPOracle.
-    uint private constant MIN_TWAP_PERIOD = 2 minutes;
-
     // Each CumulativePrices struct crams three pairs timestamps and cumulative prices ("price-seconds") into one 256-bit word.
     struct CumulativePrices {
         uint32 timestamp1;
-        // priceSeconds = the pair's cumulative number of "price-seconds".  Eg, if at time t0 priceSeconds = 10,000,000 (stored as
-        // 10,000,000 * 100 = 1,000,000,000), and during the 30 seconds between t0 and t1 = t0 + 30, the price is $45.67, then at
-        // time t1 priceSeconds = 10,000,000 + 30 * 45.67 = 10,001,370.1 (stored as 10,001,370.1 * 100 = 1,000,137,010).  This is
-        // just how Uniswap v2 TWAP prices work, we're just converting to 100-scaled ("pennies") format.  See also the WAD-scaled
-        // version in OurUniswapV2TWAPOracle.
-        uint48 priceSeconds1;
+        uint48 priceSeconds1;   // See OurUniswap.cumulativePrice() for an explanation of "priceSeconds"
         uint32 timestamp2;
         uint48 priceSeconds2;
         uint32 timestamp3;
@@ -39,10 +34,7 @@ contract UniswapMedianTWAPOracle is Oracle {
 
     OurUniswap.Pair[NUM_SOURCE_ORACLES] private pairs;
 
-    /**
-     * We store two CumulativePrices, A and B, without specifying which is more recent.  This is so that we only need to do one
-     * SSTORE each time we save a new one: we can inspect them later to figure out which is newer - see orderedStoredPrices().
-     */
+    // See comment in OurUniswapV2TWAPOracle for why we store two CumulativePrices rather than one:
     CumulativePrices private storedPricesA;
     CumulativePrices private storedPricesB;
 
@@ -116,12 +108,12 @@ contract UniswapMedianTWAPOracle is Oracle {
             require(timestamps[i] <= UINT32_MAX, "timestamp overflow");
         }
 
-        // We need to make the priceSeconds representation more compact than our usual WAD fixed-point decimal, in order to pack
-        // our update into a single 256-bit-word SSTORE.  So we store in "pennies" (2-decimal-place precision, rather than
+        // We need to make the priceSeconds representation more compact than our usual WAD fixed-point decimal, in order to
+        // pack our update into a single 256-bit-word SSTORE.  So we store in "pennies" (2-decimal-place precision, rather than
         // 18-decimal-place).  This still gives quite accurate ETH *prices*: to within around $0.0001.
-        // We also do "% TWO_TO_THE_48", rather than die on larger priceSeconds values with an overflow - see unpackPriceSeconds()
-        // below for how we avoid overflow (reasonably) safely.
-        // (Note: this assignment is only persistent because olderStoredPrices has modifier "storage" - ie, store by reference!)
+        // We also do "% TWO_TO_THE_48", rather than die on larger priceSeconds values with an overflow - see
+        // unpackPriceSeconds() below for how we avoid overflow (reasonably) safely.
+        // (Note: this assignment only stores because olderStoredPrices has modifier "storage" - ie, store by reference!)
         olderStoredPrices.timestamp1 = uint32(timestamps[0]);
         olderStoredPrices.timestamp2 = uint32(timestamps[1]);
         olderStoredPrices.timestamp3 = uint32(timestamps[2]);
@@ -158,12 +150,14 @@ contract UniswapMedianTWAPOracle is Oracle {
         bool aAcceptable = areNewAndStoredPricesFarEnoughApart(newTimestamps, storedPricesA);
         bool bAcceptable = areNewAndStoredPricesFarEnoughApart(newTimestamps, storedPricesB);
 
-        if (aAcceptable && bAcceptable) {
-            refPrices = newerStoredPrices;      // Neither is *too* recent, so return the fresher of the two
-        } else if (aAcceptable) {
-            refPrices = storedPricesA;          // Only A is acceptable
+        if (aAcceptable) {
+            if (bAcceptable) {
+                refPrices = newerStoredPrices;      // Neither is *too* recent, so return the fresher of the two
+            } else {
+                refPrices = storedPricesA;          // Only A is acceptable
+            }
         } else if (bAcceptable) {
-            refPrices = storedPricesB;          // Only B is acceptable
+            refPrices = storedPricesB;              // Only B is acceptable
         } else {
             revert("Both stored prices too recent");
         }
@@ -192,9 +186,9 @@ contract UniswapMedianTWAPOracle is Oracle {
                                                  CumulativePrices storage storedPrices) internal view
         returns (bool farEnough)
     {
-        farEnough = ((newTimestamps[0] >= (uint(storedPrices.timestamp1)).add(MIN_TWAP_PERIOD)) &&
-                     (newTimestamps[1] >= (uint(storedPrices.timestamp2)).add(MIN_TWAP_PERIOD)) &&
-                     (newTimestamps[2] >= (uint(storedPrices.timestamp3)).add(MIN_TWAP_PERIOD)));
+        farEnough = ((newTimestamps[0] >= storedPrices.timestamp1 + MIN_TWAP_PERIOD) && // No risk of overflow on a uint32
+                     (newTimestamps[1] >= storedPrices.timestamp2 + MIN_TWAP_PERIOD) &&
+                     (newTimestamps[2] >= storedPrices.timestamp3 + MIN_TWAP_PERIOD));
     }
 
     /**
@@ -216,31 +210,31 @@ contract UniswapMedianTWAPOracle is Oracle {
     }
 
     /**
-     * @notice Unpacks a 100-scaled uint48 stored priceSeconds value (eg, 88358132, representing $882,581.32) into our usual WAD
-     * fixed-point format (eg, 882,581.32 * 10**18).  The easy part here is multiplying by (10**18 / 100), but we also make an
-     * adjustment if needed to account for the fact that we only store priceSeconds mod 2**48.  Here's an intuitive example using
-     * decimals:
+     * @notice Unpacks a 100-scaled uint48 stored priceSeconds value (eg, 88358132, representing $882,581.32) into our usual
+     * WAD fixed-point format (eg, 882,581.32 * 10**18).  The easy part here is multiplying by (10**18 / 100), but we also make
+     * an adjustment if needed to account for the fact that we only store priceSeconds mod 2**48.  Here's an intuitive example
+     * using decimals:
      *
-     * Suppose we were storing priceSeconds % (10**6), ie, only the last 6 digits of the cumulative price.  As long as the stored
-     * priceSeconds is < 1,000,000, the stored price = the actual price.  But suppose we have a stored priceSeconds of 998,621,
-     * and also see that the latest priceSeconds from Uniswap is 23,000,067.  Then we can infer that the stored 998,621 probably
-     * represents 22,998,621, not 998,621.  This is the adjustment we make below.
+     * Suppose we were storing priceSeconds % (10**6), ie, only the last 6 digits of the cumulative price.  As long as the
+     * stored priceSeconds is < 1,000,000, the stored price = the actual price.  But suppose we have a stored priceSeconds of
+     * 998,621, and also see that the latest priceSeconds from Uniswap is 23,000,067.  Then we can infer that the stored
+     * 998,621 probably represents 22,998,621, not 998,621.  This is the adjustment we make below.
      *
-     * Of course, we're making an assumption here: that the actual difference between the stored priceSeconds and Uniswap's latest
-     * priceSeconds will never exceed the max value we can store (999,999 in the intuitive example above, 2**48 - 1 in our actual
-     * code below).  This is a reasonable assumption though: a one-month gap between updates, during which ETH was priced at
-     * $1,000,000, would still add less than 2**48 to priceSeconds.
+     * Of course, we're making an assumption here: that the actual difference between the stored priceSeconds and Uniswap's
+     * latest priceSeconds will never exceed the max value we can store (999,999 in the intuitive example above, 2**48 - 1 in
+     * our actual code below).  This is a reasonable assumption though: a one-month gap between updates, during which ETH was
+     * priced at $1,000,000, would still add less than 2**48 to priceSeconds.
      *
-     * Without this adjustment, we'd be assuming not just that the *difference* between successive updates will always be < 2**48,
-     * but that the priceSeconds value *itself* will always be < 2**48.  This would be a significantly shakier assumption.
+     * Without this adjustment, we'd be assuming not just that the *difference* between successive updates will always be
+     * < 2**48, but that the priceSeconds value *itself* will always be < 2**48: a significantly shakier assumption.
      */
     function unpackPriceSeconds(uint48 storedPriceSeconds, uint latestPriceSeconds) internal pure returns (uint priceSeconds) {
         // First, convert to WAD format:
         priceSeconds = storedPriceSeconds * WAD_OVER_100;
 
-        // Now, if priceSeconds is still more than MAX_PRICE_SECONDS_CHANGE_WE_CAN_STORE lower than latestPriceSeconds, adjust it:
+        // Now, if priceSeconds is still more than MAX_PRICE_SECONDS_CHANGE_WE_CAN_STORE below latestPriceSeconds, adjust it:
         if (latestPriceSeconds >= priceSeconds + MAX_PRICE_SECONDS_CHANGE_WE_CAN_STORE) {
-            // Following the intuitive example above: how do we calculate 22,998,621 from 23,000,067?  As follows:
+            // Following the intuitive example above: how do we calculate 22,998,621 from 998,621 and 23,000,067?  As follows:
             // 23,000,067 - ((23,000,067 - 998,621) % 1,000,000) = 22,998,621.
             priceSeconds = latestPriceSeconds - ((latestPriceSeconds - priceSeconds) % MAX_PRICE_SECONDS_CHANGE_WE_CAN_STORE);
         }

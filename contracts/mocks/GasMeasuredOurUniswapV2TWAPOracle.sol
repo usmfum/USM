@@ -9,6 +9,6 @@ contract GasMeasuredOurUniswapV2TWAPOracle is OurUniswapV2TWAPOracle, GasMeasure
         OurUniswapV2TWAPOracle(pair, token0Decimals, token1Decimals, tokensInReverseOrder) {}
 
     function cacheLatestPrice() public override(Oracle, OurUniswapV2TWAPOracle) returns (uint price) {
-        price = OurUniswapV2TWAPOracle.cacheLatestPrice();
+        price = super.cacheLatestPrice();
     }
 }

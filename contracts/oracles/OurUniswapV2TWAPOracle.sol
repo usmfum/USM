@@ -9,24 +9,24 @@ import "./OurUniswap.sol";
 contract OurUniswapV2TWAPOracle is Oracle {
     using SafeMath for uint;
 
-    uint public constant UINT32_MAX = 2 ** 32 - 1;      // This should really be type(uint32).max, but requires Solidity 0.6.8...
-    uint public constant UINT224_MAX = 2 ** 224 - 1;    // Ditto, type(uint224).max
-
     /**
      * MIN_TWAP_PERIOD plays two roles:
      *
-     * 1. Minimum age of the stored CumulativePrice we calculate our current TWAP vs.  Eg, if one of our stored prices is from 5
-     * secs ago, and the other from 10 min ago, we should calculate TWAP vs the 10-min-old one, since a 5-second TWAP is too
+     * 1. Minimum age of the stored CumulativePrice we calculate our current TWAP vs.  Eg, if one of our stored prices is from
+     * 5 secs ago, and the other from 10 min ago, we should calculate TWAP vs the 10-min-old one, since a 5-second TWAP is too
      * short - relatively easy to manipulate.
      *
      * 2. Minimum time gap between stored CumulativePrices.  Eg, if we stored one 5 seconds ago, we don't need to store another
-     * one now - and shouldn't, since then if someone else made a TWAP call a few seconds later, both stored prices would be too
-     * recent to calculate a robust TWAP.
+     * one now - and shouldn't, since then if someone else made a TWAP call a few seconds later, both stored prices would be
+     * too recent to calculate a robust TWAP.
      *
-     * These roles could in principle be separated, eg: "Require the stored price we calculate TWAP from to be >= 2 minutes old,
-     * but leave >= 10 minutes before storing a new price."  But for simplicity we keep them the same.
+     * These roles could in principle be separated, eg: "Require the stored price we calculate TWAP from to be >= 2 minutes
+     * old, but leave >= 10 minutes before storing a new price."  But for simplicity we keep them the same.
      */
     uint public constant MIN_TWAP_PERIOD = 2 minutes;
+
+    uint private constant UINT32_MAX = 2 ** 32 - 1;     // Should really be type(uint32).max, but that needs Solidity 0.6.8...
+    uint private constant UINT224_MAX = 2 ** 224 - 1;   // Ditto, type(uint224).max
 
     struct CumulativePrice {
         uint32 timestamp;
@@ -35,6 +35,10 @@ contract OurUniswapV2TWAPOracle is Oracle {
 
     OurUniswap.Pair private pair;
 
+    /**
+     * We store two CumulativePrices, A and B, without specifying which is more recent.  This is so that we only need to do one
+     * SSTORE each time we save a new one: we can inspect them later to figure out which is newer - see orderedStoredPrices().
+     */
     CumulativePrice private storedPriceA;
     CumulativePrice private storedPriceB;
 
@@ -52,7 +56,10 @@ contract OurUniswapV2TWAPOracle is Oracle {
         uint priceSeconds;
         (price, timestamp, priceSeconds) = _latestPrice(newerStoredPrice);
 
-        storePriceIfLatestStoredPriceIsStale(timestamp, priceSeconds, olderStoredPrice, newerStoredPrice);
+        // Store the latest cumulative price, if it's been long enough since the latest stored price:
+        if (areNewAndStoredPriceFarEnoughApart(timestamp, newerStoredPrice)) {
+            storeCumulativePrice(timestamp, priceSeconds, olderStoredPrice);
+        }
     }
 
     function latestPrice() public virtual override view returns (uint price) {
@@ -60,8 +67,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
     }
 
     function latestUniswapTWAPPrice() public view returns (uint price) {
-        CumulativePrice storage newerStoredPrice;
-        (, newerStoredPrice) = orderedStoredPrices();
+        (, CumulativePrice storage newerStoredPrice) = orderedStoredPrices();
         (price, , ) = _latestPrice(newerStoredPrice);
     }
 
@@ -75,18 +81,12 @@ contract OurUniswapV2TWAPOracle is Oracle {
         price = OurUniswap.calculateTWAP(timestamp, priceSeconds, uint(refPrice.timestamp), uint(refPrice.priceSeconds));
     }
 
-    function storePriceIfLatestStoredPriceIsStale(
-        uint timestamp, uint priceSeconds,
-        CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice
-    ) internal
+    function storeCumulativePrice(uint timestamp, uint priceSeconds, CumulativePrice storage olderStoredPrice) internal
     {
-        // Store the latest price, if it's been long enough since the latest stored price:
-        if (areNewAndStoredPriceFarEnoughApart(timestamp, newerStoredPrice)) {
-            require(timestamp <= UINT32_MAX, "timestamp overflow");
-            require(priceSeconds <= UINT224_MAX, "priceSeconds overflow");
-            // This assignment is only persistent because older has modifier "storage" - ie, store by reference!
-            (olderStoredPrice.timestamp, olderStoredPrice.priceSeconds) = (uint32(timestamp), uint224(priceSeconds));
-        }
+        require(timestamp <= UINT32_MAX, "timestamp overflow");
+        require(priceSeconds <= UINT224_MAX, "priceSeconds overflow");
+        // (Note: this assignment only stores because olderStoredPrice has modifier "storage" - ie, store by reference!)
+        (olderStoredPrice.timestamp, olderStoredPrice.priceSeconds) = (uint32(timestamp), uint224(priceSeconds));
     }
 
     function storedPriceToCompareVs(uint newTimestamp, CumulativePrice storage newerStoredPrice)
@@ -94,12 +94,14 @@ contract OurUniswapV2TWAPOracle is Oracle {
     {
         bool aAcceptable = areNewAndStoredPriceFarEnoughApart(newTimestamp, storedPriceA);
         bool bAcceptable = areNewAndStoredPriceFarEnoughApart(newTimestamp, storedPriceB);
-        if (aAcceptable && bAcceptable) {
-            refPrice = newerStoredPrice;        // Neither is *too* recent, so return the fresher of the two
-        } else if (aAcceptable) {
-            refPrice = storedPriceA;            // Only A is acceptable
+        if (aAcceptable) {
+            if (bAcceptable) {
+                refPrice = newerStoredPrice;        // Neither is *too* recent, so return the fresher of the two
+            } else {
+                refPrice = storedPriceA;            // Only A is acceptable
+            }
         } else if (bAcceptable) {
-            refPrice = storedPriceB;            // Only B is acceptable
+            refPrice = storedPriceB;                // Only B is acceptable
         } else {
             revert("Both stored prices too recent");
         }
@@ -115,6 +117,6 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function areNewAndStoredPriceFarEnoughApart(uint newTimestamp, CumulativePrice storage storedPrice) internal view
         returns (bool farEnough)
     {
-        farEnough = newTimestamp >= (uint(storedPrice.timestamp)).add(MIN_TWAP_PERIOD);
+        farEnough = newTimestamp >= storedPrice.timestamp + MIN_TWAP_PERIOD;    // No risk of overflow on a uint32
     }
 }
