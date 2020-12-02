@@ -35,7 +35,7 @@ module.exports = async function(deployer, network) {
     const e18 = '1000000000000000000'
     let weth, aggregator, anchoredView, usdcEthPair
     let wethAddress, aggregatorAddress, anchoredViewAddress, usdcEthPairAddress
-    //const uniswapTokens0Decimals = [18, 6, 18]                // See UniswapMedianOracle
+    //const uniswapTokens0Decimals = [18, 6, 18]                // ETH/USDT, USDC/ETH, DAI/ETH.  See OurUniswapV2TWAPOracle
     //const uniswapTokens1Decimals = [6, 18, 18]                // See UniswapMedianOracle
     //const uniswapTokensInReverseOrder = [false, true, true]   // See UniswapMedianOracle
     const usdcDecimals = 6                                      // See UniswapMedianOracle
@@ -50,8 +50,8 @@ module.exports = async function(deployer, network) {
         const chainlinkPrice = '38598000000' // 8 dec places: see ChainlinkOracle
         const compoundPrice = '414174999' // 6 dec places: see CompoundOpenOracle
 
-        const usdcEthReserve0 = '260787673159143'
-        const usdcEthReserve1 = '696170744128378724814084'
+        const usdcEthCumPrice0 = '307631784275278277546624451305316303382174855535226'
+        const usdcEthCumPrice1 = '31377639132666967530700283664103'
 
         await deployer.deploy(MockAggregator)
         aggregator = await MockAggregator.deployed()
@@ -65,7 +65,7 @@ module.exports = async function(deployer, network) {
 
         await deployer.deploy(MockUniswapV2Pair)
         usdcEthPair = await MockUniswapV2Pair.deployed()
-        await usdcEthPair.set(usdcEthReserve0, usdcEthReserve1)
+        await usdcEthPair.setCumulativePrices(usdcEthCumPrice0, usdcEthCumPrice1)
         usdcEthPairAddress = usdcEthPair.address
     }
     else {

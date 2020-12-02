@@ -39,13 +39,11 @@ contract('USM', (accounts) => {
   const compoundPrice = '414174999'                         // 6 dec places: see CompoundOpenOracle
 
   let usdcEthPair
-  const usdcDecimals = SIX                                  // See UniswapMedianSpotOracle
-  const ethDecimals = EIGHTEEN                              // See UniswapMedianSpotOracle
-  const uniswapTokensInReverseOrder = true                  // See UniswapMedianSpotOracle
+  const usdcDecimals = SIX                                  // See UniswapMedianTWAPOracle
+  const ethDecimals = EIGHTEEN                              // See UniswapMedianTWAPOracle
+  const uniswapTokensInReverseOrder = true                  // See UniswapMedianTWAPOracle
 
-  const usdcEthReserve0 = new BN('260787673159143')         // From the USDC/ETH pair
-  const usdcEthReserve1 = new BN('696170744128378724814084')
-  const usdcEthCumPrice0_0 = new BN('307631784275278277546624451305316303382174855535226')
+  const usdcEthCumPrice0_0 = new BN('307631784275278277546624451305316303382174855535226')  // From the USDC/ETH pair
   const usdcEthCumPrice1_0 = new BN('31377639132666967530700283664103')
   const usdcEthTimestamp_0 = new BN('1606780664')
   const usdcEthCumPrice0_1 = new BN('307634635050611880719301156089846577363471806696356')
@@ -118,7 +116,7 @@ contract('USM', (accounts) => {
       await anchoredView.set(compoundPrice)
 
       usdcEthPair = await UniswapV2Pair.new({ from: deployer })
-      await usdcEthPair.setReserves(usdcEthReserve0, usdcEthReserve1, usdcEthTimestamp_0)
+      await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_0)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_0, usdcEthCumPrice1_0)
 
       // USM
@@ -128,7 +126,7 @@ contract('USM', (accounts) => {
       fum = await FUM.at(await usm.fum())
       await usm.cacheLatestPrice()
 
-      await usdcEthPair.setReserves(usdcEthReserve0, usdcEthReserve1, usdcEthTimestamp_1)
+      await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
 
       priceWAD = await usm.latestPrice()
