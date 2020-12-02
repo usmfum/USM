@@ -3,22 +3,24 @@ const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const TestOracle = artifacts.require('TestOracle')
 
 const Medianizer = artifacts.require('MockMakerMedianizer')
-const GasMakerOracle = artifacts.require('GasMeasuredMakerOracle')
+const MakerOracle = artifacts.require('MakerOracle')
 
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
-const GasChainlinkOracle = artifacts.require('GasMeasuredChainlinkOracle')
+const ChainlinkOracle = artifacts.require('ChainlinkOracle')
 
 const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
-const GasCompoundOracle = artifacts.require('GasMeasuredCompoundOpenOracle')
+const CompoundOracle = artifacts.require('CompoundOpenOracle')
 
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
-const GasUniswapSpotOracle = artifacts.require('GasMeasuredOurUniswapV2SpotOracle')
-const GasUniswapTWAPOracle = artifacts.require('GasMeasuredOurUniswapV2TWAPOracle')
+const UniswapSpotOracle = artifacts.require('OurUniswapV2SpotOracle')
+const UniswapTWAPOracle = artifacts.require('OurUniswapV2TWAPOracle')
 
-const GasUniswapMedianSpotOracle = artifacts.require('GasMeasuredUniswapMedianSpotOracle')
-const GasUniswapMedianTWAPOracle = artifacts.require('GasMeasuredUniswapMedianTWAPOracle')
+const UniswapMedianSpotOracle = artifacts.require('UniswapMedianSpotOracle')
+const UniswapMedianTWAPOracle = artifacts.require('UniswapMedianTWAPOracle')
 
-const GasMedianOracle = artifacts.require('GasMeasuredMedianOracle')
+const MedianOracle = artifacts.require('MedianOracle')
+
+const GasMeasuredOracleWrapper = artifacts.require('GasMeasuredOracleWrapper')
 
 require('chai').use(require('chai-as-promised')).should()
 
@@ -91,6 +93,7 @@ contract('Oracle pricing', (accounts) => {
 
     beforeEach(async () => {
       oracle = await TestOracle.new(testPriceWAD, { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(oracle.address, "test", { from: deployer })
     })
 
     it('returns the correct price', async () => {
@@ -99,7 +102,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 
@@ -112,7 +115,8 @@ contract('Oracle pricing', (accounts) => {
       medianizer = await Medianizer.new({ from: deployer })
       await medianizer.set(makerPriceWAD)
 
-      oracle = await GasMakerOracle.new(medianizer.address, { from: deployer })
+      oracle = await MakerOracle.new(medianizer.address, { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(oracle.address, "maker", { from: deployer })
     })
 
     it('returns the correct price', async () => {
@@ -121,7 +125,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 
@@ -134,7 +138,8 @@ contract('Oracle pricing', (accounts) => {
       aggregator = await Aggregator.new({ from: deployer })
       await aggregator.set(chainlinkPrice)
 
-      oracle = await GasChainlinkOracle.new(aggregator.address, { from: deployer })
+      oracle = await ChainlinkOracle.new(aggregator.address, { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(oracle.address, "chainlink", { from: deployer })
     })
 
     it('returns the correct price', async () => {
@@ -143,7 +148,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 
@@ -156,7 +161,8 @@ contract('Oracle pricing', (accounts) => {
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
       await anchoredView.set(compoundPrice)
 
-      oracle = await GasCompoundOracle.new(anchoredView.address, { from: deployer })
+      oracle = await CompoundOracle.new(anchoredView.address, { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(oracle.address, "compound", { from: deployer })
     })
 
     it('returns the correct price', async () => {
@@ -165,7 +171,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 
@@ -178,8 +184,9 @@ contract('Oracle pricing', (accounts) => {
       pair = await UniswapV2Pair.new({ from: deployer })
       await pair.setReserves(ethUsdtReserve0, ethUsdtReserve1, 0)
 
-      oracle = await GasUniswapSpotOracle.new(pair.address, ethDecimals, usdtDecimals, ethUsdtTokensInReverseOrder,
-                                              { from: deployer })
+      oracle = await UniswapSpotOracle.new(pair.address, ethDecimals, usdtDecimals, ethUsdtTokensInReverseOrder,
+                                           { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(oracle.address, "uniswapSpot", { from: deployer })
     })
 
     it('returns the correct price', async () => {
@@ -189,7 +196,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 
@@ -203,8 +210,9 @@ contract('Oracle pricing', (accounts) => {
       await pair.setReserves(ethUsdtReserve0, ethUsdtReserve1, ethUsdtTimestamp_0)
       await pair.setCumulativePrices(ethUsdtCumPrice0_0, ethUsdtCumPrice1_0)
 
-      oracle = await GasUniswapTWAPOracle.new(pair.address, ethDecimals, usdtDecimals, ethUsdtTokensInReverseOrder,
-                                              { from: deployer })
+      oracle = await UniswapTWAPOracle.new(pair.address, ethDecimals, usdtDecimals, ethUsdtTokensInReverseOrder,
+                                           { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(oracle.address, "uniswapTWAP", { from: deployer })
       await oracle.cacheLatestPrice()
 
       await pair.setReserves(ethUsdtReserve0, ethUsdtReserve1, ethUsdtTimestamp_1)
@@ -222,7 +230,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 
@@ -241,11 +249,12 @@ contract('Oracle pricing', (accounts) => {
       daiEthPair = await UniswapV2Pair.new({ from: deployer })
       await daiEthPair.setReserves(daiEthReserve0, daiEthReserve1, 0)
 
-      oracle = await GasUniswapMedianSpotOracle.new(
+      oracle = await UniswapMedianSpotOracle.new(
           [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
           [ethDecimals, usdcDecimals, daiDecimals],
           [usdtDecimals, ethDecimals, ethDecimals],
           [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder], { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(oracle.address, "uniswapMedianSpot", { from: deployer })
     })
 
     it('returns the correct price', async () => {
@@ -256,13 +265,13 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 
   describe("with UniswapMedianTWAPOracle", () => {
     const [deployer] = accounts
-    let oracle
+    let rawOracle, oracle
     let ethUsdtPair, usdcEthPair, daiEthPair
 
     beforeEach(async () => {
@@ -278,11 +287,12 @@ contract('Oracle pricing', (accounts) => {
       await daiEthPair.setReserves(daiEthReserve0, daiEthReserve1, daiEthTimestamp_0)
       await daiEthPair.setCumulativePrices(daiEthCumPrice0_0, daiEthCumPrice1_0)
 
-      oracle = await GasUniswapMedianTWAPOracle.new(
+      rawOracle = await UniswapMedianTWAPOracle.new(
           [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
           [ethDecimals, usdcDecimals, daiDecimals],
           [usdtDecimals, ethDecimals, ethDecimals],
           [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder], { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(rawOracle.address, "uniswapMedianTWAP", { from: deployer })
       await oracle.cacheLatestPrice()
 
       await ethUsdtPair.setReserves(ethUsdtReserve0, ethUsdtReserve1, ethUsdtTimestamp_1)
@@ -295,19 +305,19 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the correct price', async () => {
-      const ethUsdtPrice1 = (await oracle.latestUniswapPair1TWAPPrice())
+      const ethUsdtPrice1 = (await rawOracle.latestUniswapPair1TWAPPrice())
       const targetEthUsdtPriceNum = (ethUsdtCumPrice0_1.sub(ethUsdtCumPrice0_0)).mul(ethUsdtScaleFactor)
       const targetEthUsdtPriceDenom = (ethUsdtTimestamp_1.sub(ethUsdtTimestamp_0)).mul(uniswapCumPriceScalingFactor)
       const targetEthUsdtPrice1 = targetEthUsdtPriceNum.div(targetEthUsdtPriceDenom)
       shouldEqualApprox(ethUsdtPrice1, targetEthUsdtPrice1)
 
-      const usdcEthPrice1 = (await oracle.latestUniswapPair2TWAPPrice())
+      const usdcEthPrice1 = (await rawOracle.latestUniswapPair2TWAPPrice())
       const targetUsdcEthPriceNum = (usdcEthCumPrice1_1.sub(usdcEthCumPrice1_0)).mul(usdcEthScaleFactor)
       const targetUsdcEthPriceDenom = (usdcEthTimestamp_1.sub(usdcEthTimestamp_0)).mul(uniswapCumPriceScalingFactor)
       const targetUsdcEthPrice1 = targetUsdcEthPriceNum.div(targetUsdcEthPriceDenom)
       shouldEqualApprox(usdcEthPrice1, targetUsdcEthPrice1)
 
-      const daiEthPrice1 = (await oracle.latestUniswapPair3TWAPPrice())
+      const daiEthPrice1 = (await rawOracle.latestUniswapPair3TWAPPrice())
       const targetDaiEthPriceNum = (daiEthCumPrice1_1.sub(daiEthCumPrice1_0)).mul(daiEthScaleFactor)
       const targetDaiEthPriceDenom = (daiEthTimestamp_1.sub(daiEthTimestamp_0)).mul(uniswapCumPriceScalingFactor)
       const targetDaiEthPrice1 = targetDaiEthPriceNum.div(targetDaiEthPriceDenom)
@@ -319,13 +329,13 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 
   describe("with MedianOracle", () => {
     const [deployer] = accounts
-    let oracle
+    let rawOracle, oracle
     let makerMedianizer, chainlinkAggregator, compoundView, usdcEthPair
 
     beforeEach(async () => {
@@ -342,8 +352,9 @@ contract('Oracle pricing', (accounts) => {
       await usdcEthPair.setReserves(usdcEthReserve0, usdcEthReserve1, usdcEthTimestamp_0)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_0, usdcEthCumPrice1_0)
 
-      oracle = await GasMedianOracle.new(chainlinkAggregator.address, compoundView.address,
+      rawOracle = await MedianOracle.new(chainlinkAggregator.address, compoundView.address,
         usdcEthPair.address, usdcDecimals, ethDecimals, usdcEthTokensInReverseOrder, { from: deployer })
+      oracle = await GasMeasuredOracleWrapper.new(rawOracle.address, "median", { from: deployer })
       await oracle.cacheLatestPrice()
 
       await usdcEthPair.setReserves(usdcEthReserve0, usdcEthReserve1, usdcEthTimestamp_1)
@@ -353,13 +364,13 @@ contract('Oracle pricing', (accounts) => {
 
     it('returns the correct price', async () => {
       const oraclePrice = (await oracle.latestPrice())
-      const uniswapPrice = (await oracle.latestUniswapTWAPPrice())
+      const uniswapPrice = (await rawOracle.latestUniswapTWAPPrice())
       const targetOraclePrice = median(chainlinkPriceWAD, compoundPriceWAD, uniswapPrice)
       oraclePrice.toString().should.equal(targetOraclePrice.toString())
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPriceWithGas())
+      const oraclePrice = (await oracle.latestPrice())
     })
   })
 })
