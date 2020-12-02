@@ -17,16 +17,17 @@ contract MockMedianOracleUSM is USM, SettableOracle {
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
-        IUniswapV2Pair[NUM_UNISWAP_PAIRS] memory uniswapPairs,
-        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens0Decimals,
-        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens1Decimals,
-        bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder
+        IUniswapV2Pair uniswapPair, uint uniswapToken0Decimals, uint uniswapToken1Decimals, bool uniswapTokensInReverseOrder
     ) public
         USM(chainlinkAggregator, compoundView,
-            uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals, uniswapTokensInReverseOrder) {}
+            uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 
     function setPrice(uint p) public override {
         savedPrice = p;
+    }
+
+    function cacheLatestPrice() public override(Oracle, USM) returns (uint price) {
+        price = (savedPrice != 0) ? savedPrice : super.cacheLatestPrice();
     }
 
     function latestPrice() public override view returns (uint price) {

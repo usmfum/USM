@@ -4,10 +4,10 @@ pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./ChainlinkOracle.sol";
 import "./CompoundOpenOracle.sol";
-import "./UniswapMedianSpotOracle.sol";
+import "./OurUniswapV2TWAPOracle.sol";
 import "./Median.sol";
 
-contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapMedianSpotOracle {
+contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle {
     using SafeMath for uint;
 
     uint private constant NUM_UNISWAP_PAIRS = 3;
@@ -15,21 +15,23 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapMedianSpotO
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
-        IUniswapV2Pair[NUM_UNISWAP_PAIRS] memory uniswapPairs,
-        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens0Decimals,
-        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens1Decimals,
-        bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder
+        IUniswapV2Pair uniswapPair, uint uniswapToken0Decimals, uint uniswapToken1Decimals, bool uniswapTokensInReverseOrder
     ) public
         ChainlinkOracle(chainlinkAggregator)
         CompoundOpenOracle(compoundView)
-        UniswapMedianSpotOracle(uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals,
-                                uniswapTokensInReverseOrder) {}
+        OurUniswapV2TWAPOracle(uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 
-    function latestPrice() public override(ChainlinkOracle, CompoundOpenOracle, UniswapMedianSpotOracle)
+    function latestPrice() public override(ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle)
         view returns (uint price)
     {
-        price = Median.median(latestChainlinkPrice(),
-                              latestCompoundPrice(),
-                              latestUniswapMedianSpotPrice());
+        price = Median.median(ChainlinkOracle.latestPrice(),
+                              CompoundOpenOracle.latestPrice(),
+                              OurUniswapV2TWAPOracle.latestPrice());
+    }
+
+    function cacheLatestPrice() public virtual override(Oracle, OurUniswapV2TWAPOracle) returns (uint price) {
+        price = Median.median(ChainlinkOracle.latestPrice(),              // Not ideal to call latestPrice() on two of these
+                              CompoundOpenOracle.latestPrice(),           // and cacheLatestPrice() on one...  But works, and
+                              OurUniswapV2TWAPOracle.cacheLatestPrice()); // inheriting them like this saves significant gas
     }
 }

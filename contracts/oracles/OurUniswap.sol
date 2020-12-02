@@ -7,6 +7,9 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 library OurUniswap {
     using SafeMath for uint;
 
+    // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
+    uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
+
     struct Pair {
         IUniswapV2Pair uniswapPair;
         uint token0Decimals;
@@ -42,5 +45,38 @@ library OurUniswap {
             (uint(reserve1), uint(reserve0)) :
             (uint(reserve0), uint(reserve1));
         price = reserveB.mul(pair.scaleFactor).div(reserveA);
+    }
+
+    /**
+     * @return timestamp Timestamp at which Uniswap stored the priceSeconds.
+     * @return priceSeconds The pair's cumulative "price-seconds", using Uniswap's TWAP logic.  Eg, if at time t0
+     * priceSeconds = 10,000,000 (returned here as 10,000,000 * 10**18, ie, in WAD fixed-point format), and during the 30
+     * seconds between t0 and t1 = t0 + 30, the price is $45.67, then at time t1, priceSeconds = 10,000,000 + 30 * 45.67 =
+     * 10,001,370.1 (stored as 10,001,370.1 * 10**18).
+     */
+    function cumulativePrice(Pair storage pair)
+        internal view returns (uint timestamp, uint priceSeconds)
+    {
+        (, , timestamp) = pair.uniswapPair.getReserves();
+
+        // Retrieve the current Uniswap cumulative price.  Modeled off of Uniswap's own example:
+        // https://github.com/Uniswap/uniswap-v2-periphery/blob/master/contracts/examples/ExampleOracleSimple.sol
+        uint uniswapCumPrice = pair.tokensInReverseOrder ?
+            pair.uniswapPair.price1CumulativeLast() :
+            pair.uniswapPair.price0CumulativeLast();
+        priceSeconds = uniswapCumPrice.mul(pair.scaleFactor) / UNISWAP_CUM_PRICE_SCALE_FACTOR;
+    }
+
+    /**
+     * @param newTimestamp in seconds (eg, 1606764888) - not WAD-scaled!
+     * @param newPriceSeconds WAD-scaled.
+     * @param oldTimestamp in raw seconds again.
+     * @param oldPriceSeconds WAD-scaled.
+     * @return price WAD-scaled.
+     */
+    function calculateTWAP(uint newTimestamp, uint newPriceSeconds, uint oldTimestamp, uint oldPriceSeconds)
+        internal pure returns (uint price)
+    {
+        price = (newPriceSeconds.sub(oldPriceSeconds)).div(newTimestamp.sub(oldTimestamp));
     }
 }
