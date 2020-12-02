@@ -26,7 +26,7 @@ contract OurUniswapV2SpotOracle is Oracle {
         price = OurUniswap.spotPrice(pair);
     }
 
-    function latestUniswapPrice() public view returns (uint price) {
+    function latestUniswapSpotPrice() public view returns (uint price) {
         price = OurUniswap.spotPrice(pair);
     }
 }

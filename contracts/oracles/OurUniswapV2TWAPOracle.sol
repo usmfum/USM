@@ -56,10 +56,10 @@ contract OurUniswapV2TWAPOracle is Oracle {
     }
 
     function latestPrice() public virtual override view returns (uint price) {
-        price = latestUniswapPrice();
+        price = latestUniswapTWAPPrice();
     }
 
-    function latestUniswapPrice() public view returns (uint price) {
+    function latestUniswapTWAPPrice() public view returns (uint price) {
         CumulativePrice storage newerStoredPrice;
         (, newerStoredPrice) = orderedStoredPrices();
         (price, , ) = _latestPrice(newerStoredPrice);

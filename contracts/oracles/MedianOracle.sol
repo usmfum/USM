@@ -28,12 +28,14 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapMedianTWAPO
     function latestPrice() public override(ChainlinkOracle, CompoundOpenOracle, UniswapMedianTWAPOracle)
         view returns (uint price)
     {
-        price = Median.median(latestChainlinkPrice(),
-                              latestCompoundPrice(),
-                              latestUniswapMedianTWAPPrice());
+        price = Median.median(ChainlinkOracle.latestPrice(),
+                              CompoundOpenOracle.latestPrice(),
+                              UniswapMedianTWAPOracle.latestPrice());
     }
 
     function cacheLatestPrice() public virtual override(Oracle, UniswapMedianTWAPOracle) returns (uint price) {
-        price = UniswapMedianTWAPOracle.cacheLatestPrice();
+        price = Median.median(ChainlinkOracle.latestPrice(),                // Not ideal to call latestPrice() on two of these and
+                              CompoundOpenOracle.latestPrice(),             // cacheLatestPrice() on one...  But it works, and
+                              UniswapMedianTWAPOracle.cacheLatestPrice());  // inheriting them all like this saves significant gas
     }
 }

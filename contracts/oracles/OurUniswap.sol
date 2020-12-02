@@ -62,7 +62,7 @@ library OurUniswap {
         // Retrieve the current Uniswap cumulative price.  Modeled off of Uniswap's own example:
         // https://github.com/Uniswap/uniswap-v2-periphery/blob/master/contracts/examples/ExampleOracleSimple.sol
         uint uniswapCumPrice = pair.tokensInReverseOrder ?
-	    pair.uniswapPair.price1CumulativeLast() :
+            pair.uniswapPair.price1CumulativeLast() :
             pair.uniswapPair.price0CumulativeLast();
         priceSeconds = uniswapCumPrice.mul(pair.scaleFactor) / UNISWAP_CUM_PRICE_SCALE_FACTOR;
     }
