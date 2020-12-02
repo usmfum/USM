@@ -4,7 +4,6 @@ pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./Oracle.sol";
-import "./OurUniswap.sol";
 
 contract OurUniswapV2TWAPOracle is Oracle {
     using SafeMath for uint;
@@ -25,15 +24,22 @@ contract OurUniswapV2TWAPOracle is Oracle {
      */
     uint public constant MIN_TWAP_PERIOD = 2 minutes;
 
+    // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
+    uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
+
     uint private constant UINT32_MAX = 2 ** 32 - 1;     // Should really be type(uint32).max, but that needs Solidity 0.6.8...
     uint private constant UINT224_MAX = 2 ** 224 - 1;   // Ditto, type(uint224).max
 
+    IUniswapV2Pair immutable uniswapPair;
+    uint immutable token0Decimals;
+    uint immutable token1Decimals;
+    bool immutable tokensInReverseOrder;
+    uint immutable scaleFactor;
+
     struct CumulativePrice {
         uint32 timestamp;
-        uint224 priceSeconds;   // See OurUniswap.cumulativePrice() for an explanation of "priceSeconds"
+        uint224 priceSeconds;   // See cumulativePrice() below for an explanation of "priceSeconds"
     }
-
-    OurUniswap.Pair private pair;
 
     /**
      * We store two CumulativePrices, A and B, without specifying which is more recent.  This is so that we only need to do one
@@ -48,8 +54,16 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, true, 6, 18 (USDC reserve is stored w/ 6 dec places, WETH w/ 18)
      * DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, true, 18, 18 (DAI reserve is stored w/ 18 dec places, WETH w/ 18)
      */
-    constructor(IUniswapV2Pair uniswapPair, uint token0Decimals, uint token1Decimals, bool tokensInReverseOrder) public {
-        pair = OurUniswap.createPair(uniswapPair, token0Decimals, token1Decimals, tokensInReverseOrder);
+    constructor(IUniswapV2Pair uniswapPair_, uint token0Decimals_, uint token1Decimals_, bool tokensInReverseOrder_) public {
+        uniswapPair = uniswapPair_;
+        token0Decimals = token0Decimals_;
+        token1Decimals = token1Decimals_;
+        tokensInReverseOrder = tokensInReverseOrder_;
+
+        (uint aDecimals, uint bDecimals) = tokensInReverseOrder_ ?
+            (token1Decimals_, token0Decimals_) :
+            (token0Decimals_, token1Decimals_);
+        scaleFactor = 10 ** aDecimals.add(18).sub(bDecimals);
     }
 
     function cacheLatestPrice() public virtual override returns (uint price) {
@@ -77,11 +91,11 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function _latestPrice(CumulativePrice storage newerStoredPrice)
         internal view returns (uint price, uint timestamp, uint priceSeconds)
     {
-        (timestamp, priceSeconds) = OurUniswap.cumulativePrice(pair);
+        (timestamp, priceSeconds) = cumulativePrice();
 
         // Now that we have the current cum price, subtract-&-divide the stored one, to get the TWAP price:
         CumulativePrice storage refPrice = storedPriceToCompareVs(timestamp, newerStoredPrice);
-        price = OurUniswap.calculateTWAP(timestamp, priceSeconds, uint(refPrice.timestamp), uint(refPrice.priceSeconds));
+        price = calculateTWAP(timestamp, priceSeconds, uint(refPrice.timestamp), uint(refPrice.priceSeconds));
     }
 
     function storeCumulativePrice(uint timestamp, uint priceSeconds, CumulativePrice storage olderStoredPrice) internal
@@ -121,5 +135,38 @@ contract OurUniswapV2TWAPOracle is Oracle {
         returns (bool farEnough)
     {
         farEnough = newTimestamp >= storedPrice.timestamp + MIN_TWAP_PERIOD;    // No risk of overflow on a uint32
+    }
+
+    /**
+     * @return timestamp Timestamp at which Uniswap stored the priceSeconds.
+     * @return priceSeconds Our pair's cumulative "price-seconds", using Uniswap's TWAP logic.  Eg, if at time t0
+     * priceSeconds = 10,000,000 (returned here as 10,000,000 * 10**18, ie, in WAD fixed-point format), and during the 30
+     * seconds between t0 and t1 = t0 + 30, the price is $45.67, then at time t1, priceSeconds = 10,000,000 + 30 * 45.67 =
+     * 10,001,370.1 (stored as 10,001,370.1 * 10**18).
+     */
+    function cumulativePrice()
+        private view returns (uint timestamp, uint priceSeconds)
+    {
+        (, , timestamp) = uniswapPair.getReserves();
+
+        // Retrieve the current Uniswap cumulative price.  Modeled off of Uniswap's own example:
+        // https://github.com/Uniswap/uniswap-v2-periphery/blob/master/contracts/examples/ExampleOracleSimple.sol
+        uint uniswapCumPrice = tokensInReverseOrder ?
+            uniswapPair.price1CumulativeLast() :
+            uniswapPair.price0CumulativeLast();
+        priceSeconds = uniswapCumPrice.mul(scaleFactor) / UNISWAP_CUM_PRICE_SCALE_FACTOR;
+    }
+
+    /**
+     * @param newTimestamp in seconds (eg, 1606764888) - not WAD-scaled!
+     * @param newPriceSeconds WAD-scaled.
+     * @param oldTimestamp in raw seconds again.
+     * @param oldPriceSeconds WAD-scaled.
+     * @return price WAD-scaled.
+     */
+    function calculateTWAP(uint newTimestamp, uint newPriceSeconds, uint oldTimestamp, uint oldPriceSeconds)
+        private pure returns (uint price)
+    {
+        price = (newPriceSeconds.sub(oldPriceSeconds)).div(newTimestamp.sub(oldTimestamp));
     }
 }
