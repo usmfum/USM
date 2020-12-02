@@ -10,14 +10,11 @@ contract USM is USMTemplate, MedianOracle {
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
-        IUniswapV2Pair[NUM_UNISWAP_PAIRS] memory uniswapPairs,
-        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens0Decimals,
-        uint[NUM_UNISWAP_PAIRS] memory uniswapTokens1Decimals,
-        bool[NUM_UNISWAP_PAIRS] memory uniswapTokensInReverseOrder
+        IUniswapV2Pair uniswapPair, uint uniswapToken0Decimals, uint uniswapToken1Decimals, bool uniswapTokensInReverseOrder
     ) public
         USMTemplate()
         MedianOracle(chainlinkAggregator, compoundView,
-                     uniswapPairs, uniswapTokens0Decimals, uniswapTokens1Decimals, uniswapTokensInReverseOrder) {}
+                     uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 
     function cacheLatestPrice() public virtual override(Oracle, MedianOracle) returns (uint price) {
         price = MedianOracle.cacheLatestPrice();

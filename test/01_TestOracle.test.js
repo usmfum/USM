@@ -326,7 +326,7 @@ contract('Oracle pricing', (accounts) => {
   describe("with MedianOracle", () => {
     const [deployer] = accounts
     let oracle
-    let makerMedianizer, chainlinkAggregator, compoundView, ethUsdtPair, usdcEthPair, daiEthPair
+    let makerMedianizer, chainlinkAggregator, compoundView, usdcEthPair
 
     beforeEach(async () => {
       //makerMedianizer = await Medianizer.new({ from: deployer })
@@ -338,38 +338,23 @@ contract('Oracle pricing', (accounts) => {
       compoundView = await UniswapAnchoredView.new({ from: deployer })
       await compoundView.set(compoundPrice)
 
-      ethUsdtPair = await UniswapV2Pair.new({ from: deployer })
-      await ethUsdtPair.setReserves(ethUsdtReserve0, ethUsdtReserve1, ethUsdtTimestamp_0)
-      await ethUsdtPair.setCumulativePrices(ethUsdtCumPrice0_0, ethUsdtCumPrice1_0)
-
       usdcEthPair = await UniswapV2Pair.new({ from: deployer })
       await usdcEthPair.setReserves(usdcEthReserve0, usdcEthReserve1, usdcEthTimestamp_0)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_0, usdcEthCumPrice1_0)
 
-      daiEthPair = await UniswapV2Pair.new({ from: deployer })
-      await daiEthPair.setReserves(daiEthReserve0, daiEthReserve1, daiEthTimestamp_0)
-      await daiEthPair.setCumulativePrices(daiEthCumPrice0_0, daiEthCumPrice1_0)
-
       oracle = await GasMedianOracle.new(chainlinkAggregator.address, compoundView.address,
-        [ethUsdtPair.address, usdcEthPair.address, daiEthPair.address],
-        [ethDecimals, usdcDecimals, daiDecimals],
-        [usdtDecimals, ethDecimals, ethDecimals],
-        [ethUsdtTokensInReverseOrder, usdcEthTokensInReverseOrder, daiEthTokensInReverseOrder], { from: deployer })
+        usdcEthPair.address, usdcDecimals, ethDecimals, usdcEthTokensInReverseOrder, { from: deployer })
       await oracle.cacheLatestPrice()
 
-      await ethUsdtPair.setReserves(ethUsdtReserve0, ethUsdtReserve1, ethUsdtTimestamp_1)
-      await ethUsdtPair.setCumulativePrices(ethUsdtCumPrice0_1, ethUsdtCumPrice1_1)
       await usdcEthPair.setReserves(usdcEthReserve0, usdcEthReserve1, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
-      await daiEthPair.setReserves(daiEthReserve0, daiEthReserve1, daiEthTimestamp_1)
-      await daiEthPair.setCumulativePrices(daiEthCumPrice0_1, daiEthCumPrice1_1)
       //await oracle.cacheLatestPrice() // Not actually needed, unless we do further testing moving timestamps further forward
     })
 
     it('returns the correct price', async () => {
       const oraclePrice = (await oracle.latestPrice())
-      const uniswapMedianPrice = (await oracle.latestUniswapMedianTWAPPrice())
-      const targetOraclePrice = median(chainlinkPriceWAD, compoundPriceWAD, uniswapMedianPrice)
+      const uniswapPrice = (await oracle.latestUniswapTWAPPrice())
+      const targetOraclePrice = median(chainlinkPriceWAD, compoundPriceWAD, uniswapPrice)
       oraclePrice.toString().should.equal(targetOraclePrice.toString())
     })
 
