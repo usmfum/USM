@@ -35,7 +35,7 @@ contract FUM is ERC20Permit, Ownable {
      */
     function _transfer(address sender, address recipient, uint256 amount) internal override {
         if (recipient == address(this) || recipient == address(usm) || recipient == address(0)) {
-            usm.defundFromFUM(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
+            usm.defundFromFum(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {
             super._transfer(sender, recipient, amount);
         }

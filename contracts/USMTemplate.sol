@@ -114,7 +114,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param fumToBurn Amount of FUM to burn.
      * @param minEthOut Minimum accepted ETH for a successful defund.
      */
-    function defundFromFUM(address from, address payable to, uint fumToBurn, uint minEthOut)
+    function defundFromFum(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
         returns (uint ethOut)
     {
@@ -160,9 +160,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         usmOut = usmFromMint(ethUsmPrice, msg.value, ethInPool, usmTotalSupply);
         require(usmOut >= minUsmOut, "Limit not reached");
 
-        // 3. Update state and mint the user's new USM:
+        // 3. Update buySellAdjustmentStored and mint the user's new USM:
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply.add(usmOut));
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         _mint(to, usmOut);
     }
 
@@ -176,11 +176,11 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         ethOut = ethFromBurn(ethUsmPrice, usmToBurn, ethInPool, usmTotalSupply);
         require(ethOut >= minEthOut, "Limit not reached");
 
-        // 2. Update state and return the user's ETH:
+        // 2. Burn the input USM, update buySellAdjustmentStored, and return the user's ETH:
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
         require(newDebtRatio <= WAD, "Debt ratio too high");
         _burn(from, usmToBurn);
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         to.sendValue(ethOut);
     }
 
@@ -200,9 +200,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         fumOut = fumFromFund(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, fumTotalSupply, adjustment);
         require(fumOut >= minFumOut, "Limit not reached");
 
-        // 3. Update state and mint the user's new FUM:
+        // 3. Update buySellAdjustmentStored and mint the user's new FUM:
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply);
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, adjustment);
+        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         fum.mint(to, fumOut);
     }
 
@@ -216,11 +216,11 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         ethOut = ethFromDefund(ethUsmPrice, fumToBurn, ethInPool, usmTotalSupply);
         require(ethOut >= minEthOut, "Limit not reached");
 
-        // 2. Update state and return the user's ETH:
+        // 2. Burn the input FUM, update buySellAdjustmentStored, and return the user's ETH:
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
         fum.burn(from, fumToBurn);
-        _updateBuySellAdjustmentIfNeeded(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         to.sendValue(ethOut);
     }
 
@@ -260,13 +260,18 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param oldDebtRatio The debt ratio before the operation (eg, mint()) was done
      * @param newDebtRatio The current, post-op debt ratio
      */
-    function _updateBuySellAdjustmentIfNeeded(uint oldDebtRatio, uint newDebtRatio, uint oldAdjustment) internal {
+    function _updateBuySellAdjustment(uint oldDebtRatio, uint newDebtRatio, uint oldAdjustment) internal {
+        // Skip this if either the old or new debt ratio == 0.  Normally this will only happen on the system's first couple of
+        // calls, but in principle it could happen later if every single USM holder burns all their USM.  This seems
+        // vanishingly unlikely though if the system gets any uptake at all, and anyway if it does happen it will just mean a
+        // couple of skipped updates to the buySellAdjustment - no big deal.
         if (oldDebtRatio != 0 && newDebtRatio != 0) {
-            uint previous = buySellAdjustmentStored.value;
+            uint previous = buySellAdjustmentStored.value; // Not nec the same as oldAdjustment, because of the time decay!
+
             // Eg: if a user operation reduced debt ratio from 70% to 50%, it was either a fund() or a burn().  These are both
             // "long-ETH" operations.  So we can take (old / new)**2 = (70% / 50%)**2 = 1.4**2 = 1.96 as the ratio by which to
             // increase buySellAdjustment, which is intended as a measure of "how long-ETH recent user activity has been":
-            uint newAdjustment = oldAdjustment.mul(oldDebtRatio).mul(oldDebtRatio).div(newDebtRatio).div(newDebtRatio);
+            uint newAdjustment = calculateNewBuySellAdjustment(oldDebtRatio, newDebtRatio, oldAdjustment);
             buySellAdjustmentStored.timestamp = uint32(block.timestamp);
             buySellAdjustmentStored.value = uint224(newAdjustment);
             emit BuySellAdjustmentChanged(previous, newAdjustment);
@@ -485,6 +490,21 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
         // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
         adjustment = WAD.add(uint256(buySellAdjustmentStored.value).wadMulDown(decayFactor)).sub(decayFactor);
+    }
+
+    /**
+     * @param oldDebtRatio The debt ratio before the operation (eg, mint()) was done
+     * @param newDebtRatio The current, post-op debt ratio
+     * @param oldAdjustment The old buySellAdjustment
+     * @return newAdjustment The new buySellAdjustment, based on the change in debt ratio.
+     */
+    function calculateNewBuySellAdjustment(uint oldDebtRatio, uint newDebtRatio, uint oldAdjustment) internal pure
+        returns (uint newAdjustment)
+    {
+        // Eg: if a user operation reduced debt ratio from 70% to 50%, it was either a fund() or a burn().  These are both
+        // "long-ETH" operations.  So we can take (old / new)**2 = (70% / 50%)**2 = 1.4**2 = 1.96 as the ratio by which to
+        // increase buySellAdjustment, which is intended as a measure of "how long-ETH recent user activity has been":
+        newAdjustment = (oldAdjustment.mul(oldDebtRatio).mul(oldDebtRatio) / newDebtRatio) / newDebtRatio;
     }
 
     /** EXTERNAL VIEW FUNCTIONS */
