@@ -300,7 +300,7 @@ contract('USM', (accounts) => {
 
         describe("with existing USM supply", () => {
           let ethPool2, debtRatio2, user1UsmBalance2, totalUsmSupply2, buySellAdj2, fumBuyPrice2, fumSellPrice2, usmBuyPrice2,
-              usmSellPrice2
+              usmSellPrice2, fumAfterBurnThenFund, ethAfterBurnThenFund, adjustmentAfterBurnThenFund
 
           beforeEach(async () => {
             await usm.mint(user1, 0, { from: user2, value: ethPerMint })
@@ -574,7 +574,6 @@ contract('USM', (accounts) => {
             shouldEqual(ethPool3, targetEthPool3)
           })
 
-
           it("transferring FUM to the USM contract is a defund", async () => {
             const fumToBurn = user2FumBalance1.div(TWO) // defund 50% of the user's FUM
             await fum.transfer(usm.address, fumToBurn, { from: user2 })
@@ -697,6 +696,24 @@ contract('USM', (accounts) => {
             const targetEthPool3 = wadCbrt(wadMul(wadSquared(ethPool2, rounds.UP), ethPool2.sub(firstPart), rounds.UP),
                                             rounds.UP)
             shouldEqual(ethPool3, targetEthPool3)
+
+            const ethOut = ethPool2.sub(ethPool3)
+            await usm.fund(user1, 0, { from: user2, value: ethOut })
+            fumAfterBurnThenFund = await fum.totalSupply()
+            ethAfterBurnThenFund = await usm.ethPool()
+            adjustmentAfterBurnThenFund = await usm.buySellAdjustment()
+          })
+
+          it("fundWithUsm() matches burn() followed by fund()", async () => {
+            const usmToBurn = user1UsmBalance2.div(TWO) // defund 50% of the user's USM
+            await usm.fundWithUsm(user1, user1, usmToBurn, 0, { from: user1 })
+            const fumAfterFundWithUsm = await fum.totalSupply()
+            shouldEqual(fumAfterFundWithUsm, fumAfterBurnThenFund)
+            const ethAfterFundWithUsm = await usm.ethPool()
+            shouldEqual(ethAfterFundWithUsm, ethAfterBurnThenFund)
+            const adjustmentAfterFundWithUsm = await usm.buySellAdjustment()
+            // The adjustments may not match *exactly*, b/c burn-then-fund moves it up in two operations, fundWithUsm() in one:
+            shouldEqualApprox(adjustmentAfterFundWithUsm, adjustmentAfterBurnThenFund)
           })
 
           it("sending USM to the USM contract burns it", async () => {

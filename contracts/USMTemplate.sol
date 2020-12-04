@@ -92,6 +92,24 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     }
 
     /**
+     * @notice Funds the pool with USM, burning the USM and minting a corresponding amount of new FUM, but only if the amount
+     * minted >= minFumOut.  Should be equivalent to `fund(burn(minFumOut))`, minus the ETH-receive-and-send-back tx fees, and
+     * bypassing `burn()`'s `debtRatio <= 100%` check (since the net effect of a `fundWithUsm()` call is always to *reduce* the
+     * debt ratio: it reduces USM outstanding while leaving the total ETH in the pool unchanged).
+     * @param from address to deduct the USM from.
+     * @param to address to send the FUM to.
+     * @param usmToBurn Amount of USM to burn.
+     * @param minFumOut Minimum accepted FUM for a successful fund.
+     */
+    function fundWithUsm(address from, address to, uint usmToBurn, uint minFumOut)
+        external override
+        onlyHolderOrDelegate(from, "Only holder or delegate")
+        returns (uint fumOut)
+    {
+        fumOut = _fundFumWithUsm(from, to, usmToBurn, minFumOut);
+    }
+
+    /**
      * @notice Defunds the pool by redeeming FUM in exchange for equivalent ETH from the pool.
      * @param from address to deduct the FUM from.
      * @param to address to send the ETH to.
@@ -203,6 +221,38 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // 3. Update buySellAdjustmentStored and mint the user's new FUM:
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply);
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
+        fum.mint(to, fumOut);
+    }
+
+    function _fundFumWithUsm(address from, address to, uint usmToBurn, uint minFumOut) internal returns (uint fumOut)
+    {
+        // 1. Calculate ethOut:
+        uint ethUsmPrice = cacheLatestPrice();
+        uint oldEthInPool = ethPool(); // Not actually changed during this function, but we need to track its theoretical qty
+        uint usmTotalSupply = totalSupply();
+        uint oldDebtRatio = debtRatio(ethUsmPrice, oldEthInPool, usmTotalSupply);
+        uint ethOut = ethFromBurn(ethUsmPrice, usmToBurn, oldEthInPool, usmTotalSupply);
+        uint oldAdjustment = buySellAdjustment();
+
+        // 2. Burn the input USM and update buySellAdjustment (without storing it - no need for two SSTOREs):
+        _burn(from, usmToBurn);
+        uint middleEth = oldEthInPool.sub(ethOut);
+        usmTotalSupply = usmTotalSupply.sub(usmToBurn);
+        uint middleDebtRatio = debtRatio(ethUsmPrice, middleEth, usmTotalSupply);
+        // This call will die on div by 0 if middleDebtRatio is 0 - that's OK, it really shouldn't be:
+        uint middleAdjustment = calculateNewBuySellAdjustment(oldDebtRatio, middleDebtRatio, oldAdjustment);
+
+        // 3. Refresh mfbp:
+        uint middleFum = fum.totalSupply();
+        _updateMinFumBuyPrice(middleDebtRatio, middleEth, middleFum);
+
+        // 4. Calculate fumOut:
+        fumOut = fumFromFund(ethUsmPrice, ethOut, middleEth, usmTotalSupply, middleFum, middleAdjustment);
+        require(fumOut >= minFumOut, "Limit not reached");
+
+        // 5. Update buySellAdjustmentStored and mint the user's new FUM:
+        // For the final debt ratio, ETH qty is back where it started, while USM qty is unchanged since the _burn() above:
+        _updateBuySellAdjustment(oldDebtRatio, debtRatio(ethUsmPrice, oldEthInPool, usmTotalSupply), oldAdjustment);
         fum.mint(to, fumOut);
     }
 
