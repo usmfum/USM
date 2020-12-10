@@ -2,9 +2,11 @@
 pragma solidity ^0.6.6;
 
 import "./USMTemplate.sol";
-import "./oracles/MedianOracle.sol";
+import "./oracles/ChainlinkOracle.sol";
+import "./oracles/CompoundOpenOracle.sol";
+import "./oracles/OurUniswapV2TWAPOracle.sol";
 
-contract USM is USMTemplate, MedianOracle {
+contract USM is USMTemplate, ChainlinkOracle {
     uint private constant NUM_UNISWAP_PAIRS = 3;
 
     constructor(
@@ -13,10 +15,9 @@ contract USM is USMTemplate, MedianOracle {
         IUniswapV2Pair uniswapPair, uint uniswapToken0Decimals, uint uniswapToken1Decimals, bool uniswapTokensInReverseOrder
     ) public
         USMTemplate()
-        MedianOracle(chainlinkAggregator, compoundView,
-                     uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
+        ChainlinkOracle(chainlinkAggregator) {}
 
-    function cacheLatestPrice() public virtual override(Oracle, MedianOracle) returns (uint price) {
+    function cacheLatestPrice() public virtual override returns (uint price) {
         price = super.cacheLatestPrice();
     }
 }
