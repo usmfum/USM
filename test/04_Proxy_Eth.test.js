@@ -82,25 +82,25 @@ contract('USM - Proxy - Eth', (accounts) => {
         const fumSellPrice = (await usm.fumPrice(sides.SELL))
         fumBuyPrice.toString().should.equal(fumSellPrice.toString())
 
-        await proxy.fund(user1, user1, oneEth, 0, { from: user1 })
+        await proxy.fund(user1, oneEth, 0, { from: user1 })
         const ethPool2 = await usm.ethPool()
         ethPool2.toString().should.equal(oneEth.toString())
       })
 
       it('does not mint FUM if minimum not reached', async () => {
         await expectRevert(
-          proxy.fund(user1, user1, oneEth, MAX, { from: user1 }),
+          proxy.fund(user1, oneEth, MAX, { from: user1 }),
           "Limit not reached",
         )
       })
 
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await proxy.fund(user1, user1, oneEth, 0, { from: user1 })
+          await proxy.fund(user1, oneEth, 0, { from: user1 })
         })
 
         it('allows minting USM', async () => {
-          await proxy.mint(user1, user1, oneEth, 0, { from: user1 })
+          await proxy.mint(user1, oneEth, 0, { from: user1 })
           const ethPool2 = await usm.ethPool()
           ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
 
@@ -110,14 +110,14 @@ contract('USM - Proxy - Eth', (accounts) => {
 
         it('does not mint USM if minimum not reached', async () => {
           await expectRevert(
-            proxy.mint(user1, user1, oneEth, MAX, { from: user1 }),
+            proxy.mint(user1, oneEth, MAX, { from: user1 }),
             "Limit not reached",
           )
         })
 
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await proxy.mint(user1, user1, oneEth, 0, { from: user1 })
+            await proxy.mint(user1, oneEth, 0, { from: user1 })
           })
 
           it('allows minting USM by sending ETH, if no minUsmOut specified (1)', async () => {
@@ -191,7 +191,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             fumBalance.toString().should.equal(targetFumBalance.toString())
 
             const fumToBurn = priceWAD.div(TWO)
-            await proxy.defund(user1, user1, fumToBurn, 0, { from: user1, gasPrice: 0 }) // Don't use eth on gas
+            await proxy.defund(user1, fumToBurn, 0, { from: user1, gasPrice: 0 }) // Don't use eth on gas
             const fumBalance2 = (await fum.balanceOf(user1))
             fumBalance2.toString().should.equal(fumBalance.sub(fumToBurn).toString())
 
@@ -208,7 +208,7 @@ contract('USM - Proxy - Eth', (accounts) => {
 
             await expectRevert(
               // Defunding the full balance would fail (violate MAX_DEBT_RATIO), so just defund half:
-              proxy.defund(user1, user1, fumBalance.div(TWO), MAX, { from: user1 }),
+              proxy.defund(user1, fumBalance.div(TWO), MAX, { from: user1 }),
               "Limit not reached",
             )
           })
@@ -222,7 +222,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             const ethBalance = (await weth.balanceOf(user1))
 
             const usmToBurn = usmBalance
-            await proxy.burn(user1, user1, usmToBurn, 0, { from: user1, gasPrice: 0 })
+            await proxy.burn(user1, usmToBurn, 0, { from: user1, gasPrice: 0 })
             const usmBalance2 = (await usm.balanceOf(user1))
             usmBalance2.toString().should.equal('0')
 
@@ -239,7 +239,7 @@ contract('USM - Proxy - Eth', (accounts) => {
             const usmToBurn = (await usm.balanceOf(user1))
 
             await expectRevert(
-              proxy.burn(user1, user1, usmToBurn, MAX, { from: user1 }),
+              proxy.burn(user1, usmToBurn, MAX, { from: user1 }),
               "Limit not reached",
             )
           })
