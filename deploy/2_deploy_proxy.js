@@ -9,11 +9,6 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     '42' : '0xa1C74a9A3e59ffe9bEe7b85Cd6E91C0751289EbD',
   }
   
-  const usmAddresses = {
-    '1' : '0x0000000000000000000000000000000000000000',
-    '42' : '0x1A471104d726E13e9a8fe69D409094C71feC5dcB',
-  }
-
   let wethAddress, usmAddress
 
   if (chainId === '31337') { // buidlerevm's chainId
@@ -22,12 +17,12 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
       deterministicDeployment: true
     })
     wethAddress = weth.address
-    usmAddress = (await get('MockChainlinkOracleUSM')).address;
   }
   else {
     wethAddress = wethAddresses[chainId]
-    usmAddress = usmAddresses[chainId]
   }
+
+  usmAddress = (await get('MockChainlinkOracleUSM')).address;
 
   const proxy = await deploy('Proxy', {
     from: deployer,
