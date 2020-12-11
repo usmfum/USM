@@ -5,8 +5,6 @@ import "./USMTemplate.sol";
 import "./oracles/MedianOracle.sol";
 
 contract USM is USMTemplate, MedianOracle {
-    uint private constant NUM_UNISWAP_PAIRS = 3;
-
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
