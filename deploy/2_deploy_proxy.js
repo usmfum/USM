@@ -22,7 +22,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
       deterministicDeployment: true
     })
     wethAddress = weth.address
-    usmAddress = (await get('USM')).address;
+    usmAddress = (await get('MockChainlinkOracleUSM')).address;
   }
   else {
     wethAddress = wethAddresses[chainId]
