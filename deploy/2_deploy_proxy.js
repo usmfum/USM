@@ -4,7 +4,17 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId()
 
-  let wethAddress
+  const wethAddresses = {
+    '1' : '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    '42' : '0xa1C74a9A3e59ffe9bEe7b85Cd6E91C0751289EbD',
+  }
+  
+  const usmAddresses = {
+    '1' : '0x0000000000000000000000000000000000000000',
+    '42' : '0x1A471104d726E13e9a8fe69D409094C71feC5dcB',
+  }
+
+  let wethAddress, usmAddress
 
   if (chainId === '31337') { // buidlerevm's chainId
     weth = await deploy('WETH9', {
@@ -12,12 +22,12 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
       deterministicDeployment: true
     })
     wethAddress = weth.address
+    usmAddress = (await get('USM')).address;
   }
   else {
     wethAddress = wethAddresses[chainId]
+    usmAddress = usmAddresses[chainId]
   }
-
-  const usmAddress = (await get('USM')).address;
 
   const proxy = await deploy('Proxy', {
     from: deployer,
@@ -29,3 +39,4 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
 }
 
 module.exports = func;
+module.exports.tags = ["Proxy"];
