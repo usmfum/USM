@@ -9,8 +9,6 @@ import "./OurUniswapV2TWAPOracle.sol";
 contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle {
     using SafeMath for uint;
 
-    uint private constant NUM_UNISWAP_PAIRS = 3;
-
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
