@@ -125,7 +125,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.
      * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
-     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma. 
+     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma.
      */
     receive() external payable {
         _mintUsm(msg.sender, MinOut.parseMinTokenOut(msg.value));
@@ -157,7 +157,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint ethUsmPrice = cacheLatestPrice();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
-        usmOut = usmFromMint(ethUsmPrice, msg.value, ethInPool, usmTotalSupply);
+        usmOut = usmFromMint(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, oldDebtRatio);
         require(usmOut >= minUsmOut, "Limit not reached");
 
         // 3. Update buySellAdjustmentStored and mint the user's new USM:
@@ -173,7 +173,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
-        ethOut = ethFromBurn(ethUsmPrice, usmToBurn, ethInPool, usmTotalSupply);
+        ethOut = ethFromBurn(ethUsmPrice, usmToBurn, ethInPool, usmTotalSupply, oldDebtRatio);
         require(ethOut >= minEthOut, "Limit not reached");
 
         // 2. Burn the input USM, update buySellAdjustmentStored, and return the user's ETH:
@@ -333,13 +333,19 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice Calculate the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
-    function usmPrice(Side side, uint ethUsmPrice) internal view returns (uint price) {
+    function usmPrice(Side side, uint ethUsmPrice, uint debtRatio_) internal view returns (uint price) {
         WadMath.Round upOrDown = (side == Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
         price = usmToEth(ethUsmPrice, WAD, upOrDown);
 
         uint adjustment = buySellAdjustment();
-        if ((side == Side.Buy && adjustment < WAD) || (side == Side.Sell && adjustment > WAD)) {
-            price = price.wadDiv(adjustment, upOrDown);
+        if (debtRatio_ <= WAD) {
+            if ((side == Side.Buy && adjustment < WAD) || (side == Side.Sell && adjustment > WAD)) {
+                price = price.wadDiv(adjustment, upOrDown);
+            }
+        } else {    // See comment at the bottom of usmFromMint() explaining this special case where debtRatio > 100%
+            if ((side == Side.Buy && adjustment > WAD) || (side == Side.Sell && adjustment < WAD)) {
+                price = price.wadMul(adjustment, upOrDown);
+            }
         }
     }
 
@@ -378,24 +384,35 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param ethIn The amount of ETH passed to mint()
      * @return usmOut The amount of USM to receive in exchange
      */
-    function usmFromMint(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0)
+    function usmFromMint(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint debtRatio0)
         internal view returns (uint usmOut)
     {
-        // Mint USM at a sliding-up USM price (ie, at a sliding-down ETH price).  **BASIC RULE:** anytime debtRatio() changes by
-        // factor k (here > 1), ETH price changes by factor 1/k**2 (ie, USM price, in ETH terms, changes by factor k**2).
-        // (Earlier versions of this logic scaled ETH price based on change in ethPool(), or change in ethPool()**2: the latter
-        // gives simpler math - no cbrt() - but doesn't let mint/burn offset fund/defund, which debtRatio()**2 nicely does.)
-        uint usmPrice0 = usmPrice(Side.Buy, ethUsmPrice);
+        uint usmPrice0 = usmPrice(Side.Buy, ethUsmPrice, debtRatio0);
+        uint ethQty1 = ethQty0.add(ethIn);
         if (usmQty0 == 0) {
             // No USM in the system, so debtRatio() == 0 which breaks the integral below - skip sliding-prices this time:
             usmOut = ethIn.wadDivDown(usmPrice0);
-        } else {
-            uint ethQty1 = ethQty0.add(ethIn);
+        } else if (debtRatio0 <= WAD) {
+            // Mint USM at a sliding-up USM price (ie, at a sliding-down ETH price).  **BASIC RULE:** anytime debtRatio()
+            // changes by factor k (here > 1), ETH price changes by factor 1/k**2 (ie, USM price, in ETH terms, changes by
+            // factor k**2).  (Earlier versions of this logic scaled ETH price based on change in ethPool(), or change in
+            // ethPool()**2: the latter gives simpler math - no cbrt() - but doesn't let mint/burn offset fund/defund, which
+            // debtRatio()**2 nicely does.)
 
             // Math: this is an integral - sum of all USM minted at a sliding-down ETH price:
             // u - u_0 = ((((e / e_0)**3 - 1) * e_0 / ubp_0 + u_0) * u_0**2)**(1/3) - u_0
-            uint integralFirstPart = ethQty1.wadDivDown(ethQty0).wadCubedDown().sub(WAD).mul(ethQty0).div(usmPrice0).add(usmQty0);
-            usmOut = integralFirstPart.wadMulDown(usmQty0.wadSquaredDown()).wadCbrtDown().sub(usmQty0);
+            uint integralFirstPart = (ethQty1.wadDivDown(ethQty0).wadCubedDown().sub(WAD)).mul(ethQty0).div(usmPrice0);
+            usmOut = (integralFirstPart.add(usmQty0)).wadMulDown(usmQty0.wadSquaredDown()).wadCbrtDown().sub(usmQty0);
+        } else {
+            // Here we have the special, unusual case where we're minting while debt ratio > 100%.  In this case (only),
+            // minting will actually *reduce* debt ratio, whereas normally it increases it.  (In short: minting always pushes
+            // debt ratio closer to 100%.)  Because debt ratio is decreasing as we buy, and USM buy price must *increase* as we
+            // buy, we need to make USM price grow proportionally to (1 / change in debt ratio)**2, rather than the usual
+            // (1 / change in debt ratio)**2 above.  This gives the following different integral:
+            // x = e0 * (e - e0) / (u0 * pu0)
+            // u - u_0 = u0 * x / (e - x)
+            uint integralFirstPart = ethQty0.mul(ethIn).div(usmQty0.wadMulUp(usmPrice0));
+            usmOut = usmQty0.mul(integralFirstPart).div(ethQty1.sub(integralFirstPart));
         }
     }
 
@@ -404,11 +421,11 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param usmIn The amount of USM passed to burn()
      * @return ethOut The amount of ETH to receive in exchange
      */
-    function ethFromBurn(uint ethUsmPrice, uint usmIn, uint ethQty0, uint usmQty0)
+    function ethFromBurn(uint ethUsmPrice, uint usmIn, uint ethQty0, uint usmQty0, uint debtRatio0)
         internal view returns (uint ethOut)
     {
         // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price):
-        uint usmPrice0 = usmPrice(Side.Sell, ethUsmPrice);
+        uint usmPrice0 = usmPrice(Side.Sell, ethUsmPrice, debtRatio0);
         uint usmQty1 = usmQty0.sub(usmIn);
 
         // Math: this is an integral - sum of all USM burned at a sliding price.  Follows the same mathematical invariant as
@@ -533,7 +550,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return price USM price in ETH terms
      */
     function usmPrice(Side side) external view returns (uint price) {
-        price = usmPrice(side, latestPrice());
+        uint ethUsdPrice = latestPrice();
+        price = usmPrice(side, ethUsdPrice, debtRatio(ethUsdPrice, ethPool(), totalSupply()));
     }
 
     /**
