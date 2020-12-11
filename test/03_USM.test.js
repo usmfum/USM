@@ -665,7 +665,7 @@ contract('USM', (accounts) => {
             debtRatio5.should.be.bignumber.gt(MAX_DEBT_RATIO)
 
             // And now defund() should fail:
-            await expectRevert(usm.defund(user2, user1, oneFum, 0, { from: user2 }), "Max debt ratio breach")
+            await expectRevert(usm.defund(user2, user1, oneFum, 0, { from: user2 }), "Debt ratio > max")
           })
 
           /* ____________________ Burning USM (aka burn()) ____________________ */
@@ -821,7 +821,7 @@ contract('USM', (accounts) => {
             debtRatio5.should.be.bignumber.gt(WAD)
 
             // And now the same burn() should fail:
-            await expectRevert(usm.burn(user1, user2, oneUsm, 0, { from: user1 }), "Debt ratio too high")
+            await expectRevert(usm.burn(user1, user2, oneUsm, 0, { from: user1 }), "Debt ratio > 100%")
           })
         })
       })
