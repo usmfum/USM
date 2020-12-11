@@ -42,7 +42,7 @@ contract('USM - Proxy - Limits', (accounts) => {
 
       it('allows minting FUM', async () => {
 
-        await proxy.fund(user1, user1, oneEth, 0, { from: user1 })
+        await proxy.fund(user1, oneEth, 0, { from: user1 })
 
         const newEthPool = await usm.ethPool()
         newEthPool.toString().should.equal(oneEth.toString())
@@ -50,32 +50,32 @@ contract('USM - Proxy - Limits', (accounts) => {
 
       it('does not mint FUM if minimum not reached', async () => {
         await expectRevert(
-          proxy.fund(user1, user1, oneEth, MAX, { from: user1 }),
+          proxy.fund(user1, oneEth, MAX, { from: user1 }),
           "Limit not reached",
         )
       })
 
       describe('with existing FUM supply', () => {
         beforeEach(async () => {
-          await proxy.fund(user1, user1, oneEth, 0, { from: user1 })
+          await proxy.fund(user1, oneEth, 0, { from: user1 })
         })
 
         it('allows minting USM', async () => {
-          await proxy.mint(user1, user1, oneEth, 0, { from: user1 })
+          await proxy.mint(user1, oneEth, 0, { from: user1 })
           const usmBalance = (await usm.balanceOf(user1))
           usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).toString())
         })
 
         it('does not mint USM if minimum not reached', async () => {
           await expectRevert(
-            proxy.mint(user1, user1, oneEth, MAX, { from: user1 }),
+            proxy.mint(user1, oneEth, MAX, { from: user1 }),
             "Limit not reached",
           )
         })
 
         describe('with existing USM supply', () => {
           beforeEach(async () => {
-            await proxy.mint(user1, user1, oneEth, 0, { from: user1 })
+            await proxy.mint(user1, oneEth, 0, { from: user1 })
           })
 
           it('allows burning FUM', async () => {
@@ -83,7 +83,7 @@ contract('USM - Proxy - Limits', (accounts) => {
             const startingBalance = await weth.balanceOf(user1)
 
             const fumToBurn = priceWAD.mul(new BN('3')).div(new BN('4'))
-            await proxy.defund(user1, user1, fumToBurn, 0, { from: user1 }) // defund 75% of our fum
+            await proxy.defund(user1, fumToBurn, 0, { from: user1 }) // defund 75% of our fum
             const newFumBalance = (await fum.balanceOf(user1))
             newFumBalance.toString().should.equal(targetFumBalance.div(new BN('4')).toString()) // should be 25% of what it was
 
@@ -93,7 +93,7 @@ contract('USM - Proxy - Limits', (accounts) => {
           it('does not burn FUM if minimum not reached', async () => {
             const fumToBurn = priceWAD.mul(new BN('3')).div(new BN('4'))
             await expectRevert(
-              proxy.defund(user1, user1, fumToBurn, MAX, { from: user1 }), // defund 75% of our fum
+              proxy.defund(user1, fumToBurn, MAX, { from: user1 }), // defund 75% of our fum
               "Limit not reached",
             )
           })
@@ -102,7 +102,7 @@ contract('USM - Proxy - Limits', (accounts) => {
             const usmBalance = (await usm.balanceOf(user1)).toString()
             const startingBalance = await weth.balanceOf(user1)
 
-            await proxy.burn(user1, user1, usmBalance, 0, { from: user1 })
+            await proxy.burn(user1, usmBalance, 0, { from: user1 })
             const newUsmBalance = (await usm.balanceOf(user1))
             newUsmBalance.toString().should.equal('0')
 
@@ -113,7 +113,7 @@ contract('USM - Proxy - Limits', (accounts) => {
             const usmBalance = (await usm.balanceOf(user1)).toString()
 
             await expectRevert(
-              proxy.burn(user1, user1, usmBalance, MAX, { from: user1 }),
+              proxy.burn(user1, usmBalance, MAX, { from: user1 }),
               "Limit not reached",
             )
           })

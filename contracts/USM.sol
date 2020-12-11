@@ -7,8 +7,6 @@ import "./oracles/CompoundOpenOracle.sol";
 import "./oracles/OurUniswapV2TWAPOracle.sol";
 
 contract USM is USMTemplate, ChainlinkOracle {
-    uint private constant NUM_UNISWAP_PAIRS = 3;
-
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,

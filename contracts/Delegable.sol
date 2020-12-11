@@ -23,7 +23,7 @@ contract Delegable {
         DELEGABLE_DOMAIN = keccak256(
             abi.encode(
                 keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
-                keccak256(bytes('Yield')),
+                keccak256(bytes('USMFUM')),
                 keccak256(bytes('1')),
                 chainId,
                 address(this)

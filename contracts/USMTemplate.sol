@@ -125,7 +125,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.
      * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
-     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma. 
+     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma.
      */
     receive() external payable {
         _mintUsm(msg.sender, MinOut.parseMinTokenOut(msg.value));
@@ -178,7 +178,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
         // 2. Burn the input USM, update buySellAdjustmentStored, and return the user's ETH:
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
-        require(newDebtRatio <= WAD, "Debt ratio too high");
+        require(newDebtRatio <= WAD, "Debt ratio > 100%");
         _burn(from, usmToBurn);
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         to.sendValue(ethOut);
@@ -218,7 +218,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
         // 2. Burn the input FUM, update buySellAdjustmentStored, and return the user's ETH:
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
-        require(newDebtRatio <= MAX_DEBT_RATIO, "Max debt ratio breach");
+        require(newDebtRatio <= MAX_DEBT_RATIO, "Debt ratio > max");
         fum.burn(from, fumToBurn);
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         to.sendValue(ethOut);
