@@ -22,7 +22,7 @@ contract FUM is ERC20Permit, Ownable {
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `fund`.
      * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
-     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma. 
+     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma.
      */
     receive() external payable {
         usm.fund{ value: msg.value }(msg.sender, MinOut.parseMinTokenOut(msg.value));

@@ -36,7 +36,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     const compoundPrice = '414174999' // 6 dec places: see CompoundOpenOracle
     const usdcEthCumPrice0 = '307631784275278277546624451305316303382174855535226'
     const usdcEthCumPrice1 = '31377639132666967530700283664103'
-    
+
     aggregator = await deploy('MockChainlinkAggregatorV3', {
       from: deployer,
       deterministicDeployment: true,
