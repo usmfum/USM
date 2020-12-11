@@ -65,16 +65,15 @@ library WadMath {
         return wadHalfExp(power, uint(-1));
     }
 
-    //returns a loose but "gas-efficient" approximation of 0.5**power, where power is rounded to the nearest 0.1, and is capped
-    //at maxPower.  Note that power is WAD-scaled (eg, 2.7364 * WAD), but maxPower is just a plain unscaled uint (eg, 10).
+    // Returns a loose but "gas-efficient" approximation of 0.5**power, where power is rounded to the nearest 0.1, and is
+    // capped at maxPower.  Note power is WAD-scaled (eg, 2.7364 * WAD), but maxPower is just a plain unscaled uint (eg, 10).
+    // Negative powers are not handled (as implied by power being a uint).
     function wadHalfExp(uint power, uint maxPower) internal pure returns (uint) {
-        require(power >= 0, "power must be positive");
-        uint powerInTenths = power.add(WAD_OVER_20) / WAD_OVER_10;
-        require(powerInTenths >= 0, "powerInTenths must be positive");
-        if (powerInTenths / 10 > maxPower) {
+        uint powerInTenthsUnscaled = power.add(WAD_OVER_20) / WAD_OVER_10;
+        if (powerInTenthsUnscaled / 10 > maxPower) {
             return 0;
         }
-        return wadPow(HALF_TO_THE_ONE_TENTH, powerInTenths);
+        return wadPow(HALF_TO_THE_ONE_TENTH, powerInTenthsUnscaled);
     }
 
     // Adapted from rpow() in https://github.com/dapphub/ds-math/blob/master/src/math.sol - thank you!
