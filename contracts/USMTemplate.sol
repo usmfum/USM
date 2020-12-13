@@ -39,6 +39,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
 
+    uint public constant ETH_DEPOSIT_PUMPKIN_TIME = 1610755200;         // Midnight, end of Jan 15, 2021, UTC
+
     FUM public immutable fum;
 
     struct TimedValue {
@@ -165,7 +167,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         _mint(to, usmOut);
 
-        require(ethPool() <= 1e20, "Capped at 100 pooled ETH");
+        require(block.time <= ETH_DEPOSIT_PUMPKIN_TIME, "Temporary deposit window is over");
+        require(ethPool() <= ethPoolCap(), "Deposit cap exeeded");
         require(balanceOf(to) <= 1e21, "Capped at 1000 USM per address");
     }
 
@@ -208,7 +211,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         fum.mint(to, fumOut);
 
-        require(ethPool() <= 1e20, "Capped at 100 pooled ETH");
+        require(block.time <= ETH_DEPOSIT_PUMPKIN_TIME, "Temporary deposit window is over");
+        require(ethPool() <= ethPoolCap(), "Deposit cap exeeded");
         require(fum.balanceOf(to) <= 1e21, "Capped at 1000 FUM per address");
     }
 
@@ -513,6 +517,16 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
         // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
         adjustment = WAD.add(uint256(buySellAdjustmentStored.value).wadMulDown(decayFactor)).sub(decayFactor);
+    }
+
+    /**
+     * @notice For each day before ETH_DEPOSIT_PUMPKIN_TIME, reduce our 100 ETH maximum cap (reached at exactly PUMPKIN_TIME)
+     * by 2 ETH.  This lets the pool grow a little each day, so that one early 100-ETH deposit doesn't permanently block it.
+     * So, 30 days before PUMPKIN_TIME the cap is 100 - 30 * 2 = 40 ETH; a week later it's 40 + 7 * 2 = 54 ETH; etc.  (Once
+     * PUMPKIN_TIME has passed, any deposit will fail: see "Temporary deposit window is over" above.)
+     */
+    function ethPoolCap() internal view returns (uint cap) {
+        cap = (100 * WAD).sub((2 * WAD).mul(ETH_DEPOSIT_PUMPKIN_TIME - block.time) / (1 days));
     }
 
     /** EXTERNAL VIEW FUNCTIONS */
