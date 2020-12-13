@@ -7,6 +7,7 @@ docs/
 artifacts/
 build/
 cache/
+deployments/
 
 # lock files
 package-json.lock
@@ -112,6 +113,7 @@ typings/
 # the .secret
 .secret
 .infuraKey
+.secrets/
 
 # coverage
 .coverage_artifacts/

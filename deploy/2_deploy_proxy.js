@@ -4,7 +4,12 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId()
 
-  let wethAddress
+  const wethAddresses = {
+    '1' : '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    '42' : '0xa1C74a9A3e59ffe9bEe7b85Cd6E91C0751289EbD',
+  }
+  
+  let wethAddress, usmAddress
 
   if (chainId === '31337') { // buidlerevm's chainId
     weth = await deploy('WETH9', {
@@ -17,7 +22,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     wethAddress = wethAddresses[chainId]
   }
 
-  const usmAddress = (await get('USM')).address;
+  usmAddress = (await get('USM')).address;
 
   const proxy = await deploy('Proxy', {
     from: deployer,
@@ -29,3 +34,4 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
 }
 
 module.exports = func;
+module.exports.tags = ["Proxy"];
