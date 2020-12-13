@@ -164,6 +164,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply.add(usmOut));
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         _mint(to, usmOut);
+
+        require(ethPool() <= 1e20, "Capped at 100 pooled ETH");
+        require(balanceOf(to) <= 1e21, "Capped at 1000 USM per address");
     }
 
     function _burnUsm(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
@@ -204,6 +207,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply);
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         fum.mint(to, fumOut);
+
+        require(ethPool() <= 1e20, "Capped at 100 pooled ETH");
+        require(fum.balanceOf(to) <= 1e21, "Capped at 1000 FUM per address");
     }
 
     function _defundFum(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)

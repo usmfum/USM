@@ -132,8 +132,8 @@ contract('USM', (accounts) => {
       priceWAD = await usm.latestPrice()
       oneDollarInEth = wadDiv(WAD, priceWAD, rounds.UP)
 
-      ethPerFund = oneEth.mul(TWO)                  // Can be any (?) number
-      ethPerMint = oneEth.mul(FOUR)                 // Can be any (?) number
+      ethPerFund = oneEth.div(TWO) // .mul(TWO)                  // Can be any (?) number
+      ethPerMint = oneEth          // .mul(FOUR)                 // Can be any (?) number
       bitOfEth = oneEth.div(THOUSAND)
 
       snapshot = await timeMachine.takeSnapshot()
@@ -224,6 +224,16 @@ contract('USM', (accounts) => {
         shouldEqualApprox(fumSellPrice1, oneDollarInEth)
       })
 
+      it("Capped at 1000 FUM per address", async () => {
+        const thousandWAD = WAD.mul(new BN('1000'))
+        let targetEthIn = wadDiv(thousandWAD, priceWAD, rounds.UP)
+        await usm.fund(user2, 0, { value: targetEthIn , from: user2 });
+
+        await expectRevert(
+          usm.fund(user2, 0, { value: wadDiv(WAD, priceWAD, rounds.UP) , from: user2 }),
+          "Capped at 1000 FUM per address"
+        )
+      })
 
       describe("with existing FUM supply", () => {
         let ethPool1, user2FumBalance1, totalFumSupply1, buySellAdj1, fumBuyPrice1, fumSellPrice1
@@ -297,6 +307,17 @@ contract('USM', (accounts) => {
           shouldEqualApprox(fumBuyPrice2, oneDollarInEth)
           shouldEqualApprox(fumSellPrice2, oneDollarInEth)
         })
+
+        it("Capped at 1000 USM per address", async () => {
+          const thousandWAD = WAD.mul(new BN('1000'))
+          let targetEthIn = wadDiv(thousandWAD, priceWAD, rounds.UP)
+          await usm.mint(user2, 0, { value: targetEthIn , from: user2 });
+  
+          await expectRevert(
+            usm.mint(user2, 0, { value: wadDiv(WAD, priceWAD, rounds.UP) , from: user2 }),
+            "Capped at 1000 USM per address"
+          )
+        })  
 
         describe("with existing USM supply", () => {
           let ethPool2, debtRatio2, user1UsmBalance2, totalUsmSupply2, buySellAdj2, fumBuyPrice2, fumSellPrice2, usmBuyPrice2,
