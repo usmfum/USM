@@ -167,7 +167,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         _mint(to, usmOut);
 
-        require(block.time <= ETH_DEPOSIT_PUMPKIN_TIME, "Temporary deposit window is over");
+        require(now <= ETH_DEPOSIT_PUMPKIN_TIME, "Temporary deposit window is over");
         require(ethPool() <= ethPoolCap(), "Deposit cap exeeded");
         require(balanceOf(to) <= 1e21, "Capped at 1000 USM per address");
     }
@@ -211,7 +211,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         fum.mint(to, fumOut);
 
-        require(block.time <= ETH_DEPOSIT_PUMPKIN_TIME, "Temporary deposit window is over");
+        require(now <= ETH_DEPOSIT_PUMPKIN_TIME, "Temporary deposit window is over");
         require(ethPool() <= ethPoolCap(), "Deposit cap exeeded");
         require(fum.balanceOf(to) <= 1e21, "Capped at 1000 FUM per address");
     }
@@ -526,7 +526,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * PUMPKIN_TIME has passed, any deposit will fail: see "Temporary deposit window is over" above.)
      */
     function ethPoolCap() internal view returns (uint cap) {
-        cap = (100 * WAD).sub((2 * WAD).mul(ETH_DEPOSIT_PUMPKIN_TIME - block.time) / (1 days));
+        cap = (100 * WAD).sub((2 * WAD).mul(ETH_DEPOSIT_PUMPKIN_TIME - now) / (1 days));
     }
 
     /** EXTERNAL VIEW FUNCTIONS */
