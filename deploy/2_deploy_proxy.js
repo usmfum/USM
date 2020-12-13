@@ -22,7 +22,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     wethAddress = wethAddresses[chainId]
   }
 
-  usmAddress = (await get('MockChainlinkOracleUSM')).address;
+  usmAddress = (await get('USM')).address;
 
   const proxy = await deploy('Proxy', {
     from: deployer,

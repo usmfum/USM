@@ -70,7 +70,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     usdcEthPairAddress = usdcEthAddresses[chainId]
   }
 
-  const usm = await deploy('MockChainlinkOracleUSM', {
+  const usm = await deploy('USM', {
     from: deployer,
     deterministicDeployment: true,
     args: [
