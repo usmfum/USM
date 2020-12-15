@@ -520,6 +520,25 @@ contract('USM', (accounts) => {
               shouldEqual(usmSellPrice3, usmSellPrice2)
               fumBuyPrice3.should.be.bignumber.gt(fumBuyPrice2)
             })
+
+            it("decreases buy-sell adjustment when minting while debt ratio > 100%", async () => {
+              // Move price to get debt ratio just *above* 100%:
+              const targetDebtRatio4 = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
+              const priceChangeFactor4 = wadDiv(debtRatio3, targetDebtRatio4, rounds.UP)
+              const targetPrice4 = wadMul(price0, priceChangeFactor4, rounds.DOWN)
+              await usm.setPrice(targetPrice4)
+              const price4 = await usm.latestPrice()
+              shouldEqual(price4, targetPrice4)
+
+              const debtRatio5 = await usm.debtRatio()
+              debtRatio5.should.be.bignumber.gt(WAD)
+
+              // And now minting should still reduce the adjustment, not increase it:
+              const buySellAdj5 = await usm.buySellAdjustment()
+              await usm.mint(user1, 0, { from: user2, value: bitOfEth })
+              const buySellAdj6 = await usm.buySellAdjustment()
+              buySellAdj6.should.be.bignumber.lt(buySellAdj5)
+            })
           })
 
           /* ____________________ Burning FUM (aka defund()) ____________________ */

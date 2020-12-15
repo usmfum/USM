@@ -162,7 +162,17 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
         // 3. Update buySellAdjustmentStored and mint the user's new USM:
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply.add(usmOut));
-        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        if (oldDebtRatio <= WAD) {
+            _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        } else {
+            // Special case: for every other operation (that we support), a short-ETH operation (`mint`, `defund`) increases
+            // debt ratio, and a long-ETH operation (`burn`, `fund`) decreases it.  But in the special case of minting while
+            // debt ratio > 100%, the operation is short-ETH, but it *decreases* debt ratio.  It's important for any short-ETH
+            // operation to *reduce* the buy-sell adjustment: this is what ensures that repeated mint operations pay an
+            // increasing price for their USM, rather than a decreasing one.  So we pass oldDebtRatio & newDebtRatio into this
+            // _updateBuySellAdjustment() call in reverse order, to make it reduce rather than increase the adjustment.
+            _updateBuySellAdjustment(newDebtRatio, oldDebtRatio, buySellAdjustment());
+        }
         _mint(to, usmOut);
     }
 
