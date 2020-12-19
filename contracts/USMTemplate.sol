@@ -39,6 +39,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
 
+    uint public constant ETH_DEPOSIT_PUMPKIN_TIME = 1610755200;         // Midnight, end of Jan 15, 2021, UTC
+
     FUM public immutable fum;
 
     uint256 deadline; // Second at which the trial expires and `mint` and `fund` get disabled.
