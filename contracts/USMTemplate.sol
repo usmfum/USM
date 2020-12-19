@@ -41,6 +41,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
     FUM public immutable fum;
 
+    uint256 deadline; // Second at which the trial expires and `mint` and `fund` get disabled.
+
     struct TimedValue {
         uint32 timestamp;
         uint224 value;
@@ -52,6 +54,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     constructor() public ERC20Permit("Minimal USD", "USM")
     {
         fum = new FUM(this);
+        deadline = now + (60 * 60 * 24 * 28); // Four weeks into the future
     }
 
     /** EXTERNAL TRANSACTIONAL FUNCTIONS **/
@@ -165,8 +168,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
         _mint(to, usmOut);
 
+        require(now <= deadline, "Trial expired, remove assets");
+        require(msg.value <= 1e18, "Capped at 1 ETH per tx");
         require(ethPool() <= 1e20, "Capped at 100 pooled ETH");
-        require(balanceOf(to) <= 1e21, "Capped at 1000 USM per address");
     }
 
     function _burnUsm(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
@@ -208,8 +212,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         fum.mint(to, fumOut);
 
+        require(now <= deadline, "Trial expired, remove assets");
+        require(msg.value <= 1e18, "Capped at 1 ETH per tx");
         require(ethPool() <= 1e20, "Capped at 100 pooled ETH");
-        require(fum.balanceOf(to) <= 1e21, "Capped at 1000 FUM per address");
     }
 
     function _defundFum(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
