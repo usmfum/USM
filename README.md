@@ -6,6 +6,8 @@ Originally proposed by [@jacob-eliosoff](https://github.com/jacob-eliosoff) in [
 
 ### Baby USM - Mainnet
 
+[Live Stats](https://usmfum.github.io/USM-Stats/)
+
 Baby USM is a "beta" version of USM. Baby USM expires on the 15th of January 2021 when it becomes withdraw-and-read-only. At this point, FUM and USM will be redeemable for ETH, but no more minting of either can occur.
 
 Baby USM and Baby FUM is not redeemable for USM or FUM. It is for test and reserach purposes only.
