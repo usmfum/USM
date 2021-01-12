@@ -154,7 +154,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(ethInPool > 0, "Fund before minting");
 
         // 2. Calculate usmOut:
-        uint ethUsmPrice = cacheLatestPrice();
+        (uint ethUsmPrice, ) = cacheLatestPrice();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         usmOut = usmFromMint(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, oldDebtRatio);
@@ -179,7 +179,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _burnUsm(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        uint ethUsmPrice = cacheLatestPrice();
+        (uint ethUsmPrice, ) = cacheLatestPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
@@ -197,7 +197,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _fundFum(address to, uint minFumOut) internal returns (uint fumOut)
     {
         // 1. Refresh mfbp:
-        uint ethUsmPrice = cacheLatestPrice();
+        (uint ethUsmPrice, ) = cacheLatestPrice();
         uint rawEthInPool = ethPool();
         uint ethInPool = rawEthInPool.sub(msg.value);   // Backing out the ETH just received, which our calculations should ignore
         uint usmTotalSupply = totalSupply();
@@ -219,7 +219,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _defundFum(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        uint ethUsmPrice = cacheLatestPrice();
+        (uint ethUsmPrice, ) = cacheLatestPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
@@ -526,7 +526,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return buffer ETH buffer
      */
     function ethBuffer(WadMath.Round upOrDown) external view returns (int buffer) {
-        buffer = ethBuffer(latestPrice(), ethPool(), totalSupply(), upOrDown);
+        (uint price, ) = latestPrice();
+        buffer = ethBuffer(price, ethPool(), totalSupply(), upOrDown);
     }
 
     /**
@@ -535,7 +536,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return usmOut The amount of USM
      */
     function ethToUsm(uint ethAmount, WadMath.Round upOrDown) external view returns (uint usmOut) {
-        usmOut = ethToUsm(latestPrice(), ethAmount, upOrDown);
+        (uint price, ) = latestPrice();
+        usmOut = ethToUsm(price, ethAmount, upOrDown);
     }
 
     /**
@@ -544,7 +546,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ethOut The amount of ETH
      */
     function usmToEth(uint usmAmount, WadMath.Round upOrDown) external view returns (uint ethOut) {
-        ethOut = usmToEth(latestPrice(), usmAmount, upOrDown);
+        (uint price, ) = latestPrice();
+        ethOut = usmToEth(price, usmAmount, upOrDown);
     }
 
     /**
@@ -552,7 +555,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ratio Debt ratio
      */
     function debtRatio() external view returns (uint ratio) {
-        ratio = debtRatio(latestPrice(), ethPool(), totalSupply());
+        (uint price, ) = latestPrice();
+        ratio = debtRatio(price, ethPool(), totalSupply());
     }
 
     /**
@@ -560,7 +564,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return price USM price in ETH terms
      */
     function usmPrice(Side side) external view returns (uint price) {
-        uint ethUsdPrice = latestPrice();
+        (uint ethUsdPrice, ) = latestPrice();
         price = usmPrice(side, ethUsdPrice, debtRatio(ethUsdPrice, ethPool(), totalSupply()));
     }
 
@@ -569,6 +573,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return price FUM price in ETH terms
      */
     function fumPrice(Side side) external view returns (uint price) {
-        price = fumPrice(side, latestPrice(), ethPool(), totalSupply(), fum.totalSupply(), buySellAdjustment());
+        (uint ethUsdPrice, ) = latestPrice();
+        price = fumPrice(side, ethUsdPrice, ethPool(), totalSupply(), fum.totalSupply(), buySellAdjustment());
     }
 }

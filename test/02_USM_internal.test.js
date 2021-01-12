@@ -22,7 +22,7 @@ contract('USM - Internal functions', (accounts) => {
 
   describe('functionality', async () => {
     it('returns the oracle price in WAD', async () => {
-      const oraclePrice = await usm.latestPrice()
+      const oraclePrice = (await usm.latestPrice())[0]
       oraclePrice.toString().should.equal(priceWAD.toString())
     })
 

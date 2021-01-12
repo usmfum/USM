@@ -11,6 +11,7 @@ import "../USM.sol";
  */
 contract MockMedianOracleUSM is USM, SettableOracle {
     uint private savedPrice;
+    uint private savedUpdateTime;
 
     constructor(
         AggregatorV3Interface chainlinkAggregator,
@@ -22,13 +23,14 @@ contract MockMedianOracleUSM is USM, SettableOracle {
 
     function setPrice(uint p) public override {
         savedPrice = p;
+        savedUpdateTime = now;
     }
 
-    function cacheLatestPrice() public override(Oracle, USM) returns (uint price) {
-        price = (savedPrice != 0) ? savedPrice : super.cacheLatestPrice();
+    function cacheLatestPrice() public override(Oracle, USM) returns (uint price, uint updateTime) {
+        (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.cacheLatestPrice();
     }
 
-    function latestPrice() public override view returns (uint price) {
-        price = (savedPrice != 0) ? savedPrice : super.latestPrice();
+    function latestPrice() public override view returns (uint price, uint updateTime) {
+        (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.latestPrice();
     }
 }

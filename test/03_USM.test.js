@@ -129,7 +129,7 @@ contract('USM', (accounts) => {
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
 
-      priceWAD = await usm.latestPrice()
+      priceWAD = (await usm.latestPrice())[0]
       oneDollarInEth = wadDiv(WAD, priceWAD, rounds.UP)
 
       ethPerFund = oneEth.mul(TWO)                  // Can be any (?) number
@@ -163,7 +163,7 @@ contract('USM', (accounts) => {
 
       beforeEach(async () => {
         MAX_DEBT_RATIO = await usm.MAX_DEBT_RATIO()
-        price0 = await usm.latestPrice()
+        price0 = (await usm.latestPrice())[0]
       })
 
       it("doesn't allow minting USM before minting FUM", async () => {
@@ -322,7 +322,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.UP)
             const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.DOWN)
             await usm.setPrice(targetPrice3)
-            const price3 = await usm.latestPrice()
+            const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -527,7 +527,7 @@ contract('USM', (accounts) => {
               const priceChangeFactor4 = wadDiv(debtRatio3, targetDebtRatio4, rounds.UP)
               const targetPrice4 = wadMul(price0, priceChangeFactor4, rounds.DOWN)
               await usm.setPrice(targetPrice4)
-              const price4 = await usm.latestPrice()
+              const price4 = (await usm.latestPrice())[0]
               shouldEqual(price4, targetPrice4)
 
               const debtRatio5 = await usm.debtRatio()
@@ -662,7 +662,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.DOWN)
             const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.UP)
             await usm.setPrice(targetPrice3)
-            const price3 = await usm.latestPrice()
+            const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -677,7 +677,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5, rounds.UP)
             const targetPrice5 = wadMul(price3, priceChangeFactor5, rounds.DOWN)
             await usm.setPrice(targetPrice5)
-            const price5 = await usm.latestPrice()
+            const price5 = (await usm.latestPrice())[0]
             shouldEqual(price5, targetPrice5)
 
             const debtRatio5 = await usm.debtRatio()
@@ -818,7 +818,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.DOWN)
             const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.UP)
             await usm.setPrice(targetPrice3)
-            const price3 = await usm.latestPrice()
+            const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
             const debtRatio3 = await usm.debtRatio()
@@ -833,7 +833,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5, rounds.UP)
             const targetPrice5 = wadMul(price3, priceChangeFactor5, rounds.DOWN)
             await usm.setPrice(targetPrice5)
-            const price5 = await usm.latestPrice()
+            const price5 = (await usm.latestPrice())[0]
             shouldEqual(price5, targetPrice5)
 
             const debtRatio5 = await usm.debtRatio()

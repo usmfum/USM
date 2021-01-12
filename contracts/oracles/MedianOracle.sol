@@ -19,30 +19,50 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOr
         OurUniswapV2TWAPOracle(uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 
     function latestPrice() public override(ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle)
-        view returns (uint price)
+        view returns (uint price, uint updateTime)
     {
-        price = median(ChainlinkOracle.latestPrice(),
-                       CompoundOpenOracle.latestPrice(),
-                       OurUniswapV2TWAPOracle.latestPrice());
+        (uint chainlinkPrice, uint chainlinkUpdateTime) = ChainlinkOracle.latestPrice();
+        (uint compoundPrice, uint compoundUpdateTime) = CompoundOpenOracle.latestPrice();
+        (uint uniswapPrice, uint uniswapUpdateTime) = OurUniswapV2TWAPOracle.latestPrice();
+        uint index = medianIndex(chainlinkPrice, compoundPrice, uniswapPrice);
+        if (index == 0) {
+            return (chainlinkPrice, chainlinkUpdateTime);
+        } else if (index == 1) {
+            return (compoundPrice, compoundUpdateTime);
+        } else {
+            return (uniswapPrice, uniswapUpdateTime);
+        }
     }
 
-    function cacheLatestPrice() public virtual override(Oracle, OurUniswapV2TWAPOracle) returns (uint price) {
-        price = median(ChainlinkOracle.latestPrice(),              // Not ideal to call latestPrice() on two of these
-                       CompoundOpenOracle.latestPrice(),           // and cacheLatestPrice() on one...  But works, and
-                       OurUniswapV2TWAPOracle.cacheLatestPrice()); // inheriting them like this saves significant gas
+    function cacheLatestPrice() public virtual override(Oracle, CompoundOpenOracle, OurUniswapV2TWAPOracle)
+        returns (uint price, uint updateTime)
+    {
+        // Not ideal to call latestPrice() on one of these and cacheLatestPrice() on two...  But it works, and inheriting them
+        // like this saves significant gas:
+        (uint chainlinkPrice, uint chainlinkUpdateTime) = ChainlinkOracle.latestPrice();
+        (uint compoundPrice, uint compoundUpdateTime) = CompoundOpenOracle.cacheLatestPrice();      // Note: cacheLatestPrice()
+        (uint uniswapPrice, uint uniswapUpdateTime) = OurUniswapV2TWAPOracle.cacheLatestPrice();    // Note: cacheLatestPrice()
+        uint index = medianIndex(chainlinkPrice, compoundPrice, uniswapPrice);
+        if (index == 0) {
+            return (chainlinkPrice, chainlinkUpdateTime);
+        } else if (index == 1) {
+            return (compoundPrice, compoundUpdateTime);
+        } else {
+            return (uniswapPrice, uniswapUpdateTime);
+        }
     }
 
     /**
      * @notice Currently only supports three inputs
-     * @return median value
+     * @return index (0/1/2) of the median value
      */
-    function median(uint a, uint b, uint c)
-        private pure returns (uint)
+    function medianIndex(uint a, uint b, uint c)
+        private pure returns (uint index)
     {
         bool ab = a > b;
         bool bc = b > c;
         bool ca = c > a;
 
-        return (ca == ab ? a : (ab == bc ? b : c));
+        index = (ca == ab ? 0 : (ab == bc ? 1 : 2));
     }
 }
