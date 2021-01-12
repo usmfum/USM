@@ -124,7 +124,7 @@ contract('USM', (accounts) => {
                           usdcEthPair.address, usdcDecimals, ethDecimals, uniswapTokensInReverseOrder,
                           { from: deployer })
       fum = await FUM.at(await usm.fum())
-      await usm.cacheLatestPrice()
+      await usm.refreshPrice()
 
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)

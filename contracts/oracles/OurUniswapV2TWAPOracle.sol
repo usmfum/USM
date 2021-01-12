@@ -66,7 +66,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
         scaleFactor = 10 ** aDecimals.add(18).sub(bDecimals);
     }
 
-    function cacheLatestPrice() public virtual override returns (uint price, uint updateTime) {
+    function refreshPrice() public virtual override returns (uint price, uint updateTime) {
         (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice) = orderedStoredPrices();
 
         uint newCumPriceSecondsTime;

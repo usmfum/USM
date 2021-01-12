@@ -125,7 +125,7 @@ contract('Oracle pricing', (accounts) => {
 
       oracle = await CompoundOracle.new(anchoredView.address, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(oracle.address, "compound", { from: deployer })
-      await oracle.cacheLatestPrice()
+      await oracle.refreshPrice()
     })
 
     it('returns the correct price', async () => {
@@ -151,11 +151,11 @@ contract('Oracle pricing', (accounts) => {
       oracle = await UniswapTWAPOracle.new(pair.address, ethDecimals, usdtDecimals, ethUsdtTokensInReverseOrder,
                                            { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(oracle.address, "uniswapTWAP", { from: deployer })
-      await oracle.cacheLatestPrice()
+      await oracle.refreshPrice()
 
       await pair.setReserves(0, 0, ethUsdtTimestamp_1)
       await pair.setCumulativePrices(ethUsdtCumPrice0_1, ethUsdtCumPrice1_1)
-      //await oracle.cacheLatestPrice() // Not actually needed, unless we do further testing moving timestamps further forward
+      //await oracle.refreshPrice() // Not actually needed, unless we do further testing moving timestamps further forward
     })
 
     it('returns the correct price', async () => {
@@ -191,11 +191,11 @@ contract('Oracle pricing', (accounts) => {
       rawOracle = await MedianOracle.new(chainlinkAggregator.address, compoundView.address,
         usdcEthPair.address, usdcDecimals, ethDecimals, usdcEthTokensInReverseOrder, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(rawOracle.address, "median", { from: deployer })
-      await oracle.cacheLatestPrice()
+      await oracle.refreshPrice()
 
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
-      //await oracle.cacheLatestPrice() // Not actually needed, unless we do further testing moving timestamps further forward
+      //await oracle.refreshPrice() // Not actually needed, unless we do further testing moving timestamps further forward
     })
 
     it('returns the correct price', async () => {

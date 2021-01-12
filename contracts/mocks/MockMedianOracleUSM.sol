@@ -26,8 +26,8 @@ contract MockMedianOracleUSM is USM, SettableOracle {
         savedUpdateTime = now;
     }
 
-    function cacheLatestPrice() public override(Oracle, USM) returns (uint price, uint updateTime) {
-        (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.cacheLatestPrice();
+    function refreshPrice() public override(Oracle, USM) returns (uint price, uint updateTime) {
+        (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.refreshPrice();
     }
 
     function latestPrice() public override view returns (uint price, uint updateTime) {

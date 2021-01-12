@@ -32,7 +32,7 @@ contract CompoundOpenOracle is Oracle {
         anchoredView = anchoredView_;
     }
 
-    function cacheLatestPrice() public virtual override returns (uint price, uint updateTime) {
+    function refreshPrice() public virtual override returns (uint price, uint updateTime) {
         price = anchoredView.price("ETH").mul(SCALE_FACTOR);
         if (price != storedPrice.price) {
             require(now <= UINT32_MAX, "timestamp overflow");
@@ -43,7 +43,7 @@ contract CompoundOpenOracle is Oracle {
     }
 
     /**
-     * @notice This returns the latest price retrieved and cached by `cacheLatestPrice()`.  This function doesn't actually
+     * @notice This returns the latest price retrieved and cached by `refreshPrice()`.  This function doesn't actually
      * retrieve the latest price, because as a view function, it (annoyingly) has no way to update updateTime, and (also
      * annoyingly) Compound's UniswapAnchoredView stores but doesn't expose the updateTime of the price it returns.
      */

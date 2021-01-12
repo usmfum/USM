@@ -9,7 +9,7 @@ abstract contract Oracle {
      * confuses solhint into giving a "Function state mutability can be restricted to view" warning.  Unfortunately there seems
      * to be no elegant/gas-free workaround as yet: see https://github.com/ethereum/solidity/issues/3529.
      */
-    function cacheLatestPrice() public virtual returns (uint price, uint updateTime) {
+    function refreshPrice() public virtual returns (uint price, uint updateTime) {
         (price, updateTime) = latestPrice();    // Default implementation doesn't do any cacheing.  But override as needed
     }
 }

@@ -154,7 +154,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(ethInPool > 0, "Fund before minting");
 
         // 2. Calculate usmOut:
-        (uint ethUsmPrice, ) = cacheLatestPrice();
+        (uint ethUsmPrice, ) = refreshPrice();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         usmOut = usmFromMint(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, oldDebtRatio);
@@ -179,7 +179,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _burnUsm(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        (uint ethUsmPrice, ) = cacheLatestPrice();
+        (uint ethUsmPrice, ) = refreshPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
@@ -197,7 +197,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _fundFum(address to, uint minFumOut) internal returns (uint fumOut)
     {
         // 1. Refresh mfbp:
-        (uint ethUsmPrice, ) = cacheLatestPrice();
+        (uint ethUsmPrice, ) = refreshPrice();
         uint rawEthInPool = ethPool();
         uint ethInPool = rawEthInPool.sub(msg.value);   // Backing out the ETH just received, which our calculations should ignore
         uint usmTotalSupply = totalSupply();
@@ -219,7 +219,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _defundFum(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        (uint ethUsmPrice, ) = cacheLatestPrice();
+        (uint ethUsmPrice, ) = refreshPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
