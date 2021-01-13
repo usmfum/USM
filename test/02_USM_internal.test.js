@@ -1,17 +1,14 @@
-const { BN, expectRevert } = require('@openzeppelin/test-helpers')
+const { BN } = require('@openzeppelin/test-helpers')
 
 const USM = artifacts.require('MockTestOracleUSM')
-
-const EVM_REVERT = 'VM Exception while processing transaction: revert'
 
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Internal functions', (accounts) => {
-  const [deployer, user1, user2, user3] = accounts
+  const [deployer] = accounts
   let usm
   const rounds = { DOWN: 0, UP: 1 }
 
-  const ZERO = new BN('0')
   const WAD = new BN('1000000000000000000')
   const price = new BN('250')
   const priceWAD = price.mul(WAD)
@@ -42,7 +39,7 @@ contract('USM - Internal functions', (accounts) => {
 
     it('returns the debt ratio as zero', async () => {
       const ZERO = new BN('0')
-      const debtRatio = (await usm.debtRatio())
+      const debtRatio = await usm.debtRatio()
       debtRatio.toString().should.equal(ZERO.toString())
     })
   })

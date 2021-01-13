@@ -1,6 +1,5 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const { expect } = require('chai')
-const { id } = require('ethers/lib/utils')
 
 const WETH9 = artifacts.require('WETH9')
 const USM = artifacts.require('MockTestOracleUSM')
@@ -10,21 +9,18 @@ const Proxy = artifacts.require('Proxy')
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Proxy - Limits', (accounts) => {
-  let [deployer, user1, user2] = accounts
+  let [deployer, user1] = accounts
 
-  const ZERO = new BN('0')
   const TWO = new BN('2')
   const WAD = new BN('1000000000000000000')
 
-  const sides = { BUY: 0, SELL: 1 }
   const MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
   const oneEth = WAD
-  const oneUsm = WAD
   const price = new BN(250)
   const priceWAD = price.mul(WAD)
 
   describe('mints and burns a static amount', () => {
-    let weth, usm
+    let weth, usm, fum, proxy
 
     beforeEach(async () => {
       // Deploy contracts
@@ -39,9 +35,7 @@ contract('USM - Proxy - Limits', (accounts) => {
     })
 
     describe('minting and burning', () => {
-
       it('allows minting FUM', async () => {
-
         await proxy.fund(user1, oneEth, 0, { from: user1 })
 
         const newEthPool = await usm.ethPool()
@@ -49,10 +43,7 @@ contract('USM - Proxy - Limits', (accounts) => {
       })
 
       it('does not mint FUM if minimum not reached', async () => {
-        await expectRevert(
-          proxy.fund(user1, oneEth, MAX, { from: user1 }),
-          "Limit not reached",
-        )
+        await expectRevert(proxy.fund(user1, oneEth, MAX, { from: user1 }), 'Limit not reached')
       })
 
       describe('with existing FUM supply', () => {
@@ -62,15 +53,12 @@ contract('USM - Proxy - Limits', (accounts) => {
 
         it('allows minting USM', async () => {
           await proxy.mint(user1, oneEth, 0, { from: user1 })
-          const usmBalance = (await usm.balanceOf(user1))
+          const usmBalance = await usm.balanceOf(user1)
           usmBalance.toString().should.equal(oneEth.mul(priceWAD).div(WAD).toString())
         })
 
         it('does not mint USM if minimum not reached', async () => {
-          await expectRevert(
-            proxy.mint(user1, oneEth, MAX, { from: user1 }),
-            "Limit not reached",
-          )
+          await expectRevert(proxy.mint(user1, oneEth, MAX, { from: user1 }), 'Limit not reached')
         })
 
         describe('with existing USM supply', () => {
@@ -84,7 +72,7 @@ contract('USM - Proxy - Limits', (accounts) => {
 
             const fumToBurn = priceWAD.mul(new BN('3')).div(new BN('4'))
             await proxy.defund(user1, fumToBurn, 0, { from: user1 }) // defund 75% of our fum
-            const newFumBalance = (await fum.balanceOf(user1))
+            const newFumBalance = await fum.balanceOf(user1)
             newFumBalance.toString().should.equal(targetFumBalance.div(new BN('4')).toString()) // should be 25% of what it was
 
             expect(await weth.balanceOf(user1)).bignumber.gt(startingBalance)
@@ -94,7 +82,7 @@ contract('USM - Proxy - Limits', (accounts) => {
             const fumToBurn = priceWAD.mul(new BN('3')).div(new BN('4'))
             await expectRevert(
               proxy.defund(user1, fumToBurn, MAX, { from: user1 }), // defund 75% of our fum
-              "Limit not reached",
+              'Limit not reached'
             )
           })
 
@@ -103,7 +91,7 @@ contract('USM - Proxy - Limits', (accounts) => {
             const startingBalance = await weth.balanceOf(user1)
 
             await proxy.burn(user1, usmBalance, 0, { from: user1 })
-            const newUsmBalance = (await usm.balanceOf(user1))
+            const newUsmBalance = await usm.balanceOf(user1)
             newUsmBalance.toString().should.equal('0')
 
             expect(await weth.balanceOf(user1)).bignumber.gt(startingBalance)
@@ -112,10 +100,7 @@ contract('USM - Proxy - Limits', (accounts) => {
           it('does not burn USM if minimum not reached', async () => {
             const usmBalance = (await usm.balanceOf(user1)).toString()
 
-            await expectRevert(
-              proxy.burn(user1, usmBalance, MAX, { from: user1 }),
-              "Limit not reached",
-            )
+            await expectRevert(proxy.burn(user1, usmBalance, MAX, { from: user1 }), 'Limit not reached')
           })
         })
       })
