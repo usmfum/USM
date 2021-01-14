@@ -5,6 +5,7 @@ const { id } = require('ethers/lib/utils')
 const WETH9 = artifacts.require('WETH9')
 const USM = artifacts.require('MockTestOracleUSM')
 const FUM = artifacts.require('FUM')
+const USMView = artifacts.require('USMView')
 const Proxy = artifacts.require('Proxy')
 
 require('chai').use(require('chai-as-promised')).should()
@@ -59,7 +60,7 @@ contract('USM - Proxy - Eth', (accounts) => {
   }
 
   describe('mints and burns a static amount', () => {
-    let weth, usm, proxy
+    let weth, usm, fum, usmView, proxy
 
     beforeEach(async () => {
       // Deploy contracts
@@ -67,6 +68,7 @@ contract('USM - Proxy - Eth', (accounts) => {
       usm = await USM.new(priceWAD, { from: deployer })
       await usm.refreshPrice()  // Ensures the savedPrice passed to the constructor above is also set in usm.storedPrice
       fum = await FUM.at(await usm.fum())
+      usmView = await USMView.new(usm.address, { from: deployer })
       proxy = await Proxy.new(usm.address, weth.address, { from: deployer })
 
       await weth.deposit({ from: user1, value: oneEth.mul(TWO) }) // One 1-ETH fund() + one 1-ETH mint()
@@ -79,8 +81,8 @@ contract('USM - Proxy - Eth', (accounts) => {
 
       // See 03_USM.test.js for the original versions of all these (copy-&-pasted and simplified) tests.
       it('allows minting FUM', async () => {
-        const fumBuyPrice = (await usm.fumPrice(sides.BUY))
-        const fumSellPrice = (await usm.fumPrice(sides.SELL))
+        const fumBuyPrice = (await usmView.fumPrice(sides.BUY))
+        const fumSellPrice = (await usmView.fumPrice(sides.SELL))
         fumBuyPrice.toString().should.equal(fumSellPrice.toString())
 
         await proxy.fund(user1, oneEth, 0, { from: user1 })
@@ -183,8 +185,8 @@ contract('USM - Proxy - Eth', (accounts) => {
 
           it('allows burning FUM', async () => {
             const ethPool = (await usm.ethPool())
-            const debtRatio = (await usm.debtRatio())
-            const fumSellPrice = (await usm.fumPrice(sides.SELL))
+            const debtRatio = (await usmView.debtRatio())
+            const fumSellPrice = (await usmView.fumPrice(sides.SELL))
 
             const fumBalance = (await fum.balanceOf(user1))
             const ethBalance = (await weth.balanceOf(user1))
@@ -216,8 +218,8 @@ contract('USM - Proxy - Eth', (accounts) => {
 
           it('allows burning USM', async () => {
             const ethPool = (await usm.ethPool())
-            const debtRatio = (await usm.debtRatio())
-            const usmSellPrice = (await usm.usmPrice(sides.SELL))
+            const debtRatio = (await usmView.debtRatio())
+            const usmSellPrice = (await usmView.usmPrice(sides.SELL))
 
             const usmBalance = (await usm.balanceOf(user1))
             const ethBalance = (await weth.balanceOf(user1))

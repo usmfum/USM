@@ -9,6 +9,7 @@ const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
 const WadMath = artifacts.require('MockWadMath')
 const USM = artifacts.require('MockMedianOracleUSM')
 const FUM = artifacts.require('FUM')
+const USMView = artifacts.require('USMView')
 
 require('chai').use(require('chai-as-promised')).should()
 
@@ -104,7 +105,7 @@ contract('USM', (accounts) => {
   /* ____________________ Deployment ____________________ */
 
   describe("mints and burns a static amount", () => {
-    let usm, ethPerFund, ethPerMint, bitOfEth, snapshot, snapshotId
+    let usm, fum, usmView, ethPerFund, ethPerMint, bitOfEth, snapshot, snapshotId
 
     beforeEach(async () => {
       // Oracle params
@@ -125,6 +126,7 @@ contract('USM', (accounts) => {
                           { from: deployer })
       await usm.refreshPrice()  // This call stores the Uniswap cumPriceSeconds record for time usdcEthTimestamp_0
       fum = await FUM.at(await usm.fum())
+      usmView = await USMView.new(usm.address, { from: deployer })
 
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
@@ -148,11 +150,11 @@ contract('USM', (accounts) => {
 
     describe("deployment", () => {
       it("starts with correct FUM price", async () => {
-        const fumBuyPrice = await usm.fumPrice(sides.BUY)
+        const fumBuyPrice = await usmView.fumPrice(sides.BUY)
         // The FUM price should start off equal to $1, in ETH terms = 1 / price:
         shouldEqualApprox(fumBuyPrice, oneDollarInEth)
 
-        const fumSellPrice = await usm.fumPrice(sides.SELL)
+        const fumSellPrice = await usmView.fumPrice(sides.SELL)
         shouldEqualApprox(fumSellPrice, oneDollarInEth)
       })
     })
@@ -182,8 +184,8 @@ contract('USM', (accounts) => {
         user2FumBalance1 = await fum.balanceOf(user2)
         totalFumSupply1 = await fum.totalSupply()
         buySellAdj1 = await usm.buySellAdjustment()
-        fumBuyPrice1 = await usm.fumPrice(sides.BUY)
-        fumSellPrice1 = await usm.fumPrice(sides.SELL)
+        fumBuyPrice1 = await usmView.fumPrice(sides.BUY)
+        fumSellPrice1 = await usmView.fumPrice(sides.SELL)
 
         const targetEthPool1 = ethPerFund.mul(TWO)
         shouldEqual(ethPool1, targetEthPool1)
@@ -208,8 +210,8 @@ contract('USM', (accounts) => {
         user1FumBalance1 = await fum.balanceOf(user1)
         totalFumSupply1 = await fum.totalSupply()
         buySellAdj1 = await usm.buySellAdjustment()
-        fumBuyPrice1 = await usm.fumPrice(sides.BUY)
-        fumSellPrice1 = await usm.fumPrice(sides.SELL)
+        fumBuyPrice1 = await usmView.fumPrice(sides.BUY)
+        fumSellPrice1 = await usmView.fumPrice(sides.SELL)
 
         const targetEthPool1 = ethPerFund.mul(TWO)
         shouldEqual(ethPool1, targetEthPool1)
@@ -237,8 +239,8 @@ contract('USM', (accounts) => {
           user2FumBalance1 = await fum.balanceOf(user2)
           totalFumSupply1 = await fum.totalSupply()
           buySellAdj1 = await usm.buySellAdjustment()
-          fumBuyPrice1 = await usm.fumPrice(sides.BUY)
-          fumSellPrice1 = await usm.fumPrice(sides.SELL)
+          fumBuyPrice1 = await usmView.fumPrice(sides.BUY)
+          fumSellPrice1 = await usmView.fumPrice(sides.SELL)
         })
 
         /* ____________________ Minting USM (aka mint()) ____________________ */
@@ -248,14 +250,14 @@ contract('USM', (accounts) => {
 
           // Uses flat USM price first time USM is minted
           ethPool2 = await usm.ethPool()
-          debtRatio2 = await usm.debtRatio()
+          debtRatio2 = await usmView.debtRatio()
           user1UsmBalance2 = await usm.balanceOf(user1)
           totalUsmSupply2 = await usm.totalSupply()
           buySellAdj2 = await usm.buySellAdjustment()
-          fumBuyPrice2 = await usm.fumPrice(sides.BUY)
-          fumSellPrice2 = await usm.fumPrice(sides.SELL)
-          usmBuyPrice2 = await usm.usmPrice(sides.BUY)
-          usmSellPrice2 = await usm.usmPrice(sides.SELL)
+          fumBuyPrice2 = await usmView.fumPrice(sides.BUY)
+          fumSellPrice2 = await usmView.fumPrice(sides.SELL)
+          usmBuyPrice2 = await usmView.usmPrice(sides.BUY)
+          usmSellPrice2 = await usmView.usmPrice(sides.SELL)
 
           const targetEthPool2 = ethPool1.add(ethPerMint)
           shouldEqual(ethPool2, targetEthPool2)
@@ -276,14 +278,14 @@ contract('USM', (accounts) => {
 
           // Uses flat USM price first time USM is minted
           ethPool2 = await usm.ethPool()
-          debtRatio2 = await usm.debtRatio()
+          debtRatio2 = await usmView.debtRatio()
           user2UsmBalance2 = await usm.balanceOf(user2)
           totalUsmSupply2 = await usm.totalSupply()
           buySellAdj2 = await usm.buySellAdjustment()
-          fumBuyPrice2 = await usm.fumPrice(sides.BUY)
-          fumSellPrice2 = await usm.fumPrice(sides.SELL)
-          usmBuyPrice2 = await usm.usmPrice(sides.BUY)
-          usmSellPrice2 = await usm.usmPrice(sides.SELL)
+          fumBuyPrice2 = await usmView.fumPrice(sides.BUY)
+          fumSellPrice2 = await usmView.fumPrice(sides.SELL)
+          usmBuyPrice2 = await usmView.usmPrice(sides.BUY)
+          usmSellPrice2 = await usmView.usmPrice(sides.SELL)
 
           const targetEthPool2 = ethPool1.add(ethPerMint)
           shouldEqual(ethPool2, targetEthPool2)
@@ -307,14 +309,14 @@ contract('USM', (accounts) => {
             await usm.mint(user1, 0, { from: user2, value: ethPerMint })
 
             ethPool2 = await usm.ethPool()
-            debtRatio2 = await usm.debtRatio()
+            debtRatio2 = await usmView.debtRatio()
             user1UsmBalance2 = await usm.balanceOf(user1)
             totalUsmSupply2 = await usm.totalSupply()
             buySellAdj2 = await usm.buySellAdjustment()
-            fumBuyPrice2 = await usm.fumPrice(sides.BUY)
-            fumSellPrice2 = await usm.fumPrice(sides.SELL)
-            usmBuyPrice2 = await usm.usmPrice(sides.BUY)
-            usmSellPrice2 = await usm.usmPrice(sides.SELL)
+            fumBuyPrice2 = await usmView.fumPrice(sides.BUY)
+            fumSellPrice2 = await usmView.fumPrice(sides.SELL)
+            usmBuyPrice2 = await usmView.usmPrice(sides.BUY)
+            usmSellPrice2 = await usmView.usmPrice(sides.SELL)
           })
 
           it("reduces minFumBuyPrice over time", async () => {
@@ -327,7 +329,7 @@ contract('USM', (accounts) => {
             const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
-            const debtRatio3 = await usm.debtRatio()
+            const debtRatio3 = await usmView.debtRatio()
             debtRatio3.should.be.bignumber.gt(MAX_DEBT_RATIO)
 
             // Calculate targetMinFumBuyPrice using the math in USM._updateMinFumBuyPrice():
@@ -365,14 +367,14 @@ contract('USM', (accounts) => {
               await usm.fund(user2, 0, { from: user1, value: ethPerFund })
 
               ethPool3 = await usm.ethPool()
-              debtRatio3 = await usm.debtRatio()
+              debtRatio3 = await usmView.debtRatio()
               user2FumBalance3 = await fum.balanceOf(user2)
               totalFumSupply3 = await fum.totalSupply()
               buySellAdj3 = await usm.buySellAdjustment()
-              fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-              fumSellPrice3 = await usm.fumPrice(sides.SELL)
-              usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-              usmSellPrice3 = await usm.usmPrice(sides.SELL)
+              fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+              fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+              usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+              usmSellPrice3 = await usmView.usmPrice(sides.SELL)
             })
 
             it("calculates cbrt correctly", async () => {
@@ -480,14 +482,14 @@ contract('USM', (accounts) => {
               await usm.mint(user1, 0, { from: user2, value: ethPerMint })
 
               ethPool3 = await usm.ethPool()
-              debtRatio3 = await usm.debtRatio()
+              debtRatio3 = await usmView.debtRatio()
               user1UsmBalance3 = await usm.balanceOf(user1)
               totalUsmSupply3 = await usm.totalSupply()
               buySellAdj3 = await usm.buySellAdjustment()
-              fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-              fumSellPrice3 = await usm.fumPrice(sides.SELL)
-              usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-              usmSellPrice3 = await usm.usmPrice(sides.SELL)
+              fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+              fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+              usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+              usmSellPrice3 = await usmView.usmPrice(sides.SELL)
             })
 
             it("slides price correctly when minting USM", async () => {
@@ -533,7 +535,7 @@ contract('USM', (accounts) => {
               const price4 = (await usm.latestPrice())[0]
               shouldEqual(price4, targetPrice4)
 
-              const debtRatio5 = await usm.debtRatio()
+              const debtRatio5 = await usmView.debtRatio()
               debtRatio5.should.be.bignumber.gt(WAD)
 
               // And now minting should still reduce the adjustment, not increase it:
@@ -551,14 +553,14 @@ contract('USM', (accounts) => {
             await usm.defund(user2, user1, fumToBurn, 0, { from: user2 })
 
             ethPool3 = await usm.ethPool()
-            debtRatio3 = await usm.debtRatio()
+            debtRatio3 = await usmView.debtRatio()
             user2FumBalance3 = await fum.balanceOf(user2)
             totalFumSupply3 = await fum.totalSupply()
             buySellAdj3 = await usm.buySellAdjustment()
-            fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-            fumSellPrice3 = await usm.fumPrice(sides.SELL)
-            usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-            usmSellPrice3 = await usm.usmPrice(sides.SELL)
+            fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+            fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+            usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+            usmSellPrice3 = await usmView.usmPrice(sides.SELL)
 
             const targetFumBalance3 = user2FumBalance1.sub(fumToBurn)
             shouldEqual(user2FumBalance3, targetFumBalance3)
@@ -576,14 +578,14 @@ contract('USM', (accounts) => {
             await fum.transfer(fum.address, fumToBurn, { from: user2 })
 
             ethPool3 = await usm.ethPool()
-            debtRatio3 = await usm.debtRatio()
+            debtRatio3 = await usmView.debtRatio()
             user2FumBalance3 = await fum.balanceOf(user2)
             totalFumSupply3 = await fum.totalSupply()
             buySellAdj3 = await usm.buySellAdjustment()
-            fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-            fumSellPrice3 = await usm.fumPrice(sides.SELL)
-            usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-            usmSellPrice3 = await usm.usmPrice(sides.SELL)
+            fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+            fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+            usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+            usmSellPrice3 = await usmView.usmPrice(sides.SELL)
 
             const targetFumBalance3 = user2FumBalance1.sub(fumToBurn)
             shouldEqual(user2FumBalance3, targetFumBalance3)
@@ -602,14 +604,14 @@ contract('USM', (accounts) => {
             await fum.transfer(usm.address, fumToBurn, { from: user2 })
 
             ethPool3 = await usm.ethPool()
-            debtRatio3 = await usm.debtRatio()
+            debtRatio3 = await usmView.debtRatio()
             user2FumBalance3 = await fum.balanceOf(user2)
             totalFumSupply3 = await fum.totalSupply()
             buySellAdj3 = await usm.buySellAdjustment()
-            fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-            fumSellPrice3 = await usm.fumPrice(sides.SELL)
-            usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-            usmSellPrice3 = await usm.usmPrice(sides.SELL)
+            fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+            fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+            usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+            usmSellPrice3 = await usmView.usmPrice(sides.SELL)
 
             const targetFumBalance3 = user2FumBalance1.sub(fumToBurn)
             shouldEqual(user2FumBalance3, targetFumBalance3)
@@ -631,14 +633,14 @@ contract('USM', (accounts) => {
               await usm.defund(user2, user1, fumToBurn, 0, { from: user2 })
 
               ethPool3 = await usm.ethPool()
-              debtRatio3 = await usm.debtRatio()
+              debtRatio3 = await usmView.debtRatio()
               user2FumBalance3 = await fum.balanceOf(user2)
               totalFumSupply3 = await fum.totalSupply()
               buySellAdj3 = await usm.buySellAdjustment()
-              fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-              fumSellPrice3 = await usm.fumPrice(sides.SELL)
-              usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-              usmSellPrice3 = await usm.usmPrice(sides.SELL)
+              fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+              fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+              usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+              usmSellPrice3 = await usmView.usmPrice(sides.SELL)
             })
 
             it("increases debtRatio when burning FUM", async () => {
@@ -669,13 +671,13 @@ contract('USM', (accounts) => {
             const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
-            const debtRatio3 = await usm.debtRatio()
+            const debtRatio3 = await usmView.debtRatio()
             debtRatio3.should.be.bignumber.lt(MAX_DEBT_RATIO)
 
             // Now this tiny defund() should succeed:
             await usm.defund(user2, user1, oneFum, 0, { from: user2 })
 
-            const debtRatio4 = await usm.debtRatio()
+            const debtRatio4 = await usmView.debtRatio()
             // Next, similarly move price to get debt ratio just *above* MAX:
             const targetDebtRatio5 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5, rounds.UP)
@@ -685,7 +687,7 @@ contract('USM', (accounts) => {
             const price5 = (await usm.latestPrice())[0]
             shouldEqual(price5, targetPrice5)
 
-            const debtRatio5 = await usm.debtRatio()
+            const debtRatio5 = await usmView.debtRatio()
             debtRatio5.should.be.bignumber.gt(MAX_DEBT_RATIO)
 
             // And now defund() should fail:
@@ -700,14 +702,14 @@ contract('USM', (accounts) => {
 
             // Slides price correctly when burning US
             ethPool3 = await usm.ethPool()
-            debtRatio3 = await usm.debtRatio()
+            debtRatio3 = await usmView.debtRatio()
             user1UsmBalance3 = await usm.balanceOf(user1)
             totalUsmSupply3 = await usm.totalSupply()
             buySellAdj3 = await usm.buySellAdjustment()
-            fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-            fumSellPrice3 = await usm.fumPrice(sides.SELL)
-            usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-            usmSellPrice3 = await usm.usmPrice(sides.SELL)
+            fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+            fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+            usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+            usmSellPrice3 = await usmView.usmPrice(sides.SELL)
 
             //console.log("user1 USM: " + fl(user1UsmBalance2) + ", " + fl(user1UsmBalance3) + ", " + fl(usmToBurn))
             const targetUsmBalance3 = user1UsmBalance2.sub(usmToBurn)
@@ -729,14 +731,14 @@ contract('USM', (accounts) => {
 
             // Slides price correctly when burning US
             ethPool3 = await usm.ethPool()
-            debtRatio3 = await usm.debtRatio()
+            debtRatio3 = await usmView.debtRatio()
             user1UsmBalance3 = await usm.balanceOf(user1)
             totalUsmSupply3 = await usm.totalSupply()
             buySellAdj3 = await usm.buySellAdjustment()
-            fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-            fumSellPrice3 = await usm.fumPrice(sides.SELL)
-            usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-            usmSellPrice3 = await usm.usmPrice(sides.SELL)
+            fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+            fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+            usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+            usmSellPrice3 = await usmView.usmPrice(sides.SELL)
 
             //console.log("user1 USM: " + fl(user1UsmBalance2) + ", " + fl(user1UsmBalance3) + ", " + fl(usmToBurn))
             const targetUsmBalance3 = user1UsmBalance2.sub(usmToBurn)
@@ -758,14 +760,14 @@ contract('USM', (accounts) => {
 
             // Slides price correctly when burning US
             ethPool3 = await usm.ethPool()
-            debtRatio3 = await usm.debtRatio()
+            debtRatio3 = await usmView.debtRatio()
             user1UsmBalance3 = await usm.balanceOf(user1)
             totalUsmSupply3 = await usm.totalSupply()
             buySellAdj3 = await usm.buySellAdjustment()
-            fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-            fumSellPrice3 = await usm.fumPrice(sides.SELL)
-            usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-            usmSellPrice3 = await usm.usmPrice(sides.SELL)
+            fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+            fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+            usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+            usmSellPrice3 = await usmView.usmPrice(sides.SELL)
 
             //console.log("user1 USM: " + fl(user1UsmBalance2) + ", " + fl(user1UsmBalance3) + ", " + fl(usmToBurn))
             const targetUsmBalance3 = user1UsmBalance2.sub(usmToBurn)
@@ -790,14 +792,14 @@ contract('USM', (accounts) => {
               await usm.burn(user1, user2, usmToBurn, 0, { from: user1 })
 
               ethPool3 = await usm.ethPool()
-              debtRatio3 = await usm.debtRatio()
+              debtRatio3 = await usmView.debtRatio()
               user1UsmBalance3 = await usm.balanceOf(user1)
               totalUsmSupply3 = await usm.totalSupply()
               buySellAdj3 = await usm.buySellAdjustment()
-              fumBuyPrice3 = await usm.fumPrice(sides.BUY)
-              fumSellPrice3 = await usm.fumPrice(sides.SELL)
-              usmBuyPrice3 = await usm.usmPrice(sides.BUY)
-              usmSellPrice3 = await usm.usmPrice(sides.SELL)
+              fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
+              fumSellPrice3 = await usmView.fumPrice(sides.SELL)
+              usmBuyPrice3 = await usmView.usmPrice(sides.BUY)
+              usmSellPrice3 = await usmView.usmPrice(sides.SELL)
             })
 
             it("reduces debtRatio when burning USM", async () => {
@@ -827,14 +829,14 @@ contract('USM', (accounts) => {
             const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
-            const debtRatio3 = await usm.debtRatio()
+            const debtRatio3 = await usmView.debtRatio()
             debtRatio3.should.be.bignumber.lt(WAD)
 
             // Now this tiny burn() should succeed:
             await usm.burn(user1, user2, oneUsm, 0, { from: user1 })
 
             // Next, similarly move price to get debt ratio just *above* 100%:
-            const debtRatio4 = await usm.debtRatio()
+            const debtRatio4 = await usmView.debtRatio()
             const targetDebtRatio5 = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5, rounds.UP)
             const targetPrice5 = wadMul(price3, priceChangeFactor5, rounds.DOWN)
@@ -843,7 +845,7 @@ contract('USM', (accounts) => {
             const price5 = (await usm.latestPrice())[0]
             shouldEqual(price5, targetPrice5)
 
-            const debtRatio5 = await usm.debtRatio()
+            const debtRatio5 = await usmView.debtRatio()
             debtRatio5.should.be.bignumber.gt(WAD)
 
             // And now the same burn() should fail:
