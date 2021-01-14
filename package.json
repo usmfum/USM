@@ -10,7 +10,7 @@
     "build": "buidler compile",
     "test": "buidler test test/*.js",
     "coverage": "buidler coverage --network coverage --temp build --testfiles 'test/*.js'",
-    "lint:js": "eslint ./test --fix",
+    "lint:js": "eslint ./test ./deploy --fix",
     "lint:sol": "solhint -f table contracts/**/*.sol",
     "ganache": "./scripts/ganache.sh",
     "deploy:ganache": "yarn ganache && truffle migrate",
