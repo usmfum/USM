@@ -11,7 +11,7 @@
     "test": "buidler test test/*.js",
     "coverage": "buidler coverage --network coverage --temp build --testfiles 'test/*.js'",
     "lint:js": "eslint ./test ./deploy --fix",
-    "lint:sol": "solhint -f table contracts/**/*.sol",
+    "lint:sol": "find contracts -regex '.*\\.sol$' | xargs solhint -f table",
     "ganache": "./scripts/ganache.sh",
     "deploy:ganache": "yarn ganache && truffle migrate",
     "mainnet-ganache": "./scripts/mainnet-ganache.sh"
