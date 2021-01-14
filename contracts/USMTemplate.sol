@@ -39,6 +39,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
 
+    uint private constant UINT32_MAX = 2 ** 32 - 1;     // Should really be type(uint32).max, but that needs Solidity 0.6.8...
+    uint private constant UINT224_MAX = 2 ** 224 - 1;   // Ditto, type(uint224).max
+
     FUM public immutable fum;
 
     struct TimedValue {
@@ -46,8 +49,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint224 value;
     }
 
-    TimedValue public minFumBuyPriceStored;
-    TimedValue public buySellAdjustmentStored = TimedValue({ timestamp: 0, value: uint224(WAD) });
+    TimedValue public storedMinFumBuyPrice;
+    TimedValue public storedBuySellAdjustment = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
     constructor() public ERC20Permit("Minimal USD", "USM")
     {
@@ -160,7 +163,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         usmOut = usmFromMint(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, oldDebtRatio);
         require(usmOut >= minUsmOut, "Limit not reached");
 
-        // 3. Update buySellAdjustmentStored and mint the user's new USM:
+        // 3. Update storedBuySellAdjustment and mint the user's new USM:
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply.add(usmOut));
         if (oldDebtRatio <= WAD) {
             _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
@@ -186,7 +189,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         ethOut = ethFromBurn(ethUsmPrice, usmToBurn, ethInPool, usmTotalSupply, oldDebtRatio);
         require(ethOut >= minEthOut, "Limit not reached");
 
-        // 2. Burn the input USM, update buySellAdjustmentStored, and return the user's ETH:
+        // 2. Burn the input USM, update storedBuySellAdjustment, and return the user's ETH:
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
         require(newDebtRatio <= WAD, "Debt ratio > 100%");
         _burn(from, usmToBurn);
@@ -210,7 +213,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         fumOut = fumFromFund(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, fumTotalSupply, adjustment);
         require(fumOut >= minFumOut, "Limit not reached");
 
-        // 3. Update buySellAdjustmentStored and mint the user's new FUM:
+        // 3. Update storedBuySellAdjustment and mint the user's new FUM:
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply);
         _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         fum.mint(to, fumOut);
@@ -226,7 +229,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         ethOut = ethFromDefund(ethUsmPrice, fumToBurn, ethInPool, usmTotalSupply);
         require(ethOut >= minEthOut, "Limit not reached");
 
-        // 2. Burn the input FUM, update buySellAdjustmentStored, and return the user's ETH:
+        // 2. Burn the input FUM, update storedBuySellAdjustment, and return the user's ETH:
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Debt ratio > max");
         fum.burn(from, fumToBurn);
@@ -250,18 +253,20 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      *                    = (1 - MAX_DEBT_RATIO) * ethPool() / fum.totalSupply()
      */
     function _updateMinFumBuyPrice(uint debtRatio_, uint ethInPool, uint fumTotalSupply) internal {
-        uint previous = minFumBuyPriceStored.value;
+        uint previous = storedMinFumBuyPrice.value;
         if (debtRatio_ <= MAX_DEBT_RATIO) {                 // We've dropped below (or were already below, whatev) max debt ratio
             if (previous != 0) {
-                minFumBuyPriceStored.timestamp = 0;         // Clear mfbp
-                minFumBuyPriceStored.value = 0;
+                storedMinFumBuyPrice.timestamp = 0;         // Clear mfbp
+                storedMinFumBuyPrice.value = 0;
                 emit MinFumBuyPriceChanged(previous, 0);
             }
         } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
-            minFumBuyPriceStored.timestamp = uint32(block.timestamp);
-            minFumBuyPriceStored.value = uint224((WAD - MAX_DEBT_RATIO).wadMulUp(ethInPool).wadDivUp(fumTotalSupply));
-            emit MinFumBuyPriceChanged(previous, minFumBuyPriceStored.value);
+            uint mfbp = (WAD - MAX_DEBT_RATIO).wadMulUp(ethInPool).wadDivUp(fumTotalSupply);
+            require(mfbp <= UINT224_MAX, "mfbp overflow");
+            storedMinFumBuyPrice.timestamp = uint32(now);
+            storedMinFumBuyPrice.value = uint224(mfbp);
+            emit MinFumBuyPriceChanged(previous, storedMinFumBuyPrice.value);
         }
     }
 
@@ -276,14 +281,15 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // vanishingly unlikely though if the system gets any uptake at all, and anyway if it does happen it will just mean a
         // couple of skipped updates to the buySellAdjustment - no big deal.
         if (oldDebtRatio != 0 && newDebtRatio != 0) {
-            uint previous = buySellAdjustmentStored.value; // Not nec the same as oldAdjustment, because of the time decay!
+            uint previous = storedBuySellAdjustment.value; // Not nec the same as oldAdjustment, because of the time decay!
 
             // Eg: if a user operation reduced debt ratio from 70% to 50%, it was either a fund() or a burn().  These are both
             // "long-ETH" operations.  So we can take (old / new)**2 = (70% / 50%)**2 = 1.4**2 = 1.96 as the ratio by which to
             // increase buySellAdjustment, which is intended as a measure of "how long-ETH recent user activity has been":
             uint newAdjustment = (oldAdjustment.mul(oldDebtRatio).mul(oldDebtRatio) / newDebtRatio) / newDebtRatio;
-            buySellAdjustmentStored.timestamp = uint32(block.timestamp);
-            buySellAdjustmentStored.value = uint224(newAdjustment);
+            require(newAdjustment <= UINT224_MAX, "newAdjustment overflow");
+            storedBuySellAdjustment.timestamp = uint32(now);
+            storedBuySellAdjustment.value = uint224(newAdjustment);
             emit BuySellAdjustmentChanged(previous, newAdjustment);
         }
     }
@@ -490,10 +496,10 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return mfbp The minFumBuyPrice, in ETH terms
      */
     function minFumBuyPrice() public view returns (uint mfbp) {
-        if (minFumBuyPriceStored.value != 0) {
-            uint numHalvings = block.timestamp.sub(minFumBuyPriceStored.timestamp).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
+        if (storedMinFumBuyPrice.value != 0) {
+            uint numHalvings = now.sub(storedMinFumBuyPrice.timestamp).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
             uint decayFactor = numHalvings.wadHalfExp();
-            mfbp = uint256(minFumBuyPriceStored.value).wadMulUp(decayFactor);
+            mfbp = uint256(storedMinFumBuyPrice.value).wadMulUp(decayFactor);
         }   // Otherwise just returns 0
     }
 
@@ -510,13 +516,13 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return adjustment The sliding-price buy/sell adjustment
      */
     function buySellAdjustment() public view returns (uint adjustment) {
-        uint numHalvings = block.timestamp.sub(buySellAdjustmentStored.timestamp).wadDivDown(BUY_SELL_ADJUSTMENT_HALF_LIFE);
+        uint numHalvings = now.sub(storedBuySellAdjustment.timestamp).wadDivDown(BUY_SELL_ADJUSTMENT_HALF_LIFE);
         uint decayFactor = numHalvings.wadHalfExp(10);
         // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
         // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
         // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
-        adjustment = WAD.add(uint256(buySellAdjustmentStored.value).wadMulDown(decayFactor)).sub(decayFactor);
+        adjustment = WAD.add(uint256(storedBuySellAdjustment.value).wadMulDown(decayFactor)).sub(decayFactor);
     }
 
     /** EXTERNAL VIEW FUNCTIONS */
