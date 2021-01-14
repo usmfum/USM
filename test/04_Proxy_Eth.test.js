@@ -1,6 +1,4 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
-const { expect } = require('chai')
-const { id } = require('ethers/lib/utils')
 
 const WETH9 = artifacts.require('WETH9')
 const USM = artifacts.require('MockTestOracleUSM')
@@ -10,8 +8,8 @@ const Proxy = artifacts.require('Proxy')
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Proxy - Eth', (accounts) => {
-  const [deployer, user1, user2] = accounts
-  const [ZERO, ONE, TWO, THREE, EIGHT, TEN] = [0, 1, 2, 3, 8, 10].map(function (n) {
+  const [deployer, user1] = accounts
+  const [ZERO, ONE, TWO, THREE] = [0, 1, 2, 3].map(function (n) {
     return new BN(n)
   })
   const WAD = new BN('1000000000000000000')
@@ -45,7 +43,7 @@ contract('USM - Proxy - Eth', (accounts) => {
       .div(WAD_SQUARED)
   }
 
-  function wadDiv(x, y, upOrDown) {
+  function wadDiv(x, y) {
     return x.mul(WAD).add(y.sub(ONE)).div(y)
   }
 
@@ -70,7 +68,7 @@ contract('USM - Proxy - Eth', (accounts) => {
   }
 
   describe('mints and burns a static amount', () => {
-    let weth, usm, proxy
+    let weth, usm, proxy, fum
 
     beforeEach(async () => {
       // Deploy contracts
@@ -186,7 +184,6 @@ contract('USM - Proxy - Eth', (accounts) => {
 
           it('allows burning FUM', async () => {
             const ethPool = await usm.ethPool()
-            const debtRatio = await usm.debtRatio()
             const fumSellPrice = await usm.fumPrice(sides.SELL)
 
             const fumBalance = await fum.balanceOf(user1)
@@ -220,7 +217,6 @@ contract('USM - Proxy - Eth', (accounts) => {
 
           it('allows burning USM', async () => {
             const ethPool = await usm.ethPool()
-            const debtRatio = await usm.debtRatio()
             const usmSellPrice = await usm.usmPrice(sides.SELL)
 
             const usmBalance = await usm.balanceOf(user1)
