@@ -68,10 +68,6 @@ contract('Oracle pricing', (accounts) => {
       const oraclePrice = await oracle.latestPrice()
       oraclePrice.toString().should.equal(testPriceWAD)
     })
-
-    it('returns the price in a transaction', async () => {
-      await oracle.latestPrice()
-    })
   })
 
   describe('with ChainlinkOracle', () => {
@@ -91,10 +87,6 @@ contract('Oracle pricing', (accounts) => {
       const oraclePrice = await oracle.latestPrice()
       oraclePrice.toString().should.equal(chainlinkPriceWAD.toString())
     })
-
-    it('returns the price in a transaction', async () => {
-      await oracle.latestPrice()
-    })
   })
 
   describe('with CompoundOracle', () => {
@@ -113,10 +105,6 @@ contract('Oracle pricing', (accounts) => {
     it('returns the correct price', async () => {
       const oraclePrice = await oracle.latestPrice()
       oraclePrice.toString().should.equal(compoundPriceWAD.toString())
-    })
-
-    it('returns the price in a transaction', async () => {
-      await oracle.latestPrice()
     })
   })
 
@@ -148,10 +136,6 @@ contract('Oracle pricing', (accounts) => {
       const targetOraclePriceDenom = ethUsdtTimestamp_1.sub(ethUsdtTimestamp_0).mul(uniswapCumPriceScalingFactor)
       const targetOraclePrice1 = targetOraclePriceNum.div(targetOraclePriceDenom)
       oraclePrice1.toString().should.equal(targetOraclePrice1.toString())
-    })
-
-    it('returns the price in a transaction', async () => {
-      await oracle.latestPrice()
     })
   })
 
@@ -193,10 +177,6 @@ contract('Oracle pricing', (accounts) => {
       const uniswapPrice = await rawOracle.latestUniswapTWAPPrice()
       const targetOraclePrice = median(chainlinkPriceWAD, compoundPriceWAD, uniswapPrice)
       oraclePrice.toString().should.equal(targetOraclePrice.toString())
-    })
-
-    it('returns the price in a transaction', async () => {
-      await oracle.latestPrice()
     })
   })
 })
