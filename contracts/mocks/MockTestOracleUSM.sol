@@ -11,4 +11,12 @@ import "../USMTemplate.sol";
  */
 contract MockTestOracleUSM is USMTemplate, TestOracle {
     constructor(uint price) public USMTemplate() TestOracle(price) {}
+
+    function refreshPrice() public virtual override(USMTemplate, Oracle) returns (uint price, uint updateTime) {
+        (price, updateTime) = super.refreshPrice();
+    }
+
+    function latestPrice() public virtual override(USMTemplate, TestOracle) view returns (uint price, uint updateTime) {
+        (price, updateTime) = super.latestPrice();
+    }
 }

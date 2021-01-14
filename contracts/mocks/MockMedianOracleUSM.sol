@@ -1,36 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 
-import "./SettableOracle.sol";
-import "../USM.sol";
+import "./MockMedianOracle.sol";
+import "../USMTemplate.sol";
 
 /**
  * @title MockMedianOracleUSM
  * @author Jacob Eliosoff (@jacob-eliosoff)
- * @notice Like USM (so, also inheriting MedianOracle), but allows latestPrice() to be set for testing purposes
+ * @notice Like USM, but for test purposes using a (SettableOracle) MockMedianOracle, rather than a production MedianOracle.
  */
-contract MockMedianOracleUSM is USM, SettableOracle {
-    uint private savedPrice;
-    uint private savedUpdateTime;
-
+contract MockMedianOracleUSM is MockMedianOracle, USMTemplate {
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
         IUniswapV2Pair uniswapPair, uint uniswapToken0Decimals, uint uniswapToken1Decimals, bool uniswapTokensInReverseOrder
     ) public
-        USM(chainlinkAggregator, compoundView,
-            uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
+        USMTemplate()
+        MockMedianOracle(chainlinkAggregator, compoundView,
+                         uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 
-    function setPrice(uint p) public override {
-        savedPrice = p;
-        savedUpdateTime = now;
+    function refreshPrice() public virtual override(MockMedianOracle, USMTemplate) returns (uint price, uint updateTime) {
+        (price, updateTime) = super.refreshPrice();
     }
 
-    function refreshPrice() public override(Oracle, USM) returns (uint price, uint updateTime) {
-        (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.refreshPrice();
-    }
-
-    function latestPrice() public override view returns (uint price, uint updateTime) {
-        (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.latestPrice();
+    function latestPrice() public virtual override(MockMedianOracle, USMTemplate) view returns (uint price, uint updateTime) {
+        (price, updateTime) = super.latestPrice();
     }
 }

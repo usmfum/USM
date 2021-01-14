@@ -123,11 +123,12 @@ contract('USM', (accounts) => {
       usm = await USM.new(aggregator.address, anchoredView.address,
                           usdcEthPair.address, usdcDecimals, ethDecimals, uniswapTokensInReverseOrder,
                           { from: deployer })
+      await usm.refreshPrice()  // This call stores the Uniswap cumPriceSeconds record for time usdcEthTimestamp_0
       fum = await FUM.at(await usm.fum())
-      await usm.refreshPrice()
 
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
+      await usm.refreshPrice()  // ...And this stores the cumPriceSeconds for usdcEthTimestamp_1 - so we have a valid TWAP now
 
       priceWAD = (await usm.latestPrice())[0]
       oneDollarInEth = wadDiv(WAD, priceWAD, rounds.UP)
@@ -322,6 +323,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.UP)
             const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.DOWN)
             await usm.setPrice(targetPrice3)
+            await usm.refreshPrice()    // Need to refreshPrice() after setPrice(), to get the new value into usm.storedPrice
             const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
@@ -521,12 +523,13 @@ contract('USM', (accounts) => {
               fumBuyPrice3.should.be.bignumber.gt(fumBuyPrice2)
             })
 
-            it("decreases buy-sell adjustment when minting while debt ratio > 100%", async () => {
+            it("reduces buy-sell adjustment when minting while debt ratio > 100%", async () => {
               // Move price to get debt ratio just *above* 100%:
               const targetDebtRatio4 = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
               const priceChangeFactor4 = wadDiv(debtRatio3, targetDebtRatio4, rounds.UP)
               const targetPrice4 = wadMul(price0, priceChangeFactor4, rounds.DOWN)
               await usm.setPrice(targetPrice4)
+              await usm.refreshPrice()
               const price4 = (await usm.latestPrice())[0]
               shouldEqual(price4, targetPrice4)
 
@@ -662,6 +665,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.DOWN)
             const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.UP)
             await usm.setPrice(targetPrice3)
+            await usm.refreshPrice()
             const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
@@ -677,6 +681,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5, rounds.UP)
             const targetPrice5 = wadMul(price3, priceChangeFactor5, rounds.DOWN)
             await usm.setPrice(targetPrice5)
+            await usm.refreshPrice()
             const price5 = (await usm.latestPrice())[0]
             shouldEqual(price5, targetPrice5)
 
@@ -795,7 +800,7 @@ contract('USM', (accounts) => {
               usmSellPrice3 = await usm.usmPrice(sides.SELL)
             })
 
-            it("decreases debtRatio when burning USM", async () => {
+            it("reduces debtRatio when burning USM", async () => {
               debtRatio3.should.be.bignumber.lt(debtRatio2)
             })
 
@@ -818,6 +823,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.DOWN)
             const targetPrice3 = wadMul(price0, priceChangeFactor3, rounds.UP)
             await usm.setPrice(targetPrice3)
+            await usm.refreshPrice()
             const price3 = (await usm.latestPrice())[0]
             shouldEqual(price3, targetPrice3)
 
@@ -833,6 +839,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor5 = wadDiv(debtRatio4, targetDebtRatio5, rounds.UP)
             const targetPrice5 = wadMul(price3, priceChangeFactor5, rounds.DOWN)
             await usm.setPrice(targetPrice5)
+            await usm.refreshPrice()
             const price5 = (await usm.latestPrice())[0]
             shouldEqual(price5, targetPrice5)
 

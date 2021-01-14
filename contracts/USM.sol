@@ -4,7 +4,7 @@ pragma solidity ^0.6.6;
 import "./USMTemplate.sol";
 import "./oracles/MedianOracle.sol";
 
-contract USM is USMTemplate, MedianOracle {
+contract USM is MedianOracle, USMTemplate {
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
@@ -14,7 +14,11 @@ contract USM is USMTemplate, MedianOracle {
         MedianOracle(chainlinkAggregator, compoundView,
                      uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 
-    function refreshPrice() public virtual override(Oracle, MedianOracle) returns (uint price, uint updateTime) {
+    function refreshPrice() public virtual override(MedianOracle, USMTemplate) returns (uint price, uint updateTime) {
         (price, updateTime) = super.refreshPrice();
+    }
+
+    function latestPrice() public virtual override(MedianOracle, USMTemplate) view returns (uint price, uint updateTime) {
+        (price, updateTime) = super.latestPrice();
     }
 }

@@ -61,6 +61,14 @@ library WadMath {
         return ((x.mul(WAD)).add(y - 1)).div(y);    // Can use "-" instead of sub() since div(y) will catch y = 0 case anyway
     }
 
+    function wadMax(uint x, uint y) internal pure returns (uint) {
+        return (x > y ? x : y);
+    }
+
+    function wadMin(uint x, uint y) internal pure returns (uint) {
+        return (x < y ? x : y);
+    }
+
     function wadHalfExp(uint power) internal pure returns (uint) {
         return wadHalfExp(power, uint(-1));
     }

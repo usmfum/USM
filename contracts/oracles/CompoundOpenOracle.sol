@@ -25,7 +25,7 @@ contract CompoundOpenOracle is Oracle {
     }
 
     UniswapAnchoredView private anchoredView;
-    TimedPrice public storedPrice;
+    TimedPrice public storedCompoundPrice;
 
     constructor(UniswapAnchoredView anchoredView_) public
     {
@@ -34,12 +34,12 @@ contract CompoundOpenOracle is Oracle {
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
         price = anchoredView.price("ETH").mul(SCALE_FACTOR);
-        if (price != storedPrice.price) {
+        if (price != storedCompoundPrice.price) {
             require(now <= UINT32_MAX, "timestamp overflow");
             require(price <= UINT224_MAX, "price overflow");
-            (storedPrice.updateTime, storedPrice.price) = (uint32(now), uint224(price));
+            (storedCompoundPrice.updateTime, storedCompoundPrice.price) = (uint32(now), uint224(price));
         }
-        return (price, storedPrice.updateTime);
+        return (price, storedCompoundPrice.updateTime);
     }
 
     /**
@@ -48,10 +48,10 @@ contract CompoundOpenOracle is Oracle {
      * annoyingly) Compound's UniswapAnchoredView stores but doesn't expose the updateTime of the price it returns.
      */
     function latestPrice() public virtual override view returns (uint price, uint updateTime) {
-        (price, updateTime) = (storedPrice.price, storedPrice.updateTime);
+        (price, updateTime) = (storedCompoundPrice.price, storedCompoundPrice.updateTime);
     }
 
     function latestCompoundPrice() public view returns (uint price, uint updateTime) {
-        (price, updateTime) = (storedPrice.price, storedPrice.updateTime);
+        (price, updateTime) = (storedCompoundPrice.price, storedCompoundPrice.updateTime);
     }
 }

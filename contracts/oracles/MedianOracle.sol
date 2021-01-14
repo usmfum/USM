@@ -18,20 +18,16 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOr
         CompoundOpenOracle(compoundView)
         OurUniswapV2TWAPOracle(uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 
-    function latestPrice() public override(ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle)
+    function latestPrice() public virtual override(ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle)
         view returns (uint price, uint updateTime)
     {
         (uint chainlinkPrice, uint chainlinkUpdateTime) = ChainlinkOracle.latestPrice();
         (uint compoundPrice, uint compoundUpdateTime) = CompoundOpenOracle.latestPrice();
         (uint uniswapPrice, uint uniswapUpdateTime) = OurUniswapV2TWAPOracle.latestPrice();
         uint index = medianIndex(chainlinkPrice, compoundPrice, uniswapPrice);
-        if (index == 0) {
-            return (chainlinkPrice, chainlinkUpdateTime);
-        } else if (index == 1) {
-            return (compoundPrice, compoundUpdateTime);
-        } else {
-            return (uniswapPrice, uniswapUpdateTime);
-        }
+        (price, updateTime) = (index == 0 ? (chainlinkPrice, chainlinkUpdateTime) :
+                                            (index == 1 ? (compoundPrice, compoundUpdateTime) :
+                                                          (uniswapPrice, uniswapUpdateTime)));
     }
 
     function refreshPrice() public virtual override(Oracle, CompoundOpenOracle, OurUniswapV2TWAPOracle)
@@ -43,13 +39,9 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOr
         (uint compoundPrice, uint compoundUpdateTime) = CompoundOpenOracle.refreshPrice();      // Note: refreshPrice()
         (uint uniswapPrice, uint uniswapUpdateTime) = OurUniswapV2TWAPOracle.refreshPrice();    // Note: refreshPrice()
         uint index = medianIndex(chainlinkPrice, compoundPrice, uniswapPrice);
-        if (index == 0) {
-            return (chainlinkPrice, chainlinkUpdateTime);
-        } else if (index == 1) {
-            return (compoundPrice, compoundUpdateTime);
-        } else {
-            return (uniswapPrice, uniswapUpdateTime);
-        }
+        (price, updateTime) = (index == 0 ? (chainlinkPrice, chainlinkUpdateTime) :
+                                            (index == 1 ? (compoundPrice, compoundUpdateTime) :
+                                                          (uniswapPrice, uniswapUpdateTime)));
     }
 
     /**

@@ -65,6 +65,7 @@ contract('USM - Proxy - Eth', (accounts) => {
       // Deploy contracts
       weth = await WETH9.new({ from: deployer })
       usm = await USM.new(priceWAD, { from: deployer })
+      await usm.refreshPrice()  // Ensures the savedPrice passed to the constructor above is also set in usm.storedPrice
       fum = await FUM.at(await usm.fum())
       proxy = await Proxy.new(usm.address, weth.address, { from: deployer })
 

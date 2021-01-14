@@ -20,9 +20,10 @@ import "./oracles/Oracle.sol";
  * This abstract USM contract must be inherited by a concrete implementation, that also adds an Oracle implementation - eg, by
  * also inheriting a concrete Oracle implementation.  See USM (and MockUSM) for an example.
  *
- * We use this inheritance-based design (rather than the more natural, and frankly normally more correct, composition-based design
- * of storing the Oracle here as a variable), because inheriting the Oracle makes all the latestPrice() calls *internal* rather
- * than calls to a separate oracle contract (or multiple contracts) - which leads to a significant saving in gas.
+ * We use this inheritance-based design (rather than the more natural, and frankly normally more correct, composition-based
+ * design of storing the Oracle here as a variable), because inheriting the Oracle makes all the latestPrice()/refreshPrice()
+ * calls *internal* rather than calls to a separate oracle contract (or multiple contracts) - which leads to a significant
+ * saving in gas.
  */
 abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     using Address for address payable;
@@ -49,6 +50,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint224 value;
     }
 
+    TimedValue public storedPrice;
     TimedValue public storedMinFumBuyPrice;
     TimedValue public storedBuySellAdjustment = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
@@ -57,7 +59,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         fum = new FUM(this);
     }
 
-    /** EXTERNAL TRANSACTIONAL FUNCTIONS **/
+    /** PUBLIC AND EXTERNAL TRANSACTIONAL FUNCTIONS **/
 
     /**
      * @notice Mint new USM, sending it to the given address, and only if the amount minted >= minUsmOut.  The amount of ETH is
@@ -125,6 +127,22 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         ethOut = _defundFum(from, to, fumToBurn, minEthOut);
     }
 
+    function refreshPrice() public virtual override returns (uint price, uint updateTime) {
+        uint adjustment;
+        bool priceChanged;
+        (price, updateTime, adjustment, priceChanged) = _refreshPrice();
+        if (priceChanged) {
+            require(updateTime <= UINT32_MAX, "updateTime overflow");
+            require(price <= UINT224_MAX, "price overflow");
+            storedPrice.timestamp = uint32(updateTime);
+            storedPrice.value = uint224(price);
+
+            require(adjustment <= UINT224_MAX, "adjustment overflow");
+            storedBuySellAdjustment.timestamp = uint32(now);
+            storedBuySellAdjustment.value = uint224(adjustment);
+        }
+    }
+
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.
      * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
@@ -157,7 +175,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(ethInPool > 0, "Fund before minting");
 
         // 2. Calculate usmOut:
-        (uint ethUsmPrice, ) = refreshPrice();
+        (uint ethUsmPrice,, uint adjustment, ) = _refreshPrice();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
         usmOut = usmFromMint(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, oldDebtRatio);
@@ -166,7 +184,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // 3. Update storedBuySellAdjustment and mint the user's new USM:
         uint newDebtRatio = debtRatio(ethUsmPrice, rawEthInPool, usmTotalSupply.add(usmOut));
         if (oldDebtRatio <= WAD) {
-            _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
+            _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         } else {
             // Special case: for every other operation (that we support), a short-ETH operation (`mint`, `defund`) increases
             // debt ratio, and a long-ETH operation (`burn`, `fund`) decreases it.  But in the special case of minting while
@@ -174,7 +192,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
             // operation to *reduce* the buy-sell adjustment: this is what ensures that repeated mint operations pay an
             // increasing price for their USM, rather than a decreasing one.  So we pass oldDebtRatio & newDebtRatio into this
             // _updateBuySellAdjustment() call in reverse order, to make it reduce rather than increase the adjustment.
-            _updateBuySellAdjustment(newDebtRatio, oldDebtRatio, buySellAdjustment());
+            _updateBuySellAdjustment(newDebtRatio, oldDebtRatio, adjustment);
         }
         _mint(to, usmOut);
     }
@@ -182,7 +200,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _burnUsm(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        (uint ethUsmPrice, ) = refreshPrice();
+        (uint ethUsmPrice,, uint adjustment, ) = _refreshPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
@@ -193,14 +211,14 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply.sub(usmToBurn));
         require(newDebtRatio <= WAD, "Debt ratio > 100%");
         _burn(from, usmToBurn);
-        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         to.sendValue(ethOut);
     }
 
     function _fundFum(address to, uint minFumOut) internal returns (uint fumOut)
     {
         // 1. Refresh mfbp:
-        (uint ethUsmPrice, ) = refreshPrice();
+        (uint ethUsmPrice,, uint adjustment, ) = _refreshPrice();
         uint rawEthInPool = ethPool();
         uint ethInPool = rawEthInPool.sub(msg.value);   // Backing out the ETH just received, which our calculations should ignore
         uint usmTotalSupply = totalSupply();
@@ -209,7 +227,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         _updateMinFumBuyPrice(oldDebtRatio, ethInPool, fumTotalSupply);
 
         // 2. Calculate fumOut:
-        uint adjustment = buySellAdjustment();
         fumOut = fumFromFund(ethUsmPrice, msg.value, ethInPool, usmTotalSupply, fumTotalSupply, adjustment);
         require(fumOut >= minFumOut, "Limit not reached");
 
@@ -222,7 +239,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     function _defundFum(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        (uint ethUsmPrice, ) = refreshPrice();
+        (uint ethUsmPrice,, uint adjustment, ) = _refreshPrice();
         uint ethInPool = ethPool();
         uint usmTotalSupply = totalSupply();
         uint oldDebtRatio = debtRatio(ethUsmPrice, ethInPool, usmTotalSupply);
@@ -233,8 +250,50 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint newDebtRatio = debtRatio(ethUsmPrice, ethInPool.sub(ethOut), usmTotalSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Debt ratio > max");
         fum.burn(from, fumToBurn);
-        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, buySellAdjustment());
+        _updateBuySellAdjustment(oldDebtRatio, newDebtRatio, adjustment);
         to.sendValue(ethOut);
+    }
+
+    function _refreshPrice() internal returns (uint price, uint updateTime, uint adjustment, bool priceChanged) {
+        (price, updateTime) = super.refreshPrice();
+        adjustment = buySellAdjustment();
+        priceChanged = updateTime > storedPrice.timestamp;
+        if (priceChanged) {
+            /**
+             * This is a bit subtle.  We want to update the mid stored price to the oracle's fresh value, while updating
+             * buySellAdjustment in such a way that the currently adjusted (more expensive than mid) side gets no
+             * cheaper/more favorably priced for users.  Example:
+             *
+             * 1. storedPrice = $1,000, and buySellAdjustment = 1.02.  So, our current ETH buy price is $1,020, and our current
+             *    ETH sell price is $1,000 (mid).
+             * 2. The oracle comes back with a fresh price (newer updateTime) of $990.
+             * 3. The currently adjusted price is buy price (ie, adj > 1).  So, we want to:
+             *    a) Update storedPrice (mid) to $990.
+             *    b) Update buySellAdj to ensure that buy price remains >= $1,020.
+             * 4. We do this by upping buySellAdj 1.02 -> 1.0303.  Then the new buy price will remain $990 * 1.0303 = $1,020.
+             *    The sell price will remain the unadjusted mid: formerly $1,000, now $990.
+             *
+             * Because the buySellAdjustment reverts to 1 in a few minutes, the new 3.03% buy premium is temporary: buy price
+             * will revert to the $990 mid soon - unless the new mid is egregiously low, in which case buyers should push it
+             * back up.  Eg, suppose the oracle gives us a glitchy price of $99.  Then new mid = $99, buySellAdj = 10.303, buy
+             * price = $1,020, and the buy price will rapidly drop towards $99; but as it does so, users are incentivized to
+             * step in and buy, eventually pushing mid back up to the real-world ETH market price (eg $990).
+             *
+             * In cases like this, our buySellAdj update has protected the system, by preventing users from getting any chance
+             * to buy at the bogus $99 price.
+             */
+
+            // The following logic is to be uncommented once we're actually adjusting price in USMTemplate - commits coming up.
+            //if (adjustment > 1) {
+            //    max(1, old buy price / new mid price):
+            //    adjustment = WAD.wadMax((uint(storedPrice.value)).mul(adjustment).div(price));
+            //} else if (adjustment < 1) {
+            //    min(1, old sell price / new mid price):
+            //    adjustment = WAD.wadMin((uint(storedPrice.value)).mul(adjustment).div(price));
+            //}
+        } else {
+            (price, updateTime) = (storedPrice.value, storedPrice.timestamp);
+        }
     }
 
     /**
@@ -295,6 +354,10 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     }
 
     /** PUBLIC AND INTERNAL VIEW FUNCTIONS **/
+
+    function latestPrice() public virtual override view returns (uint price, uint updateTime) {
+        (price, updateTime) = (storedPrice.value, storedPrice.timestamp);
+    }
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
@@ -532,8 +595,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return buffer ETH buffer
      */
     function ethBuffer(WadMath.Round upOrDown) external view returns (int buffer) {
-        (uint price, ) = latestPrice();
-        buffer = ethBuffer(price, ethPool(), totalSupply(), upOrDown);
+        buffer = ethBuffer(storedPrice.value, ethPool(), totalSupply(), upOrDown);
     }
 
     /**
@@ -542,8 +604,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return usmOut The amount of USM
      */
     function ethToUsm(uint ethAmount, WadMath.Round upOrDown) external view returns (uint usmOut) {
-        (uint price, ) = latestPrice();
-        usmOut = ethToUsm(price, ethAmount, upOrDown);
+        usmOut = ethToUsm(storedPrice.value, ethAmount, upOrDown);
     }
 
     /**
@@ -552,8 +613,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ethOut The amount of ETH
      */
     function usmToEth(uint usmAmount, WadMath.Round upOrDown) external view returns (uint ethOut) {
-        (uint price, ) = latestPrice();
-        ethOut = usmToEth(price, usmAmount, upOrDown);
+        ethOut = usmToEth(storedPrice.value, usmAmount, upOrDown);
     }
 
     /**
@@ -561,8 +621,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ratio Debt ratio
      */
     function debtRatio() external view returns (uint ratio) {
-        (uint price, ) = latestPrice();
-        ratio = debtRatio(price, ethPool(), totalSupply());
+        ratio = debtRatio(storedPrice.value, ethPool(), totalSupply());
     }
 
     /**
@@ -570,8 +629,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return price USM price in ETH terms
      */
     function usmPrice(Side side) external view returns (uint price) {
-        (uint ethUsdPrice, ) = latestPrice();
-        price = usmPrice(side, ethUsdPrice, debtRatio(ethUsdPrice, ethPool(), totalSupply()));
+        price = usmPrice(side, storedPrice.value, debtRatio(storedPrice.value, ethPool(), totalSupply()));
     }
 
     /**
@@ -579,7 +637,6 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return price FUM price in ETH terms
      */
     function fumPrice(Side side) external view returns (uint price) {
-        (uint ethUsdPrice, ) = latestPrice();
-        price = fumPrice(side, ethUsdPrice, ethPool(), totalSupply(), fum.totalSupply(), buySellAdjustment());
+        price = fumPrice(side, storedPrice.value, ethPool(), totalSupply(), fum.totalSupply(), buySellAdjustment());
     }
 }
