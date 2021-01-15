@@ -68,8 +68,8 @@ contract('Oracle pricing', (accounts) => {
 
   function shouldEqualApprox(x, y) {
     // Check that abs(x - y) < 0.0000001(x + y):
-    const diff = (x.gt(y) ? x.sub(y) : y.sub(x))
-    diff.should.be.bignumber.lt(x.add(y).div(new BN(1000000)))
+    const diff = x.sub(y).abs()
+    diff.should.be.bignumber.lt(x.add(y).abs().div(new BN(1000000)))
   }
 
   describe("with TestOracle", () => {

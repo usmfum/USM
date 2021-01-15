@@ -94,8 +94,8 @@ contract('USM', (accounts) => {
 
   function shouldEqualApprox(x, y) {
     // Check that abs(x - y) < 0.0000001(x + y):
-    const diff = (x.gt(y) ? x.sub(y) : y.sub(x))
-    diff.should.be.bignumber.lt(x.add(y).div(new BN(1000000)))
+    const diff = x.sub(y).abs()
+    diff.should.be.bignumber.lt(x.add(y).abs().div(new BN(1000000)))
   }
 
   function fl(w) { // Converts a WAD fixed-point (eg, 2.7e18) to an unscaled float (2.7).  Of course may lose a bit of precision
@@ -406,6 +406,27 @@ contract('USM', (accounts) => {
                 shouldEqual(wadCbrt(cube.sub(ONE), rounds.UP), cbrt)
                 shouldEqual(wadCubed(cbrt, rounds.DOWN), cube)
               }
+            })
+
+            it("calculates log/exp correctly", async () => {
+              const w = await WadMath.new()
+              const a = new BN('987654321098765432')    //  0.987654321098765432
+              const b = new BN('12345678901234567890')  // 12.345678901234567890
+
+              const logA = await w.wadLog(a)
+              const targetLogA = new BN((Math.log(parseFloat(a) / WAD) * WAD).toString())
+              //console.log("    a) " + a + ", " + logA + ", " + targetLogA)
+              shouldEqualApprox(logA, targetLogA)
+              const logB = await w.wadLog(b)
+              const targetLogB = new BN((Math.log(parseFloat(b) / WAD) * WAD).toString())
+              shouldEqualApprox(logB, targetLogB)
+
+              const expAB = await w.wadExp(a, b)
+              const targetExpAB = new BN((Math.pow(parseFloat(a) / WAD, parseFloat(b) / WAD) * WAD).toString())
+              shouldEqualApprox(expAB, targetExpAB)
+              const expBA = await w.wadExp(b, a)
+              const targetExpBA = new BN((Math.pow(parseFloat(b) / WAD, parseFloat(a) / WAD) * WAD).toString())
+              shouldEqualApprox(expBA, targetExpBA)
             })
 
             it("slides price correctly when minting FUM", async () => {
