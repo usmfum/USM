@@ -144,17 +144,21 @@ library WadMath {
      * Raise given number x to power y (approximately!), both in WAD 18-digit fixed-point form, and return the result in,
      * again, WAD form.
      */
-    function wadExp(uint x, uint y) internal pure returns (uint z) {
-        require(x <= UINT128_MAX, "x overflow");
-        uint logX = log_2(uint128(x));
-        uint exponent;
-        if (logX >= LOG_WAD) {
-            exponent = LOG_WAD.add(wadMulDown(y, logX - LOG_WAD));
+    function wadExp(uint x, int y) internal pure returns (uint z) {
+        if (y < 0) {
+            z = wadDivDown(WAD, wadExp(x, -y));
         } else {
-            exponent = LOG_WAD.sub(wadMulDown(y, LOG_WAD - logX));
+            require(x <= UINT128_MAX, "x overflow");
+            uint logX = log_2(uint128(x));
+            uint exponent;
+            if (logX >= LOG_WAD) {
+                exponent = LOG_WAD.add(wadMulDown(uint(y), logX - LOG_WAD));
+            } else {
+                exponent = LOG_WAD.sub(wadMulDown(uint(y), LOG_WAD - logX));
+            }
+            require(exponent <= UINT128_MAX, "exponent overflow");
+            z = pow_2(uint128(exponent));
         }
-        require(exponent <= UINT128_MAX, "exponent overflow");
-        z = pow_2(uint128(exponent));
     }
 
     /**
