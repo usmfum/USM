@@ -73,11 +73,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
   const usm = await deploy('USM', {
     from: deployer,
     deterministicDeployment: true,
-    args: [
-      aggregatorAddress, anchoredViewAddress, usdcEthPairAddress,
-      usdcDecimals, ethDecimals,
-      uniswapTokensInReverseOrder
-    ]
+    args: require(`./usm-args-${chainId}`),
   })
   console.log(`Deployed USM to ${usm.address}`);
 };

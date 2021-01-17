@@ -10,7 +10,7 @@ import "./WadMath.sol";
 import "./FUM.sol";
 import "./MinOut.sol";
 import "./oracles/Oracle.sol";
-// import "@nomiclabs/buidler/console.sol";
+// import "hardhat/console.sol";
 
 /**
  * @title USMTemplate
