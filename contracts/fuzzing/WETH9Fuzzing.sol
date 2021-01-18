@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.6.6;
 import "../mocks/MockWETH9.sol";
-import "@nomiclabs/buidler/console.sol";
+import "hardhat/console.sol";
 
 contract WETH9Fuzzing {
 

@@ -1,15 +1,16 @@
 const fs = require('fs')
 const path = require('path')
-usePlugin('@nomiclabs/buidler-truffle5')
-usePlugin('solidity-coverage')
-usePlugin('buidler-gas-reporter')
-usePlugin('buidler-deploy')
+require('@nomiclabs/hardhat-truffle5')
+require('solidity-coverage')
+require('hardhat-gas-reporter')
+require('hardhat-deploy')
+require('@nomiclabs/hardhat-etherscan')
 
 
 // REQUIRED TO ENSURE METADATA IS SAVED IN DEPLOYMENTS (because solidity-coverage disable it otherwise)
 const {
   TASK_COMPILE_GET_COMPILER_INPUT
-} = require("@nomiclabs/buidler/builtin-tasks/task-names");
+} = require("hardhat/builtin-tasks/task-names");
 task(TASK_COMPILE_GET_COMPILER_INPUT).setAction(async (_, bre, runSuper) => {
   const input = await runSuper();
   input.settings.metadata.useLiteralContent = bre.network.name !== "coverage";
@@ -37,15 +38,19 @@ const accounts = mnemonic ? {
   mnemonic,
 }: undefined;
 
+let etherscanKey = process.env.ETHERSCANKEY;
+if (!etherscanKey) {
+  try {
+    etherscanKey = fs.readFileSync(path.resolve(__dirname, '.etherscanKey')).toString().trim()
+  } catch(e){}
+}
+
 module.exports = {
-  defaultNetwork: 'buidlerevm',
+  defaultNetwork: 'hardhat',
   networks: {
     kovan: {
       accounts,
-      url: nodeUrl('kovan'),
-      timeoutBlocks: 200,     // # of blocks before a deployment times out  (minimum/default: 50)
-      gasPrice: 10000000000,  // 10 gwei
-      skipDryRun: false       // Skip dry run before migrations? (default: false for public nets )
+      url: nodeUrl('kovan')
     },
     goerli: {
       accounts,
@@ -67,12 +72,17 @@ module.exports = {
       url: 'http://127.0.0.1:8555',
     },
   },
-  solc: {
+  etherscan: {
+    apiKey: etherscanKey
+  },
+  solidity: {
     version: '0.6.6',
-    optimizer: {
-      enabled: true,
-      runs: 20000,
-    },
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      }
+    }
   },
   gasReporter: {
     enabled: true,

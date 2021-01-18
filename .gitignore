@@ -112,6 +112,7 @@ typings/
 
 # the .secret
 .secret
+.etherscanKey
 .infuraKey
 .secrets/
 

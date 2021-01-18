@@ -41,6 +41,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
         uint224 cumPriceSeconds;    // See cumulativePrice() below for an explanation of "cumPriceSeconds"
     }
 
+    event TWAPPriceStored(uint32 timestamp, uint224 priceSeconds);
+
     /**
      * We store two CumulativePrices, A and B, without specifying which is more recent.  This is so that we only need to do one
      * SSTORE each time we save a new one: we can inspect them later to figure out which is newer - see orderedStoredPrices().
@@ -122,6 +124,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
         require(cumPriceSeconds <= UINT224_MAX, "cumPriceSeconds overflow");
         // (Note: this assignment only stores because olderStoredPrice has modifier "storage" - ie, store by reference!)
         (olderStoredPrice.timestamp, olderStoredPrice.cumPriceSeconds) = (uint32(timestamp), uint224(cumPriceSeconds));
+
+        emit TWAPPriceStored(uint32(timestamp), uint224(cumPriceSeconds)); // 4k gas, is it worth it?
     }
 
     function storedPriceToCompareVs(uint newCumPriceSecondsTime, CumulativePrice storage newerStoredPrice)
