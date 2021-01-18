@@ -22,7 +22,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * These roles could in principle be separated, eg: "Require the stored price we calculate TWAP from to be >= 2 minutes
      * old, but leave >= 10 minutes before storing a new price."  But for simplicity we keep them the same.
      */
-    uint public constant MIN_TWAP_PERIOD = 2 minutes;
+    uint public constant MIN_TWAP_PERIOD = 10 minutes;
 
     // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
     uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
