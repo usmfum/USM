@@ -13,6 +13,7 @@ abstract contract IUSM {
     function defundFromFUM(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint);
 
     function latestPrice() public virtual view returns (uint price, uint updateTime);
+    function latestOraclePrice() public virtual view returns (uint price, uint updateTime);
     function ethPool() public virtual view returns (uint pool);
     function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, WadMath.Round upOrDown) public virtual pure returns (int buffer);
     function debtRatio(uint ethUsdPrice, uint ethInPool, uint usmSupply) public virtual pure returns (uint ratio);
