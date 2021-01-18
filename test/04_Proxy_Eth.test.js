@@ -3,7 +3,8 @@ const { expect } = require('chai')
 const { id } = require('ethers/lib/utils')
 
 const WETH9 = artifacts.require('WETH9')
-const USM = artifacts.require('MockTestOracleUSM')
+const TestOracle = artifacts.require('TestOracle')
+const USM = artifacts.require('USM')
 const FUM = artifacts.require('FUM')
 const USMView = artifacts.require('USMView')
 const Proxy = artifacts.require('Proxy')
@@ -21,12 +22,13 @@ contract('USM - Proxy - Eth', (accounts) => {
   const priceWAD = price.mul(WAD)
 
   describe('mints and burns a static amount', () => {
-    let weth, usm, fum, usmView, proxy
+    let weth, oracle, usm, fum, usmView, proxy
 
     beforeEach(async () => {
       // Deploy contracts
       weth = await WETH9.new({ from: deployer })
-      usm = await USM.new(priceWAD, { from: deployer })
+      oracle = await TestOracle.new(priceWAD, { from: deployer })
+      usm = await USM.new(oracle.address, { from: deployer })
       await usm.refreshPrice()  // Ensures the savedPrice passed to the constructor above is also set in usm.storedPrice
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
