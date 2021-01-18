@@ -38,22 +38,6 @@ library WadMath {
         return (x.mul(y)).add(WAD_MINUS_1) / WAD;
     }
 
-    function wadSquaredDown(uint x) internal pure returns (uint) {
-        return (x.mul(x)) / WAD;
-    }
-
-    function wadSquaredUp(uint x) internal pure returns (uint) {
-        return (x.mul(x)).add(WAD_MINUS_1) / WAD;
-    }
-
-    function wadCubedDown(uint x) internal pure returns (uint) {
-        return (x.mul(x)).mul(x) / WAD_SQUARED;
-    }
-
-    function wadCubedUp(uint x) internal pure returns (uint) {
-        return ((x.mul(x)).mul(x)).add(WAD_SQUARED_MINUS_1) / WAD_SQUARED;
-    }
-
     function wadDiv(uint x, uint y, Round upOrDown) internal pure returns (uint) {
         return upOrDown == Round.Down ? wadDivDown(x, y) : wadDivUp(x, y);
     }
@@ -110,35 +94,12 @@ library WadMath {
         z = n % 2 != 0 ? x : WAD;
 
         for (n /= 2; n != 0; n /= 2) {
-            x = wadSquaredDown(x);
+            x = x.mul(x) / WAD;
 
             if (n % 2 != 0) {
                 z = wadMulDown(z, x);
             }
         }
-    }
-
-    // Using Newton's method (see eg https://stackoverflow.com/a/8827111/3996653), but with WAD fixed-point math.
-    function wadCbrtDown(uint y) internal pure returns (uint root) {
-        if (y > 0 ) {
-            uint newRoot = y.add(TWO_WAD) / 3;
-            uint yTimesWadSquared = y.mul(WAD_SQUARED);
-            do {
-                root = newRoot;
-                newRoot = (root + root + (yTimesWadSquared / (root * root))) / 3;
-            } while (newRoot < root);
-        }
-        //require(root**3 <= y.mul(WAD_SQUARED) && y.mul(WAD_SQUARED) < (root + 1)**3);
-    }
-
-    function wadCbrtUp(uint y) internal pure returns (uint root) {
-        root = wadCbrtDown(y);
-        // The only case where wadCbrtUp(y) *isn't* equal to wadCbrtDown(y) + 1 is when y is a perfect cube; so check for that.
-        // These "*"s are safe because: 1. root**3 <= y.mul(WAD_SQUARED), and 2. y.mul(WAD_SQUARED) is calculated (safely) above.
-        if (root * root * root != y * WAD_SQUARED ) {
-            ++root;
-        }
-        //require((root - 1)**3 < y.mul(WAD_SQUARED) && y.mul(WAD_SQUARED) <= root**3);
     }
 
     /**
