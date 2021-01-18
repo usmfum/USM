@@ -175,72 +175,72 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(ethInPool > 0, "Fund before minting");
 
         // 2. Calculate usmOut:
-        (uint ethUsmPrice0,, uint adjustment0, ) = _refreshPrice();
+        (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
         uint adjShrinkFactor;
-        (usmOut, adjShrinkFactor) = usmFromMint(ethUsmPrice0, msg.value, ethInPool, adjustment0);
+        (usmOut, adjShrinkFactor) = usmFromMint(ethUsdPrice0, msg.value, ethInPool, adjustment0);
         require(usmOut >= minUsmOut, "Limit not reached");
 
         // 3. Update storedBuySellAdjustment and mint the user's new USM:
         _storeBuySellAdjustment(adjustment0.wadMulDown(adjShrinkFactor));
-        _storePrice(ethUsmPrice0.wadMulDown(adjShrinkFactor));
+        _storePrice(ethUsdPrice0.wadMulDown(adjShrinkFactor));
         _mint(to, usmOut);
     }
 
     function _burnUsm(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        (uint ethUsmPrice0,, uint adjustment0, ) = _refreshPrice();
+        (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
         uint ethInPool = ethPool();
         uint adjGrowthFactor;
-        (ethOut, adjGrowthFactor) = ethFromBurn(ethUsmPrice0, usmToBurn, ethInPool, adjustment0);
+        (ethOut, adjGrowthFactor) = ethFromBurn(ethUsdPrice0, usmToBurn, ethInPool, adjustment0);
         require(ethOut >= minEthOut, "Limit not reached");
 
         // 2. Burn the input USM, update storedBuySellAdjustment, and return the user's ETH:
-        uint newDebtRatio = debtRatio(ethUsmPrice0, ethInPool.sub(ethOut), totalSupply().sub(usmToBurn));
+        uint newDebtRatio = debtRatio(ethUsdPrice0, ethInPool.sub(ethOut), totalSupply().sub(usmToBurn));
         require(newDebtRatio <= WAD, "Debt ratio > 100%");
         _burn(from, usmToBurn);
         _storeBuySellAdjustment(adjustment0.wadMulUp(adjGrowthFactor));
-        _storePrice(ethUsmPrice0.wadMulUp(adjGrowthFactor));
+        _storePrice(ethUsdPrice0.wadMulUp(adjGrowthFactor));
         to.sendValue(ethOut);
     }
 
     function _fundFum(address to, uint minFumOut) internal returns (uint fumOut)
     {
         // 1. Refresh mfbp:
-        (uint ethUsmPrice0,, uint adjustment0, ) = _refreshPrice();
+        (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
         uint rawEthInPool = ethPool();
         uint ethInPool = rawEthInPool.sub(msg.value);   // Backing out the ETH just received, which our calculations should ignore
         uint usmSupply = totalSupply();
         uint fumSupply = fum.totalSupply();
-        _updateMinFumBuyPrice(ethUsmPrice0, ethInPool, usmSupply, fumSupply);
+        _updateMinFumBuyPrice(ethUsdPrice0, ethInPool, usmSupply, fumSupply);
 
         // 2. Calculate fumOut:
         uint adjGrowthFactor;
-        (fumOut, adjGrowthFactor) = fumFromFund(ethUsmPrice0, msg.value, ethInPool, usmSupply, fumSupply, adjustment0);
+        (fumOut, adjGrowthFactor) = fumFromFund(ethUsdPrice0, msg.value, ethInPool, usmSupply, fumSupply, adjustment0);
         require(fumOut >= minFumOut, "Limit not reached");
 
         // 3. Update storedBuySellAdjustment and mint the user's new FUM:
         _storeBuySellAdjustment(adjustment0.wadMulUp(adjGrowthFactor));
-        _storePrice(ethUsmPrice0.wadMulUp(adjGrowthFactor));
+        _storePrice(ethUsdPrice0.wadMulUp(adjGrowthFactor));
         fum.mint(to, fumOut);
     }
 
     function _defundFum(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        (uint ethUsmPrice0,, uint adjustment0, ) = _refreshPrice();
+        (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
         uint ethInPool = ethPool();
         uint usmSupply = totalSupply();
         uint adjShrinkFactor;
-        (ethOut, adjShrinkFactor) = ethFromDefund(ethUsmPrice0, fumToBurn, ethInPool, usmSupply, adjustment0);
+        (ethOut, adjShrinkFactor) = ethFromDefund(ethUsdPrice0, fumToBurn, ethInPool, usmSupply, adjustment0);
         require(ethOut >= minEthOut, "Limit not reached");
 
         // 2. Burn the input FUM, update storedBuySellAdjustment, and return the user's ETH:
-        uint newDebtRatio = debtRatio(ethUsmPrice0, ethInPool.sub(ethOut), usmSupply);
+        uint newDebtRatio = debtRatio(ethUsdPrice0, ethInPool.sub(ethOut), usmSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Debt ratio > max");
         fum.burn(from, fumToBurn);
         _storeBuySellAdjustment(adjustment0.wadMulDown(adjShrinkFactor));
-        _storePrice(ethUsmPrice0.wadMulDown(adjShrinkFactor));
+        _storePrice(ethUsdPrice0.wadMulDown(adjShrinkFactor));
         to.sendValue(ethOut);
     }
 
@@ -299,9 +299,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      *                    = (ethPool() - (MAX_DEBT_RATIO * ethPool())) / fum.totalSupply()
      *                    = (1 - MAX_DEBT_RATIO) * ethPool() / fum.totalSupply()
      */
-    function _updateMinFumBuyPrice(uint ethUsmPrice, uint ethInPool, uint usmSupply, uint fumSupply) internal {
+    function _updateMinFumBuyPrice(uint ethUsdPrice, uint ethInPool, uint usmSupply, uint fumSupply) internal {
         uint previous = storedMinFumBuyPrice.value;
-        uint debtRatio_ = debtRatio(ethUsmPrice, ethInPool, usmSupply);
+        uint debtRatio_ = debtRatio(ethUsdPrice, ethInPool, usmSupply);
         if (debtRatio_ <= MAX_DEBT_RATIO) {                 // We've dropped below (or were already below, whatev) max debt ratio
             if (previous != 0) {
                 storedMinFumBuyPrice.timestamp = 0;         // Clear mfbp
@@ -360,12 +360,12 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice Calculate the amount of ETH in the buffer.
      * @return buffer ETH buffer
      */
-    function ethBuffer(uint ethUsmPrice, uint ethInPool, uint usmSupply, WadMath.Round upOrDown)
+    function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, WadMath.Round upOrDown)
         public override pure returns (int buffer)
     {
         // Reverse the input upOrDown, since we're using it for usmToEth(), which will be *subtracted* from ethInPool below:
         WadMath.Round downOrUp = (upOrDown == WadMath.Round.Down ? WadMath.Round.Up : WadMath.Round.Down);
-        buffer = int(ethInPool) - int(usmToEth(ethUsmPrice, usmSupply, downOrUp));
+        buffer = int(ethInPool) - int(usmToEth(ethUsdPrice, usmSupply, downOrUp));
         require(buffer <= int(ethInPool), "Underflow error");
     }
 
@@ -374,8 +374,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * the current ETH pool amount.
      * @return ratio Debt ratio
      */
-    function debtRatio(uint ethUsmPrice, uint ethInPool, uint usmSupply) public override pure returns (uint ratio) {
-        uint ethPoolValueInUsd = ethInPool.wadMulDown(ethUsmPrice);
+    function debtRatio(uint ethUsdPrice, uint ethInPool, uint usmSupply) public override pure returns (uint ratio) {
+        uint ethPoolValueInUsd = ethInPool.wadMulDown(ethUsdPrice);
         ratio = (ethInPool == 0 ? 0 : usmSupply.wadDivUp(ethPoolValueInUsd));
     }
 
@@ -384,8 +384,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param ethAmount The amount of ETH to convert
      * @return usmOut The amount of USM
      */
-    function ethToUsm(uint ethUsmPrice, uint ethAmount, WadMath.Round upOrDown) public override pure returns (uint usmOut) {
-        usmOut = ethAmount.wadMul(ethUsmPrice, upOrDown);
+    function ethToUsm(uint ethUsdPrice, uint ethAmount, WadMath.Round upOrDown) public override pure returns (uint usmOut) {
+        usmOut = ethAmount.wadMul(ethUsdPrice, upOrDown);
     }
 
     /**
@@ -393,8 +393,8 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param usmAmount The amount of USM to convert
      * @return ethOut The amount of ETH
      */
-    function usmToEth(uint ethUsmPrice, uint usmAmount, WadMath.Round upOrDown) public override pure returns (uint ethOut) {
-        ethOut = usmAmount.wadDiv(ethUsmPrice, upOrDown);
+    function usmToEth(uint ethUsdPrice, uint usmAmount, WadMath.Round upOrDown) public override pure returns (uint ethOut) {
+        ethOut = usmAmount.wadDiv(ethUsdPrice, upOrDown);
     }
 
     function usmTotalSupply() public override view returns (uint supply) {
@@ -409,9 +409,9 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice Calculate the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
-    function usmPrice(IUSM.Side side, uint ethUsmPrice, uint adjustment) public override view returns (uint price) {
+    function usmPrice(IUSM.Side side, uint ethUsdPrice, uint adjustment) public override view returns (uint price) {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
-        price = usmToEth(ethUsmPrice, WAD, upOrDown);
+        price = usmToEth(ethUsdPrice, WAD, upOrDown);
 
         if ((side == IUSM.Side.Buy && adjustment < WAD) || (side == IUSM.Side.Sell && adjustment > WAD)) {
             price = price.wadDiv(adjustment, upOrDown);
@@ -422,14 +422,14 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @notice Calculate the *marginal* price of FUM (in ETH terms) - that is, of the next unit, before the price start sliding.
      * @return price FUM price in ETH terms
      */
-    function fumPrice(IUSM.Side side, uint ethUsmPrice, uint ethInPool, uint usmSupply, uint fumSupply, uint adjustment)
+    function fumPrice(IUSM.Side side, uint ethUsdPrice, uint ethInPool, uint usmSupply, uint fumSupply, uint adjustment)
         public override view returns (uint price)
     {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
         if (fumSupply == 0) {
-            return usmToEth(ethUsmPrice, WAD, upOrDown);    // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
+            return usmToEth(ethUsdPrice, WAD, upOrDown);    // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
         }
-        int buffer = ethBuffer(ethUsmPrice, ethInPool, usmSupply, upOrDown);
+        int buffer = ethBuffer(ethUsdPrice, ethInPool, usmSupply, upOrDown);
         price = (buffer <= 0 ? 0 : uint(buffer).wadDiv(fumSupply, upOrDown));
 
         if (side == IUSM.Side.Buy) {
@@ -453,11 +453,11 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param ethIn The amount of ETH passed to mint()
      * @return usmOut The amount of USM to receive in exchange
      */
-    function usmFromMint(uint ethUsmPrice0, uint ethIn, uint ethQty0, uint adjustment0)
+    function usmFromMint(uint ethUsdPrice0, uint ethIn, uint ethQty0, uint adjustment0)
         public view returns (uint usmOut, uint adjShrinkFactor)
     {
         // Create USM at a sliding-up USM price (ie, a sliding-down ETH price):
-        uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ethUsmPrice0, adjustment0);
+        uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ethUsdPrice0, adjustment0);
         uint ethQty1 = ethQty0.add(ethIn);
         //adjShrinkFactor = ethQty0.wadDivDown(ethQty1).wadSqrt();      // Another possible function we could use (same result)
         adjShrinkFactor = ethQty0.wadDivDown(ethQty1).wadExp(WAD / 2);
@@ -471,11 +471,11 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param usmIn The amount of USM passed to burn()
      * @return ethOut The amount of ETH to receive in exchange
      */
-    function ethFromBurn(uint ethUsmPrice0, uint usmIn, uint ethQty0, uint adjustment0)
+    function ethFromBurn(uint ethUsdPrice0, uint usmIn, uint ethQty0, uint adjustment0)
         public view returns (uint ethOut, uint adjGrowthFactor)
     {
         // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price):
-        uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, ethUsmPrice0, adjustment0);
+        uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, ethUsdPrice0, adjustment0);
 
         // Math: this is an integral - sum of all USM burned at a sliding price.  Follows the same mathematical invariant as
         // above: if debtRatio() *= k (here, k < 1), ETH price *= 1/k**2, ie, USM price in ETH terms *= k**2.
@@ -492,32 +492,32 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param ethIn The amount of ETH passed to fund()
      * @return fumOut The amount of FUM to receive in exchange
      */
-    function fumFromFund(uint ethUsmPrice0, uint ethIn, uint ethQty0, uint usmQty0, uint fumQty0, uint adjustment0)
+    function fumFromFund(uint ethUsdPrice0, uint ethIn, uint ethQty0, uint usmQty0, uint fumQty0, uint adjustment0)
         public view returns (uint fumOut, uint adjGrowthFactor)
     {
         if (ethQty0 == 0) {
             // No ETH in the system yet, which breaks our adjGrowthFactor calculation below - skip sliding-prices this time:
             adjGrowthFactor = WAD;
-            uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, ethUsmPrice0, ethQty0, usmQty0, fumQty0, adjustment0);
+            uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, ethUsdPrice0, ethQty0, usmQty0, fumQty0, adjustment0);
             fumOut = ethIn.wadDivDown(fumBuyPrice0);
         } else {
             // Create FUM at a sliding-up FUM price:
             uint ethQty1 = ethQty0.add(ethIn);
-            uint effectiveUsmQty0 = usmQty0.wadMin(ethQty0.wadMulUp(ethUsmPrice0).wadMulUp(MAX_DEBT_RATIO));
-            uint effectiveDebtRatio = debtRatio(ethUsmPrice0, ethQty0, effectiveUsmQty0);
+            uint effectiveUsmQty0 = usmQty0.wadMin(ethQty0.wadMulUp(ethUsdPrice0).wadMulUp(MAX_DEBT_RATIO));
+            uint effectiveDebtRatio = debtRatio(ethUsdPrice0, ethQty0, effectiveUsmQty0);
             uint effectiveFumDelta = WAD.wadDivUp(WAD.sub(effectiveDebtRatio));
             adjGrowthFactor = ethQty1.wadDivUp(ethQty0).wadExp(effectiveFumDelta / 2);
-            fumOut = calcSlidingFumQty(ethUsmPrice0, ethIn, ethQty0, fumQty0, adjustment0, effectiveUsmQty0, adjGrowthFactor);
+            fumOut = calcSlidingFumQty(ethUsdPrice0, ethIn, ethQty0, fumQty0, adjustment0, effectiveUsmQty0, adjGrowthFactor);
         }
     }
 
-    function calcSlidingFumQty(uint ethUsmPrice0, uint ethIn, uint ethQty0, uint fumQty0, uint adjustment0,
+    function calcSlidingFumQty(uint ethUsdPrice0, uint ethIn, uint ethQty0, uint fumQty0, uint adjustment0,
                                uint effectiveUsmQty0, uint adjGrowthFactor)
         public pure returns (uint fumOut)
     {
-        uint ethUsmPrice1 = ethUsmPrice0.wadMulUp(adjGrowthFactor);
+        uint ethUsdPrice1 = ethUsdPrice0.wadMulUp(adjGrowthFactor);
         uint avgFumBuyPrice = adjustment0.wadMulUp(
-            ethQty0.sub(effectiveUsmQty0.wadDivDown(ethUsmPrice1)).wadDivUp(fumQty0));
+            ethQty0.sub(effectiveUsmQty0.wadDivDown(ethUsdPrice1)).wadDivUp(fumQty0));
         fumOut = ethIn.wadDivDown(avgFumBuyPrice);
     }
 
@@ -526,24 +526,24 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @param fumIn The amount of FUM passed to defund()
      * @return ethOut The amount of ETH to receive in exchange
      */
-    function ethFromDefund(uint ethUsmPrice0, uint fumIn, uint ethQty0, uint usmQty0, uint adjustment0)
+    function ethFromDefund(uint ethUsdPrice0, uint fumIn, uint ethQty0, uint usmQty0, uint adjustment0)
         public view returns (uint ethOut, uint adjShrinkFactor)
     {
         // Burn FUM at a sliding-down FUM price:
         uint fumQty0 = fum.totalSupply();
-        uint debtRatio0 = debtRatio(ethUsmPrice0, ethQty0, usmQty0);
+        uint debtRatio0 = debtRatio(ethUsdPrice0, ethQty0, usmQty0);
         uint fumDelta = WAD.wadDivUp(WAD.sub(debtRatio0));
-        uint avgFumSellPrice = calcAverageFumSellPrice(ethUsmPrice0, fumIn, ethQty0, usmQty0, fumQty0, adjustment0, fumDelta);
+        uint avgFumSellPrice = calcAverageFumSellPrice(ethUsdPrice0, fumIn, ethQty0, usmQty0, fumQty0, adjustment0, fumDelta);
         ethOut = fumIn.wadMulDown(avgFumSellPrice);
         uint ethQty1 = ethQty0.sub(ethOut);
         adjShrinkFactor = ethQty1.wadDivUp(ethQty0).wadExp(fumDelta / 2);
     }
 
-    function calcAverageFumSellPrice(uint ethUsmPrice0, uint fumIn, uint ethQty0, uint usmQty0, uint fumQty0, uint adjustment0,
+    function calcAverageFumSellPrice(uint ethUsdPrice0, uint fumIn, uint ethQty0, uint usmQty0, uint fumQty0, uint adjustment0,
                                      uint fumDelta)
         public view returns (uint avgFumSellPrice)
     {
-        uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, ethUsmPrice0, ethQty0, usmQty0, fumQty0, adjustment0);
+        uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, ethUsdPrice0, ethQty0, usmQty0, fumQty0, adjustment0);
 
         // First obtain a pessimistic upper bound on how large the adjShrinkFactor could be - pessimistic since the more the
         // adjustment shrinks, the more our sell price slides (down) away from us.  The more the ETH pool decreases, the more
@@ -552,10 +552,10 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         // maximum ETH pool reduction, is an upper bound on the actual adjShrinkFactor of this defund() call:
         uint lowerBoundEthQty1 = ethQty0.sub(fumIn.wadMulUp(fumSellPrice0));
         uint lowerBoundAdjShrinkFactor = lowerBoundEthQty1.wadDivDown(ethQty0).wadExp(fumDelta / 2);
-        uint lowerBoundEthUsmPrice1 = ethUsmPrice0.wadMulDown(lowerBoundAdjShrinkFactor);
+        uint lowerBoundEthUsdPrice1 = ethUsdPrice0.wadMulDown(lowerBoundAdjShrinkFactor);
 
-        // Using this ending ETH mid price lowerBoundEthUsmPrice1, we can calc the actual average FUM sell price of the defund:
-        avgFumSellPrice = fumPrice(IUSM.Side.Sell, lowerBoundEthUsmPrice1, ethQty0, usmQty0, fumQty0, adjustment0);
+        // Using this ending ETH mid price lowerBoundEthUsdPrice1, we can calc the actual average FUM sell price of the defund:
+        avgFumSellPrice = fumPrice(IUSM.Side.Sell, lowerBoundEthUsdPrice1, ethQty0, usmQty0, fumQty0, adjustment0);
     }
 
     /**
