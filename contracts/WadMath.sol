@@ -20,8 +20,9 @@ library WadMath {
     uint private constant WAD_OVER_20 = WAD / 20;
     uint private constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
     uint private constant TWO_WAD = 2 * WAD;
-    uint private constant LOG_WAD = 158961593653514369813532673448321674075;    // log_2(10**18) * 2**121
-    uint private constant WAD_LOG_DIVISOR = 3835341275459348170;                // 2**121 / (ln(2) * 10**18)
+    uint private constant LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;   // log_2(10**18) * 2**121
+    uint private constant LOG_2_E_SCALED = 3835341275459348169893510517860103418;       // log_2(e) * 2**121
+    uint private constant LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;                // log_2(e) * 2**121 / 10**18
 
     uint private constant UINT128_MAX = 2 ** 128 - 1;   // Should really be type(uint128).max, but that needs Solidity 0.6.8...
 
@@ -141,32 +142,49 @@ library WadMath {
     }
 
     /**
-     * Raise given number x to power y (approximately!), both in WAD 18-digit fixed-point form, and return the result in,
-     * again, WAD form.
-     */
-    function wadExp(uint x, int y) internal pure returns (uint z) {
-        if (y < 0) {
-            z = wadDivDown(WAD, wadExp(x, -y));
-        } else {
-            require(x <= UINT128_MAX, "x overflow");
-            uint logX = log_2(uint128(x));
-            uint exponent;
-            if (logX >= LOG_WAD) {
-                exponent = LOG_WAD.add(wadMulDown(uint(y), logX - LOG_WAD));
-            } else {
-                exponent = LOG_WAD.sub(wadMulDown(uint(y), LOG_WAD - logX));
-            }
-            require(exponent <= UINT128_MAX, "exponent overflow");
-            z = pow_2(uint128(exponent));
-        }
-    }
-
-    /**
      * Returns the (approximate!) natural logarithm of x, where both x and the return value are in WAD fixed-point form.
      */
     function wadLog(uint x) internal pure returns (int z) {
         require(x <= UINT128_MAX, "x overflow");
-        z = (int(log_2(uint128(x))) - int(LOG_WAD)) / int(WAD_LOG_DIVISOR);
+        z = (int(log_2(uint128(x))) - int(LOG_2_WAD_SCALED)) / int(LOG_2_E_SCALED_OVER_WAD);
+    }
+
+    /**
+     * Raise e to the given power y (approximately!), specified in WAD 18-digit fixed-point form, and return the result in,
+     * again, WAD form.
+     *
+     * This library works only on positive uint inputs.  If you have a negative exponent (y < 0), you can calculate it using
+     * this identity:
+     *
+     *     wadExp(y < 0) = 1 / wadExp(-y > 0) = WAD.div(wadExp(-y > 0))
+     */
+    function wadExp(uint y) internal pure returns (uint z) {
+        uint exponent = LOG_2_WAD_SCALED.add(wadMulDown(y, LOG_2_E_SCALED));
+        require(exponent <= UINT128_MAX, "exponent overflow");
+        z = pow_2(uint128(exponent));
+    }
+
+    /**
+     * Raise given number x to power y (approximately!), both in WAD 18-digit fixed-point form, and return the result in,
+     * again, WAD form.
+     *
+     * This library works only on positive uint inputs.  If you have a negative base (x < 0) or a negative exponent (y < 0),
+     * you can calculate them using these identities:
+     *
+     *     wadExp(x < 0, y) = -wadExp(-x > 0, y)
+     *     wadExp(x, y < 0) = 1 / wadExp(x, -y > 0) = WAD.div(wadExp(x, -y > 0))
+     */
+    function wadExp(uint x, uint y) internal pure returns (uint z) {
+        require(x <= UINT128_MAX, "x overflow");
+        uint logX = log_2(uint128(x));
+        uint exponent;
+        if (logX >= LOG_2_WAD_SCALED) {
+            exponent = LOG_2_WAD_SCALED.add(wadMulDown(y, logX - LOG_2_WAD_SCALED));
+        } else {
+            exponent = LOG_2_WAD_SCALED.sub(wadMulDown(y, LOG_2_WAD_SCALED - logX));
+        }
+        require(exponent <= UINT128_MAX, "exponent overflow");
+        z = pow_2(uint128(exponent));
     }
 
     /* ____________________ Exponential/logarithm fns borrowed from Yield Protocol ____________________

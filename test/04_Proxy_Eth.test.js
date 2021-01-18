@@ -12,52 +12,13 @@ require('chai').use(require('chai-as-promised')).should()
 
 contract('USM - Proxy - Eth', (accounts) => {
   const [deployer, user1, user2] = accounts
-  const [ZERO, ONE, TWO, THREE, EIGHT, TEN] =
-        [0, 1, 2, 3, 8, 10].map(function (n) { return new BN(n) })
-  const WAD = new BN('1000000000000000000')
-  const WAD_MINUS_1 = WAD.sub(ONE)
-  const WAD_SQUARED = WAD.mul(WAD)
-  const WAD_SQUARED_MINUS_1 = WAD_SQUARED.sub(ONE)
+  const [TWO, WAD] =
+        [2, '1000000000000000000'].map(function (n) { return new BN(n) })
 
-  const sides = { BUY: 0, SELL: 1 }
-  const rounds = { DOWN: 0, UP: 1 }
   const MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
   const oneEth = WAD
   const price = new BN(250)
   const priceWAD = price.mul(WAD)
-
-  function wadMul(x, y, upOrDown) {
-    return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
-  }
-
-  function wadSquared(x, upOrDown) {
-    return wadMul(x, x, upOrDown)
-  }
-
-  function wadCubed(x, upOrDown) {
-    return ((x.mul(x).mul(x)).add(upOrDown == rounds.DOWN ? ZERO : WAD_SQUARED_MINUS_1)).div(WAD_SQUARED)
-  }
-
-  function wadDiv(x, y, upOrDown) {
-    return ((x.mul(WAD)).add(y.sub(ONE))).div(y)
-  }
-
-  function wadCbrt(y, upOrDown) {
-    if (y.gt(ZERO)) {
-      let root, newRoot
-      newRoot = y.add(TWO.mul(WAD)).div(THREE)
-      const yTimesWadSquared = y.mul(WAD_SQUARED)
-      do {
-        root = newRoot
-        newRoot = root.add(root).add(yTimesWadSquared.div(root.mul(root))).div(THREE)
-      } while (newRoot.lt(root))
-      if ((upOrDown == rounds.UP) && root.pow(THREE).lt(y.mul(WAD_SQUARED))) {
-        root = root.add(ONE)
-      }
-      return root
-    }
-    return ZERO
-  }
 
   describe('mints and burns a static amount', () => {
     let weth, usm, fum, usmView, proxy
@@ -79,15 +40,16 @@ contract('USM - Proxy - Eth', (accounts) => {
 
     describe('minting and burning', () => {
 
-      // See 03_USM.test.js for the original versions of all these (copy-&-pasted and simplified) tests.
       it('allows minting FUM', async () => {
-        const fumBuyPrice = (await usmView.fumPrice(sides.BUY))
-        const fumSellPrice = (await usmView.fumPrice(sides.SELL))
-        fumBuyPrice.toString().should.equal(fumSellPrice.toString())
+        const startingEthPool = await usm.ethPool()
+        const startingFumBalance = await fum.balanceOf(user1)
 
         await proxy.fund(user1, oneEth, 0, { from: user1 })
-        const ethPool2 = await usm.ethPool()
-        ethPool2.toString().should.equal(oneEth.toString())
+
+        const endingEthPool = await usm.ethPool()
+        endingEthPool.should.be.bignumber.equal(startingEthPool.add(oneEth))
+        const endingFumBalance = await fum.balanceOf(user1)
+        endingFumBalance.should.be.bignumber.gt(startingFumBalance)
       })
 
       it('does not mint FUM if minimum not reached', async () => {
@@ -103,12 +65,15 @@ contract('USM - Proxy - Eth', (accounts) => {
         })
 
         it('allows minting USM', async () => {
-          await proxy.mint(user1, oneEth, 0, { from: user1 })
-          const ethPool2 = await usm.ethPool()
-          ethPool2.toString().should.equal(oneEth.mul(TWO).toString())
+          const startingEthPool = await usm.ethPool()
+          const startingUsmBalance = await usm.balanceOf(user1)
 
-          const usmBalance2 = (await usm.balanceOf(user1))
-          usmBalance2.toString().should.equal(wadMul(oneEth, priceWAD, rounds.DOWN).toString()) // Just qty * price, no sliding prices yet
+          await proxy.mint(user1, oneEth, 0, { from: user1 })
+
+          const endingEthPool = await usm.ethPool()
+          endingEthPool.should.be.bignumber.equal(startingEthPool.add(oneEth))
+          const endingUsmBalance = await usm.balanceOf(user1)
+          endingUsmBalance.should.be.bignumber.gt(startingUsmBalance)
         })
 
         it('does not mint USM if minimum not reached', async () => {
@@ -144,12 +109,12 @@ contract('USM - Proxy - Eth', (accounts) => {
           })
 
           it('allows minting USM by sending ETH, if minUsmOut specified but met (2)', async () => {
-            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000019788' }) // Returns >= 197.88 USM per ETH
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000010136' }) // Returns >= 101.36 USM per ETH
           })
 
           it('does not mint USM by sending ETH, if minUsmOut specified and missed (1)', async () => {
             await expectRevert(
-              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000019789' }), // Returns < 197.89 USM per ETH
+              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000010137' }), // Returns < 101.37 USM per ETH
               "Limit not reached",
             )
           })
@@ -166,12 +131,12 @@ contract('USM - Proxy - Eth', (accounts) => {
           })
 
           it('allows burning USM by sending it, if minEthOut specified but met', async () => {
-            await usm.transfer(usm.address, '1000000000000025051', { from: user1 }) // Pays <= 250.51 USM per ETH
+            await usm.transfer(usm.address, '1000000000000017703', { from: user1 }) // Pays <= 177.03 USM per ETH
           })
 
           it('does not burn USM by sending it, if minEthOut specified and missed (1)', async () => {
             await expectRevert(
-              usm.transfer(usm.address, '1000000000000025050', { from: user1 }), // Pays > 250.50 USM per ETH
+              usm.transfer(usm.address, '1000000000000017702', { from: user1 }), // Pays > 177.02 USM per ETH
               "Limit not reached",
             )
           })
@@ -184,62 +149,49 @@ contract('USM - Proxy - Eth', (accounts) => {
           })
 
           it('allows burning FUM', async () => {
-            const ethPool = (await usm.ethPool())
-            const debtRatio = (await usmView.debtRatio())
-            const fumSellPrice = (await usmView.fumPrice(sides.SELL))
+            const startingFumBalance = await fum.balanceOf(user1)
+            const startingEthPool = await usm.ethPool()
+            const startingWethBalance = await weth.balanceOf(user1)
 
-            const fumBalance = (await fum.balanceOf(user1))
-            const ethBalance = (await weth.balanceOf(user1))
-            const targetFumBalance = wadMul(oneEth, priceWAD, rounds.DOWN) // see "allows minting FUM" above
-            fumBalance.toString().should.equal(targetFumBalance.toString())
+            const fumToBurn = startingFumBalance.mul(new BN('3')).div(new BN('4')) // defund 75% of our FUM
+            await proxy.defund(user1, fumToBurn, 0, { from: user1 })
 
-            const fumToBurn = priceWAD.div(TWO)
-            await proxy.defund(user1, fumToBurn, 0, { from: user1, gasPrice: 0 }) // Don't use eth on gas
-            const fumBalance2 = (await fum.balanceOf(user1))
-            fumBalance2.toString().should.equal(fumBalance.sub(fumToBurn).toString())
-
-            const ethBalance2 = (await weth.balanceOf(user1))
-            const ethOut = ethBalance2.sub(ethBalance)
-            // Like most of this file, this math is cribbed from 03_USM.test.js (originally, from USM.sol, eg ethFromDefund()):
-            const targetEthOut = ethPool.mul(wadMul(fumToBurn, fumSellPrice, rounds.DOWN)).div(
-                ethPool.add(wadMul(fumToBurn, fumSellPrice, rounds.UP)))
-            ethOut.toString().should.equal(targetEthOut.toString())
+            const endingFumBalance = await fum.balanceOf(user1)
+            endingFumBalance.should.be.bignumber.equal(startingFumBalance.sub(fumToBurn))
+            const endingEthPool = await usm.ethPool()
+            endingEthPool.should.be.bignumber.lt(startingEthPool)
+            const endingWethBalance = await weth.balanceOf(user1)
+            endingWethBalance.should.be.bignumber.equal(startingWethBalance.add(startingEthPool.sub(endingEthPool)))
           })
 
           it('does not burn FUM if minimum not reached', async () => {
-            const fumBalance = (await fum.balanceOf(user1))
+            // Defunding the full balance would fail (violate MAX_DEBT_RATIO), so just defund half:
+            const fumToBurn = (await fum.balanceOf(user1)).div(TWO)
 
             await expectRevert(
-              // Defunding the full balance would fail (violate MAX_DEBT_RATIO), so just defund half:
-              proxy.defund(user1, fumBalance.div(TWO), MAX, { from: user1 }),
+              proxy.defund(user1, fumToBurn, MAX, { from: user1 }),
               "Limit not reached",
             )
           })
 
           it('allows burning USM', async () => {
-            const ethPool = (await usm.ethPool())
-            const debtRatio = (await usmView.debtRatio())
-            const usmSellPrice = (await usmView.usmPrice(sides.SELL))
+            const startingUsmBalance = await usm.balanceOf(user1)
+            const startingEthPool = await usm.ethPool()
+            const startingWethBalance = await weth.balanceOf(user1)
 
-            const usmBalance = (await usm.balanceOf(user1))
-            const ethBalance = (await weth.balanceOf(user1))
+            const usmToBurn = startingUsmBalance // burn 100% of our USM
+            await proxy.burn(user1, usmToBurn, 0, { from: user1 })
 
-            const usmToBurn = usmBalance
-            await proxy.burn(user1, usmToBurn, 0, { from: user1, gasPrice: 0 })
-            const usmBalance2 = (await usm.balanceOf(user1))
-            usmBalance2.toString().should.equal('0')
-
-            const ethBalance2 = (await weth.balanceOf(user1))
-            const ethOut = ethBalance2.sub(ethBalance)
-            const ethPool2 = ethPool.sub(ethOut)
-            const firstPart = wadMul(wadMul(usmSellPrice, usmBalance, rounds.DOWN),
-                                     WAD.sub(wadCubed(wadDiv(usmBalance2, usmBalance, rounds.UP), rounds.UP)), rounds.DOWN)
-            const targetEthPool2 = wadCbrt(wadMul(wadSquared(ethPool, rounds.UP), ethPool.sub(firstPart), rounds.UP), rounds.UP)
-            ethPool2.toString().should.equal(targetEthPool2.toString())
+            const endingUsmBalance = await usm.balanceOf(user1)
+            endingUsmBalance.should.be.bignumber.equal(startingUsmBalance.sub(usmToBurn))
+            const endingEthPool = await usm.ethPool()
+            endingEthPool.should.be.bignumber.lt(startingEthPool)
+            const endingWethBalance = await weth.balanceOf(user1)
+            endingWethBalance.should.be.bignumber.equal(startingWethBalance.add(startingEthPool.sub(endingEthPool)))
           })
 
           it('does not burn USM if minimum not reached', async () => {
-            const usmToBurn = (await usm.balanceOf(user1))
+            const usmToBurn = await usm.balanceOf(user1)
 
             await expectRevert(
               proxy.burn(user1, usmToBurn, MAX, { from: user1 }),

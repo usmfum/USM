@@ -62,7 +62,7 @@ contract USMView {
      */
     function usmPrice(IUSM.Side side) external view returns (uint price) {
         (uint ethUsdPrice, ) = usm.latestPrice();
-        price = usm.usmPrice(side, ethUsdPrice, usm.debtRatio(ethUsdPrice, usm.ethPool(), usm.usmTotalSupply()));
+        price = usm.usmPrice(side, ethUsdPrice, usm.buySellAdjustment());
     }
 
     /**
