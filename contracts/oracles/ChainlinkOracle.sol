@@ -24,12 +24,13 @@ contract ChainlinkOracle is Oracle {
      * @notice Retrieve the latest price of the price oracle.
      * @return price
      */
-    function latestPrice() public virtual override view returns (uint price) {
-        price = latestChainlinkPrice();
+    function latestPrice() public virtual override view returns (uint price, uint updateTime) {
+        (price, updateTime) = latestChainlinkPrice();
     }
 
-    function latestChainlinkPrice() public view returns (uint price) {
-        (, int rawPrice,,,) = aggregator.latestRoundData();
+    function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
+        int rawPrice;
+        (, rawPrice,, updateTime,) = aggregator.latestRoundData();
         price = uint(rawPrice).mul(SCALE_FACTOR); // TODO: Cast safely
     }
 }

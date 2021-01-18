@@ -6,16 +6,18 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TestOracle is SettableOracle, Ownable {
     uint internal savedPrice;
+    uint internal savedUpdateTime;
 
     constructor(uint p) public {
         setPrice(p);
     }
 
-    function latestPrice() public override view returns (uint) {
-        return savedPrice;
+    function latestPrice() public virtual override view returns (uint price, uint updateTime) {
+        return (savedPrice, savedUpdateTime);
     }
 
     function setPrice(uint p) public override {
         savedPrice = p;
+        savedUpdateTime = now;
     }
 }

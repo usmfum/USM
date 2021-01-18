@@ -37,16 +37,16 @@ contract('Oracle pricing', (accounts) => {
   const ethUsdtTimestamp_0 = new BN('1606780564')
   const ethUsdtCumPrice0_1 = new BN('30198349396553956234684790868151')
   const ethUsdtCumPrice1_1 = new BN('276779938284455484990752289414970402581013223198265')
-  const ethUsdtTimestamp_1 = new BN('1606780984')
+  const ethUsdtTimestamp_1 = new BN('1606781184')
   const ethUsdtTokensInReverseOrder = false
   const ethUsdtScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(usdtDecimals))
 
   const usdcEthCumPrice0_0 = new BN('307631784275278277546624451305316303382174855535226') // From the USDC/ETH pair
-  const usdcEthCumPrice1_0 = new BN('31377639132666967530700283664103')
+  const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103')
   const usdcEthTimestamp_0 = new BN('1606780664')
   const usdcEthCumPrice0_1 = new BN('307634635050611880719301156089846577363471806696356')
   const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')
-  const usdcEthTimestamp_1 = new BN('1606781003')
+  const usdcEthTimestamp_1 = new BN('1606782003')
   const usdcEthTokensInReverseOrder = true
   const usdcEthScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(usdcDecimals))
 
@@ -55,7 +55,7 @@ contract('Oracle pricing', (accounts) => {
   const daiEthTimestamp_0 = new BN('1606780728')
   const daiEthCumPrice0_1 = new BN('291036072023637413832938851532265880018')
   const daiEthCumPrice1_1 = new BN('30340852730044753766501469633003499944051151')
-  const daiEthTimestamp_1 = new BN('1606781048')
+  const daiEthTimestamp_1 = new BN('1606781448')
   const daiEthTokensInReverseOrder = true
   const daiEthScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(daiDecimals))
 
@@ -68,8 +68,8 @@ contract('Oracle pricing', (accounts) => {
 
   function shouldEqualApprox(x, y) {
     // Check that abs(x - y) < 0.0000001(x + y):
-    const diff = (x.gt(y) ? x.sub(y) : y.sub(x))
-    diff.should.be.bignumber.lt(x.add(y).div(new BN(1000000)))
+    const diff = x.sub(y).abs()
+    diff.should.be.bignumber.lte(x.add(y).abs().div(new BN(1000000)))
   }
 
   describe("with TestOracle", () => {
@@ -82,12 +82,12 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice = (await oracle.latestPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
       oraclePrice.toString().should.equal(testPriceWAD)
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
     })
   })
 
@@ -105,12 +105,12 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice = (await oracle.latestPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
       oraclePrice.toString().should.equal(chainlinkPriceWAD.toString())
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
     })
   })
 
@@ -125,15 +125,16 @@ contract('Oracle pricing', (accounts) => {
 
       oracle = await CompoundOracle.new(anchoredView.address, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(oracle.address, "compound", { from: deployer })
+      await oracle.refreshPrice()
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice = (await oracle.latestPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
       oraclePrice.toString().should.equal(compoundPriceWAD.toString())
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
     })
   })
 
@@ -150,15 +151,15 @@ contract('Oracle pricing', (accounts) => {
       oracle = await UniswapTWAPOracle.new(pair.address, ethDecimals, usdtDecimals, ethUsdtTokensInReverseOrder,
                                            { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(oracle.address, "uniswapTWAP", { from: deployer })
-      await oracle.cacheLatestPrice()
+      await oracle.refreshPrice()
 
       await pair.setReserves(0, 0, ethUsdtTimestamp_1)
       await pair.setCumulativePrices(ethUsdtCumPrice0_1, ethUsdtCumPrice1_1)
-      //await oracle.cacheLatestPrice() // Not actually needed, unless we do further testing moving timestamps further forward
+      //await oracle.refreshPrice() // Not actually needed, unless we do further testing moving timestamps further forward
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice1 = (await oracle.latestPrice())
+      const oraclePrice1 = (await oracle.latestPrice())[0]
 
       const targetOraclePriceNum = (ethUsdtCumPrice0_1.sub(ethUsdtCumPrice0_0)).mul(ethUsdtScaleFactor)
       const targetOraclePriceDenom = (ethUsdtTimestamp_1.sub(ethUsdtTimestamp_0)).mul(uniswapCumPriceScalingFactor)
@@ -167,7 +168,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
     })
   })
 
@@ -190,22 +191,22 @@ contract('Oracle pricing', (accounts) => {
       rawOracle = await MedianOracle.new(chainlinkAggregator.address, compoundView.address,
         usdcEthPair.address, usdcDecimals, ethDecimals, usdcEthTokensInReverseOrder, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(rawOracle.address, "median", { from: deployer })
-      await oracle.cacheLatestPrice()
+      await oracle.refreshPrice()
 
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
-      //await oracle.cacheLatestPrice() // Not actually needed, unless we do further testing moving timestamps further forward
+      //await oracle.refreshPrice() // Not actually needed, unless we do further testing moving timestamps further forward
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice = (await oracle.latestPrice())
-      const uniswapPrice = (await rawOracle.latestUniswapTWAPPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
+      const uniswapPrice = (await rawOracle.latestUniswapTWAPPrice())[0]
       const targetOraclePrice = median(chainlinkPriceWAD, compoundPriceWAD, uniswapPrice)
       oraclePrice.toString().should.equal(targetOraclePrice.toString())
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())
+      const oraclePrice = (await oracle.latestPrice())[0]
     })
   })
 })
