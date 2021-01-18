@@ -16,7 +16,7 @@ contract CompoundOpenOracle is Oracle {
 
     uint private constant SCALE_FACTOR = 10 ** 12;  // Since Compound has 6 dec places, and latestPrice() needs 18
 
-    UniswapAnchoredView private anchoredView;
+    UniswapAnchoredView public anchoredView;
 
     constructor(UniswapAnchoredView anchoredView_) public
     {

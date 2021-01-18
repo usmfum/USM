@@ -12,14 +12,14 @@ library WadMath {
 
     enum Round {Down, Up}
 
-    uint private constant WAD = 10 ** 18;
-    uint private constant WAD_MINUS_1 = WAD - 1;
-    uint private constant WAD_SQUARED = WAD * WAD;
-    uint private constant WAD_SQUARED_MINUS_1 = WAD_SQUARED - 1;
-    uint private constant WAD_OVER_10 = WAD / 10;
-    uint private constant WAD_OVER_20 = WAD / 20;
-    uint private constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
-    uint private constant TWO_WAD = 2 * WAD;
+    uint public constant WAD = 10 ** 18;
+    uint public constant WAD_MINUS_1 = WAD - 1;
+    uint public constant WAD_SQUARED = WAD * WAD;
+    uint public constant WAD_SQUARED_MINUS_1 = WAD_SQUARED - 1;
+    uint public constant WAD_OVER_10 = WAD / 10;
+    uint public constant WAD_OVER_20 = WAD / 20;
+    uint public constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
+    uint public constant TWO_WAD = 2 * WAD;
 
     function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint) {
         return upOrDown == Round.Down ? wadMulDown(x, y) : wadMulUp(x, y);
