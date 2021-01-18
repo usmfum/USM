@@ -11,11 +11,15 @@ import "../WadMath.sol";
 contract MockWadMath {
     using WadMath for uint;
 
-    function wadCbrtDown(uint x) public pure returns (uint) {
-        return x.wadCbrtDown();
+    function wadLog(uint x) public pure returns (int y) {
+        y = x.wadLog();
     }
 
-    function wadCbrtUp(uint x) public pure returns (uint) {
-        return x.wadCbrtUp();
+    function wadExp(uint y) public pure returns (uint z) {
+        z = y.wadExp();
+    }
+
+    function wadExp(uint x, uint y) public pure returns (uint z) {
+        z = x.wadExp(y);
     }
 }

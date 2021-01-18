@@ -13,7 +13,7 @@ contract ChainlinkOracle is Oracle {
 
     uint private constant SCALE_FACTOR = 10 ** 10;  // Since Chainlink has 8 dec places, and latestPrice() needs 18
 
-    AggregatorV3Interface private aggregator;
+    AggregatorV3Interface public aggregator;
 
     constructor(AggregatorV3Interface aggregator_) public
     {
@@ -24,12 +24,13 @@ contract ChainlinkOracle is Oracle {
      * @notice Retrieve the latest price of the price oracle.
      * @return price
      */
-    function latestPrice() public virtual override view returns (uint price) {
-        price = latestChainlinkPrice();
+    function latestPrice() public virtual override view returns (uint price, uint updateTime) {
+        (price, updateTime) = latestChainlinkPrice();
     }
 
-    function latestChainlinkPrice() public view returns (uint price) {
-        (, int rawPrice,,,) = aggregator.latestRoundData();
+    function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
+        int rawPrice;
+        (, rawPrice,, updateTime,) = aggregator.latestRoundData();
         price = uint(rawPrice).mul(SCALE_FACTOR); // TODO: Cast safely
     }
 }
