@@ -37,16 +37,16 @@ contract('Oracle pricing', (accounts) => {
   const ethUsdtTimestamp_0 = new BN('1606780564')
   const ethUsdtCumPrice0_1 = new BN('30198349396553956234684790868151')
   const ethUsdtCumPrice1_1 = new BN('276779938284455484990752289414970402581013223198265')
-  const ethUsdtTimestamp_1 = new BN('1606780984')
+  const ethUsdtTimestamp_1 = new BN('1606781184')
   const ethUsdtTokensInReverseOrder = false
   const ethUsdtScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(usdtDecimals))
 
   const usdcEthCumPrice0_0 = new BN('307631784275278277546624451305316303382174855535226') // From the USDC/ETH pair
-  const usdcEthCumPrice1_0 = new BN('31377639132666967530700283664103')
+  const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103')
   const usdcEthTimestamp_0 = new BN('1606780664')
   const usdcEthCumPrice0_1 = new BN('307634635050611880719301156089846577363471806696356')
   const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')
-  const usdcEthTimestamp_1 = new BN('1606781003')
+  const usdcEthTimestamp_1 = new BN('1606782003')
   const usdcEthTokensInReverseOrder = true
   const usdcEthScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(usdcDecimals))
 
@@ -55,7 +55,7 @@ contract('Oracle pricing', (accounts) => {
   const daiEthTimestamp_0 = new BN('1606780728')
   const daiEthCumPrice0_1 = new BN('291036072023637413832938851532265880018')
   const daiEthCumPrice1_1 = new BN('30340852730044753766501469633003499944051151')
-  const daiEthTimestamp_1 = new BN('1606781048')
+  const daiEthTimestamp_1 = new BN('1606781448')
   const daiEthTokensInReverseOrder = true
   const daiEthScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(daiDecimals))
 
@@ -200,7 +200,7 @@ contract('Oracle pricing', (accounts) => {
 
     it('returns the correct price', async () => {
       const oraclePrice = (await oracle.latestPrice())[0]
-      const uniswapPrice = (await rawOracle.latestUniswapTWAPPrice())
+      const uniswapPrice = (await rawOracle.latestUniswapTWAPPrice())[0]
       const targetOraclePrice = median(chainlinkPriceWAD, compoundPriceWAD, uniswapPrice)
       oraclePrice.toString().should.equal(targetOraclePrice.toString())
     })
