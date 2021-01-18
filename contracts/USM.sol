@@ -13,7 +13,7 @@ import "./oracles/Oracle.sol";
 // import "@nomiclabs/buidler/console.sol";
 
 /**
- * @title USMTemplate
+ * @title USM
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  *
@@ -25,7 +25,7 @@ import "./oracles/Oracle.sol";
  * calls *internal* rather than calls to a separate oracle contract (or multiple contracts) - which leads to a significant
  * saving in gas.
  */
-abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
+contract USM is IUSM, Oracle, ERC20Permit, Delegable {
     using Address for address payable;
     using SafeMath for uint;
     using WadMath for uint;
@@ -45,6 +45,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     uint private constant INT_MAX = 2**256 - 1;          // Ditto, type(int).max
 
     FUM public immutable fum;
+    Oracle public immutable oracle;
 
     struct TimedValue {
         uint32 timestamp;
@@ -55,9 +56,10 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     TimedValue public storedMinFumBuyPrice;
     TimedValue public storedBuySellAdjustment = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
-    constructor() public ERC20Permit("Minimal USD", "USM")
+    constructor(Oracle oracle_) public ERC20Permit("Minimal USD", "USM")
     {
         fum = new FUM(this);
+        oracle = oracle_;
     }
 
     /** PUBLIC AND EXTERNAL TRANSACTIONAL FUNCTIONS **/
@@ -246,7 +248,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     }
 
     function _refreshPrice() internal returns (uint price, uint updateTime, uint adjustment, bool priceChanged) {
-        (price, updateTime) = super.refreshPrice();
+        (price, updateTime) = oracle.refreshPrice();
         adjustment = buySellAdjustment();
         priceChanged = updateTime > storedPrice.timestamp;
         if (priceChanged) {
@@ -347,6 +349,10 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
 
     function latestPrice() public virtual override(IUSM, Oracle) view returns (uint price, uint updateTime) {
         (price, updateTime) = (storedPrice.value, storedPrice.timestamp);
+    }
+
+    function latestOraclePrice() public virtual override view returns (uint price, uint updateTime) {
+        (price, updateTime) = oracle.latestPrice();
     }
 
     /**
