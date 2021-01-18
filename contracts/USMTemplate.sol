@@ -35,6 +35,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
     event PriceChanged(uint previous, uint latest);
 
     uint public constant WAD = 10 ** 18;
+    uint public constant HALF_WAD = WAD / 2;
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                 // 80%
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
@@ -460,7 +461,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ethUsdPrice0, adjustment0);
         uint ethQty1 = ethQty0.add(ethIn);
         //adjShrinkFactor = ethQty0.wadDivDown(ethQty1).wadSqrt();      // Another possible function we could use (same result)
-        adjShrinkFactor = ethQty0.wadDivDown(ethQty1).wadExp(WAD / 2);
+        adjShrinkFactor = ethQty0.wadDivDown(ethQty1).wadExp(HALF_WAD);
         int log = ethQty1.wadDivDown(ethQty0).wadLog();
         require(log >= 0, "log underflow");
         usmOut = ethQty0.wadDivDown(usmBuyPrice0).wadMulDown(uint(log));
@@ -484,7 +485,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
         require(exponent <= INT_MAX, "exponent overflow");
         uint ethQty1 = ethQty0.wadDivUp(exponent.wadExp());
         ethOut = ethQty0.sub(ethQty1);
-        adjGrowthFactor = ethQty0.wadDivUp(ethQty1).wadExp(WAD / 2);
+        adjGrowthFactor = ethQty0.wadDivUp(ethQty1).wadExp(HALF_WAD);
     }
 
     /**

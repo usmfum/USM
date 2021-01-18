@@ -141,11 +141,17 @@ library WadMath {
         uint exponent;
         if (logX >= LOG_2_WAD_SCALED) {
             exponent = LOG_2_WAD_SCALED.add(wadMulDown(y, logX - LOG_2_WAD_SCALED));
+            require(exponent <= UINT128_MAX, "exponent overflow");
+            z = pow_2(uint128(exponent));
         } else {
-            exponent = LOG_2_WAD_SCALED.sub(wadMulDown(y, LOG_2_WAD_SCALED - logX));
+            uint exponentSubtrahend = wadMulDown(y, LOG_2_WAD_SCALED - logX);
+            if (exponentSubtrahend <= LOG_2_WAD_SCALED) {
+                exponent = LOG_2_WAD_SCALED.sub(exponentSubtrahend);    // Guaranteed to be <= LOG_2_WAD_SCALED < UINT128_MAX
+                z = pow_2(uint128(exponent));
+            } else {
+                z = 0;  // exponent would be < 0, so pow_2(exponent) is vanishingly small (as a WAD-formatted num) - call it 0
+            }
         }
-        require(exponent <= UINT128_MAX, "exponent overflow");
-        z = pow_2(uint128(exponent));
     }
 
     /* ____________________ Exponential/logarithm fns borrowed from Yield Protocol ____________________
