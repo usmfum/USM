@@ -395,7 +395,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return usmOut The amount of USM to receive in exchange
      */
     function usmFromMint(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint debtRatio0)
-        internal view returns (uint usmOut)
+        public view returns (uint usmOut)
     {
         uint usmPrice0 = usmPrice(Side.Buy, ethUsmPrice, debtRatio0);
         uint ethQty1 = ethQty0.add(ethIn);
@@ -432,7 +432,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ethOut The amount of ETH to receive in exchange
      */
     function ethFromBurn(uint ethUsmPrice, uint usmIn, uint ethQty0, uint usmQty0, uint debtRatio0)
-        internal view returns (uint ethOut)
+        public view returns (uint ethOut)
     {
         // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price):
         uint usmPrice0 = usmPrice(Side.Sell, ethUsmPrice, debtRatio0);
@@ -451,7 +451,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return fumOut The amount of FUM to receive in exchange
      */
     function fumFromFund(uint ethUsmPrice, uint ethIn, uint ethQty0, uint usmQty0, uint fumQty0, uint adjustment)
-        internal view returns (uint fumOut)
+        public view returns (uint fumOut)
     {
         // Create FUM at a sliding-up FUM price:
         uint fumPrice0 = fumPrice(Side.Buy, ethUsmPrice, ethQty0, usmQty0, fumQty0, adjustment);
@@ -471,7 +471,7 @@ abstract contract USMTemplate is IUSM, Oracle, ERC20Permit, Delegable {
      * @return ethOut The amount of ETH to receive in exchange
      */
     function ethFromDefund(uint ethUsmPrice, uint fumIn, uint ethQty0, uint usmQty0)
-        internal view returns (uint ethOut)
+        public view returns (uint ethOut)
     {
         // Burn FUM at a sliding-down FUM price:
         uint fumQty0 = fum.totalSupply();

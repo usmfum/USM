@@ -10,7 +10,7 @@ import "../USM.sol";
  * @notice Like USM (so, also inheriting MedianOracle), but allows latestPrice() to be set for testing purposes
  */
 contract MockChainlinkOracleUSM is USM, SettableOracle {
-    uint private constant NUM_UNISWAP_PAIRS = 3;
+    uint public constant NUM_UNISWAP_PAIRS = 3;
 
     uint public savedPrice;
 
