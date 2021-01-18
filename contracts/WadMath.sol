@@ -12,17 +12,17 @@ library WadMath {
 
     enum Round {Down, Up}
 
-    uint private constant WAD = 10 ** 18;
-    uint private constant WAD_MINUS_1 = WAD - 1;
-    uint private constant WAD_SQUARED = WAD * WAD;
-    uint private constant WAD_SQUARED_MINUS_1 = WAD_SQUARED - 1;
-    uint private constant WAD_OVER_10 = WAD / 10;
-    uint private constant WAD_OVER_20 = WAD / 20;
-    uint private constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
-    uint private constant TWO_WAD = 2 * WAD;
-    uint private constant LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;   // log_2(10**18) * 2**121
-    uint private constant LOG_2_E_SCALED = 3835341275459348169893510517860103418;       // log_2(e) * 2**121
-    uint private constant LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;                // log_2(e) * 2**121 / 10**18
+    uint public constant WAD = 10 ** 18;
+    uint public constant WAD_MINUS_1 = WAD - 1;
+    uint public constant WAD_SQUARED = WAD * WAD;
+    uint public constant WAD_SQUARED_MINUS_1 = WAD_SQUARED - 1;
+    uint public constant WAD_OVER_10 = WAD / 10;
+    uint public constant WAD_OVER_20 = WAD / 20;
+    uint public constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
+    uint public constant TWO_WAD = 2 * WAD;
+    uint public constant LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;   // log_2(10**18) * 2**121
+    uint public constant LOG_2_E_SCALED = 3835341275459348169893510517860103418;       // log_2(e) * 2**121
+    uint public constant LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;                // log_2(e) * 2**121 / 10**18
 
     uint private constant UINT128_MAX = 2 ** 128 - 1;   // Should really be type(uint128).max, but that needs Solidity 0.6.8...
 

@@ -45,8 +45,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * We store two CumulativePrices, A and B, without specifying which is more recent.  This is so that we only need to do one
      * SSTORE each time we save a new one: we can inspect them later to figure out which is newer - see orderedStoredPrices().
      */
-    CumulativePrice private storedPriceA;
-    CumulativePrice private storedPriceB;
+    CumulativePrice public storedPriceA;
+    CumulativePrice public storedPriceB;
 
     /**
      * Example pairs to pass in:
@@ -163,7 +163,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * 10,001,370.1 (stored as 10,001,370.1 * 10**18).
      */
     function cumulativePrice()
-        private view returns (uint timestamp, uint cumPriceSeconds)
+        public view returns (uint timestamp, uint cumPriceSeconds)
     {
         (, , timestamp) = uniswapPair.getReserves();
 
@@ -183,7 +183,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * @return price WAD-scaled.
      */
     function calculateTWAP(uint newTimestamp, uint newCumPriceSeconds, uint oldTimestamp, uint oldCumPriceSeconds)
-        private pure returns (uint price)
+        public pure returns (uint price)
     {
         price = (newCumPriceSeconds.sub(oldCumPriceSeconds)).div(newTimestamp.sub(oldTimestamp));
     }

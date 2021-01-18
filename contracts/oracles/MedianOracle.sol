@@ -53,7 +53,7 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOr
      * @return index (0/1/2) of the median value
      */
     function medianIndex(uint a, uint b, uint c)
-        private pure returns (uint index)
+        public pure returns (uint index)
     {
         bool ab = a > b;
         bool bc = b > c;

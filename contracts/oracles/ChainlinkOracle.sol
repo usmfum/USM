@@ -13,7 +13,7 @@ contract ChainlinkOracle is Oracle {
 
     uint private constant SCALE_FACTOR = 10 ** 10;  // Since Chainlink has 8 dec places, and latestPrice() needs 18
 
-    AggregatorV3Interface private aggregator;
+    AggregatorV3Interface public aggregator;
 
     constructor(AggregatorV3Interface aggregator_) public
     {
