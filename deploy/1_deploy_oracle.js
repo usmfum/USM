@@ -70,13 +70,13 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     usdcEthPairAddress = usdcEthAddresses[chainId]
   }
 
-  const usm = await deploy('USM', {
+  const oracle = await deploy('MedianOracle', {
     from: deployer,
     deterministicDeployment: true,
-    args: require(`./usm-args-${chainId}`),
+    args: require(`./oracle-args-${chainId}`),
   })
-  console.log(`Deployed USM to ${usm.address}`);
+  console.log(`Deployed Oracle to ${oracle.address}`);
 };
 
 module.exports = func;
-module.exports.tags = ["USM"];
+module.exports.tags = ["Oracle"];
