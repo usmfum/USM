@@ -43,11 +43,11 @@ contract('USM', (accounts) => {
   const uniswapTokensInReverseOrder = true                  // See UniswapMedianTWAPOracle
 
   const usdcEthCumPrice0_0 = new BN('307631784275278277546624451305316303382174855535226')  // From the USDC/ETH pair
-  const usdcEthCumPrice1_0 = new BN('31377639132666967530700283664103')
+  const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103')
   const usdcEthTimestamp_0 = new BN('1606780664')
   const usdcEthCumPrice0_1 = new BN('307634635050611880719301156089846577363471806696356')
   const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')
-  const usdcEthTimestamp_1 = new BN('1606781003')
+  const usdcEthTimestamp_1 = new BN('1606782003')
 
   function wadMul(x, y, upOrDown) {
     return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
