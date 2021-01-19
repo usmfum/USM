@@ -4,15 +4,15 @@ Originally proposed by [@jacob-eliosoff](https://github.com/jacob-eliosoff) in [
 
 ## Networks & Addresses
 
-### USM v0.2
+### USM v0.2 (Kovan testnet)
 
  - Oracle: [0x5632b97cc9606FEFfd6a6F59AF60D4fE045Ac19F](https://kovan.etherscan.io/address/0x5632b97cc9606FEFfd6a6F59AF60D4fE045Ac19F)
  - USM: [0xa87dF30Cc25f57c255C1588d152ce927B00DDB1c](https://kovan.etherscan.io/address/0xa87dF30Cc25f57c255C1588d152ce927B00DDB1c)
  - FUM: [0xe7c277fd339c38a093139935a1c5a9cc8cf8c7f7](https://kovan.etherscan.io/address/0xe7c277fd339c38a093139935a1c5a9cc8cf8c7f7)
  - USMView: [0xEEB40160Be35FfCe0f54a4ea40f447601a48f21b](https://kovan.etherscan.io/address/0xEEB40160Be35FfCe0f54a4ea40f447601a48f21b)
- - Proxy: [0xa085f278B7D496A68FeCC964931B8fbF6CA3b689](https://kovan.etherscan.io/address/0xEEB40160Be35FfCe0f54a4ea40f447601a48f21b)
+ - Proxy: [0xa085f278B7D496A68FeCC964931B8fbF6CA3b689](https://kovan.etherscan.io/address/0xa085f278B7D496A68FeCC964931B8fbF6CA3b689)
 
-### USM v0.1 (Baby) - Mainnet
+### USM v0.1 ("Baby USM") - Mainnet
 
 [Live Stats](https://usmfum.github.io/USM-Stats/)
 
