@@ -3,7 +3,12 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId()
 
-  oracleAddress = (await get('MedianOracle')).address;
+  let oracleAddress
+  if (chainId === '42') {
+    oracleAddress = (await get('MockChainlinkOracle')).address;
+  } else {
+    oracleAddress = (await get('MedianOracle')).address;
+  }
 
   const usm = await deploy('USM', {
     from: deployer,
