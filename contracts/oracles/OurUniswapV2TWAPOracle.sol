@@ -30,11 +30,11 @@ contract OurUniswapV2TWAPOracle is Oracle {
     uint private constant UINT32_MAX = 2 ** 32 - 1;     // Should really be type(uint32).max, but that needs Solidity 0.6.8...
     uint private constant UINT224_MAX = 2 ** 224 - 1;   // Ditto, type(uint224).max
 
-    IUniswapV2Pair immutable uniswapPair;
-    uint immutable token0Decimals;
-    uint immutable token1Decimals;
-    bool immutable tokensInReverseOrder;
-    uint immutable scaleFactor;
+    IUniswapV2Pair public immutable uniswapPair;
+    uint public immutable token0Decimals;
+    uint public immutable token1Decimals;
+    bool public immutable tokensInReverseOrder;
+    uint public immutable scaleFactor;
 
     struct CumulativePrice {
         uint32 timestamp;
@@ -47,8 +47,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * We store two CumulativePrices, A and B, without specifying which is more recent.  This is so that we only need to do one
      * SSTORE each time we save a new one: we can inspect them later to figure out which is newer - see orderedStoredPrices().
      */
-    CumulativePrice public storedPriceA;
-    CumulativePrice public storedPriceB;
+    CumulativePrice public storedUniswapPriceA;
+    CumulativePrice public storedUniswapPriceB;
 
     /**
      * Example pairs to pass in:
@@ -131,16 +131,16 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function storedPriceToCompareVs(uint newCumPriceSecondsTime, CumulativePrice storage newerStoredPrice)
         internal view returns (CumulativePrice storage refPrice)
     {
-        bool aAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, storedPriceA);
-        bool bAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, storedPriceB);
+        bool aAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, storedUniswapPriceA);
+        bool bAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, storedUniswapPriceB);
         if (aAcceptable) {
             if (bAcceptable) {
                 refPrice = newerStoredPrice;        // Neither is *too* recent, so return the fresher of the two
             } else {
-                refPrice = storedPriceA;            // Only A is acceptable
+                refPrice = storedUniswapPriceA;     // Only A is acceptable
             }
         } else if (bAcceptable) {
-            refPrice = storedPriceB;                // Only B is acceptable
+            refPrice = storedUniswapPriceB;         // Only B is acceptable
         } else {
             revert("Both stored prices too recent");
         }
@@ -149,8 +149,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function orderedStoredPrices() internal view
         returns (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice)
     {
-        (olderStoredPrice, newerStoredPrice) = storedPriceB.timestamp > storedPriceA.timestamp ?
-            (storedPriceA, storedPriceB) : (storedPriceB, storedPriceA);
+        (olderStoredPrice, newerStoredPrice) = storedUniswapPriceB.timestamp > storedUniswapPriceA.timestamp ?
+            (storedUniswapPriceA, storedUniswapPriceB) : (storedUniswapPriceB, storedUniswapPriceA);
     }
 
     function areNewAndStoredPriceFarEnoughApart(uint newTimestamp, CumulativePrice storage storedPrice) internal view
