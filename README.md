@@ -8,7 +8,7 @@ Originally proposed by [@jacob-eliosoff](https://github.com/jacob-eliosoff) in [
 
  - Oracle: [0x7525D619F2A01aea8ADc92cDD06152b25267c765](https://kovan.etherscan.io/address/0x7525D619F2A01aea8ADc92cDD06152b25267c765)
  - USM: [0xf05627D4F72bC4778BAECcbeaCa44b013e9b8227](https://kovan.etherscan.io/address/0xf05627D4F72bC4778BAECcbeaCa44b013e9b8227)
- - FUM: [0xe13b57555e5a538785130fda6e918185b9fe1599](https://kovan.etherscan.io/address/FUM=0xe13b57555e5a538785130fda6e918185b9fe1599)
+ - FUM: [0xe13b57555e5a538785130fda6e918185b9fe1599](https://kovan.etherscan.io/address/0xe13b57555e5a538785130fda6e918185b9fe1599)
  - USMView: [0x66e8BCFDeeB6c4300e38041De859Dac965626BD4](https://kovan.etherscan.io/address/0x66e8BCFDeeB6c4300e38041De859Dac965626BD4)
  - Proxy: [0x25603063ddD0BcB0091BF7436d67ECAa034e7F05](https://kovan.etherscan.io/address/0x25603063ddD0BcB0091BF7436d67ECAa034e7F05)
 
