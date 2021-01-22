@@ -611,6 +611,11 @@ contract('USM', (accounts) => {
             })
           })
 
+          it("sending FUM to another user works", async () => {
+            const user2FumBalance = await fum.balanceOf(user2)
+            await fum.transfer(user1, user2FumBalance, { from: user2 })
+          })
+
           it("sending FUM to the FUM contract is a defund", async () => {
             const fumToBurn = user2FumBalance0.div(TWO) // defund 50% of the user's FUM
             await fum.transfer(fum.address, fumToBurn, { from: user2 })
@@ -754,6 +759,11 @@ contract('USM', (accounts) => {
             it("reduces debtRatio when burning USM", async () => {
               debtRatioB.should.be.bignumber.lt(debtRatio0)
             })
+          })
+
+          it("sending USM to another user works", async () => {
+            const user1UsmBalance = await usm.balanceOf(user1)
+            await usm.transfer(user2, user1UsmBalance, { from: user1 })
           })
 
           it("sending USM to the USM contract burns it", async () => {

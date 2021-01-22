@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
 import "./MinOut.sol";
+import "./InvalidUSMFUMRecipient.sol";
 
 /**
  * @title FUM Token
@@ -12,7 +13,7 @@ import "./MinOut.sol";
  *
  * @notice This should be owned by the stablecoin.
  */
-contract FUM is ERC20Permit, Ownable {
+contract FUM is ERC20Permit, Ownable, InvalidUSMFUMRecipient {
     IUSM public immutable usm;
 
     constructor(IUSM usm_) public ERC20Permit("Minimal Funding", "FUM") {

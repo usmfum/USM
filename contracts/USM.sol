@@ -9,8 +9,9 @@ import "./Delegable.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
 import "./MinOut.sol";
+import "./InvalidUSMFUMRecipient.sol";
 import "./oracles/Oracle.sol";
-// import "@nomiclabs/buidler/console.sol";
+import "hardhat/console.sol";
 
 /**
  * @title USM
@@ -25,7 +26,7 @@ import "./oracles/Oracle.sol";
  * calls *internal* rather than calls to a separate oracle contract (or multiple contracts) - which leads to a significant
  * saving in gas.
  */
-contract USM is IUSM, Oracle, ERC20Permit, Delegable {
+contract USM is IUSM, Oracle, ERC20Permit, Delegable, InvalidUSMFUMRecipient {
     using Address for address payable;
     using SafeMath for uint;
     using WadMath for uint;
@@ -164,8 +165,40 @@ contract USM is IUSM, Oracle, ERC20Permit, Delegable {
         if (recipient == address(this) || recipient == address(fum) || recipient == address(0)) {
             _burnUsm(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {
+            console.log("this:");
+            console.log(address(this));
+            console.log("recipient:");
+            console.log(address(recipient));
+	    bytes memory payload = abi.encodeWithSignature("isInvalidUSMFUMRecipient()");
+	    (bool isRecipientInvalid,) = recipient.staticcall(payload);
+	    (bool isRecipientInvalid2,) = sender.staticcall(payload);
+	    (bool isRecipientInvalid3,) = address(this).staticcall(payload);
+	    bytes memory payload2 = abi.encodeWithSignature("fooBar()");
+	    (bool isRecipientInvalid4,) = recipient.staticcall(payload2);
+	    (bool isRecipientInvalid5,) = sender.staticcall(payload2);
+	    (bool isRecipientInvalid6,) = address(this).staticcall(payload2);
+	    bytes memory payload3 = abi.encodeWithSignature("fooBarBlee()");
+	    (bool isRecipientInvalid7,) = recipient.staticcall(payload3);
+	    (bool isRecipientInvalid8,) = sender.staticcall(payload3);
+	    (bool isRecipientInvalid9,) = address(this).staticcall(payload3);
+            console.log("successes:");
+            console.log(isRecipientInvalid);
+            console.log(isRecipientInvalid2);
+            console.log(isRecipientInvalid3);
+            console.log(isRecipientInvalid4);
+            console.log(isRecipientInvalid5);
+            console.log(isRecipientInvalid6);
+            console.log(isRecipientInvalid7);
+            console.log(isRecipientInvalid8);
+            console.log(isRecipientInvalid9);
+
+            require(!isRecipientInvalid, "Invalid recipient");
             super._transfer(sender, recipient, amount);
         }
+    }
+
+    function fooBar() public pure returns (bool invalid) {
+        invalid = false;
     }
 
     /** INTERNAL TRANSACTIONAL FUNCTIONS */
