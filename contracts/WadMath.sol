@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 
 /**
  * @title Fixed point arithmetic library
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  */
 library WadMath {
-    using SafeMath for uint;
-
     enum Round {Down, Up}
 
     uint public constant WAD = 10 ** 18;
@@ -31,11 +28,11 @@ library WadMath {
     }
 
     function wadMulDown(uint x, uint y) internal pure returns (uint) {
-        return x.mul(y) / WAD;
+        return x * y / WAD;
     }
 
     function wadMulUp(uint x, uint y) internal pure returns (uint) {
-        return (x.mul(y)).add(WAD_MINUS_1) / WAD;
+        return (x * y + WAD_MINUS_1) / WAD;
     }
 
     function wadDiv(uint x, uint y, Round upOrDown) internal pure returns (uint) {
@@ -43,11 +40,11 @@ library WadMath {
     }
 
     function wadDivDown(uint x, uint y) internal pure returns (uint) {
-        return (x.mul(WAD)).div(y);
+        return (x * WAD) / y;
     }
 
     function wadDivUp(uint x, uint y) internal pure returns (uint) {
-        return ((x.mul(WAD)).add(y - 1)).div(y);    // Can use "-" instead of sub() since div(y) will catch y = 0 case anyway
+        return (x * WAD + y - 1) / y;    // Can use "-" instead of sub() since div(y) will catch y = 0 case anyway
     }
 
     function wadMax(uint x, uint y) internal pure returns (uint) {
@@ -59,14 +56,14 @@ library WadMath {
     }
 
     function wadHalfExp(uint power) internal pure returns (uint) {
-        return wadHalfExp(power, uint(-1));
+        return wadHalfExp(power, type(uint).max);
     }
 
     // Returns a loose but "gas-efficient" approximation of 0.5**power, where power is rounded to the nearest 0.1, and is
     // capped at maxPower.  Note power is WAD-scaled (eg, 2.7364 * WAD), but maxPower is just a plain unscaled uint (eg, 10).
     // Negative powers are not handled (as implied by power being a uint).
     function wadHalfExp(uint power, uint maxPower) internal pure returns (uint) {
-        uint powerInTenthsUnscaled = power.add(WAD_OVER_20) / WAD_OVER_10;
+        uint powerInTenthsUnscaled = (power + WAD_OVER_20) / WAD_OVER_10;
         if (powerInTenthsUnscaled / 10 > maxPower) {
             return 0;
         }
@@ -94,7 +91,7 @@ library WadMath {
         z = n % 2 != 0 ? x : WAD;
 
         for (n /= 2; n != 0; n /= 2) {
-            x = x.mul(x) / WAD;
+            x = (x * x) / WAD;
 
             if (n % 2 != 0) {
                 z = wadMulDown(z, x);
@@ -120,7 +117,7 @@ library WadMath {
      *     wadExp(y < 0) = 1 / wadExp(-y > 0) = WAD.div(wadExp(-y > 0))
      */
     function wadExp(uint y) internal pure returns (uint z) {
-        uint exponent = LOG_2_WAD_SCALED.add(wadMulDown(y, LOG_2_E_SCALED));
+        uint exponent = LOG_2_WAD_SCALED + wadMulDown(y, LOG_2_E_SCALED);
         require(exponent <= UINT128_MAX, "exponent overflow");
         z = pow_2(uint128(exponent));
     }
@@ -140,13 +137,13 @@ library WadMath {
         uint logX = log_2(uint128(x));
         uint exponent;
         if (logX >= LOG_2_WAD_SCALED) {
-            exponent = LOG_2_WAD_SCALED.add(wadMulDown(y, logX - LOG_2_WAD_SCALED));
+            exponent = LOG_2_WAD_SCALED + wadMulDown(y, logX - LOG_2_WAD_SCALED);
             require(exponent <= UINT128_MAX, "exponent overflow");
             z = pow_2(uint128(exponent));
         } else {
             uint exponentSubtrahend = wadMulDown(y, LOG_2_WAD_SCALED - logX);
             if (exponentSubtrahend <= LOG_2_WAD_SCALED) {
-                exponent = LOG_2_WAD_SCALED.sub(exponentSubtrahend);    // Guaranteed to be <= LOG_2_WAD_SCALED < UINT128_MAX
+                exponent = LOG_2_WAD_SCALED - exponentSubtrahend;    // Guaranteed to be <= LOG_2_WAD_SCALED < UINT128_MAX
                 z = pow_2(uint128(exponent));
             } else {
                 z = 0;  // exponent would be < 0, so pow_2(exponent) is vanishingly small (as a WAD-formatted num) - call it 0

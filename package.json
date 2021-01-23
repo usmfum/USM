@@ -32,7 +32,7 @@
     "chai-as-promised": "^7.1.1",
     "ethereumjs-util": "^7.0.3",
     "ethers": "^5.0.7",
-    "erc20permit": "^0.0.4",
+    "erc20permit": "^0.0.8",
     "ganache-time-traveler": "^1.0.14",
     "mocha": "^7.1.0",
     "prettier": "^2.0.5",

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./ChainlinkOracle.sol";
 import "./CompoundOpenOracle.sol";
 import "./OurUniswapV2TWAPOracle.sol";
 
 contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle {
-    using SafeMath for uint;
 
     constructor(
         AggregatorV3Interface chainlinkAggregator,

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
 import "./SettableOracle.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "../Ownable.sol";
 
 contract TestOracle is SettableOracle, Ownable {
     uint internal savedPrice;
@@ -18,6 +18,6 @@ contract TestOracle is SettableOracle, Ownable {
 
     function setPrice(uint p) public override {
         savedPrice = p;
-        savedUpdateTime = now;
+        savedUpdateTime = block.timestamp;
     }
 }

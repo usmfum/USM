@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import "./Oracle.sol";
 
@@ -9,7 +8,6 @@ import "./Oracle.sol";
  * @title ChainlinkOracle
  */
 contract ChainlinkOracle is Oracle {
-    using SafeMath for uint;
 
     uint private constant SCALE_FACTOR = 10 ** 10;  // Since Chainlink has 8 dec places, and latestPrice() needs 18
 
@@ -31,6 +29,6 @@ contract ChainlinkOracle is Oracle {
     function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
         int rawPrice;
         (, rawPrice,, updateTime,) = aggregator.latestRoundData();
-        price = uint(rawPrice).mul(SCALE_FACTOR); // TODO: Cast safely
+        price = uint(rawPrice) * SCALE_FACTOR; // TODO: Cast safely
     }
 }

@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./Oracle.sol";
 
 contract OurUniswapV2TWAPOracle is Oracle {
-    using SafeMath for uint;
 
     /**
      * MIN_TWAP_PERIOD plays two roles:
@@ -65,7 +63,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
         (uint aDecimals, uint bDecimals) = tokensInReverseOrder_ ?
             (token1Decimals_, token0Decimals_) :
             (token0Decimals_, token1Decimals_);
-        scaleFactor = 10 ** aDecimals.add(18).sub(bDecimals);
+        scaleFactor = 10 ** (aDecimals + 18 - bDecimals);
     }
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
@@ -176,7 +174,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
         uint uniswapCumPrice = tokensInReverseOrder ?
             uniswapPair.price1CumulativeLast() :
             uniswapPair.price0CumulativeLast();
-        cumPriceSeconds = uniswapCumPrice.mul(scaleFactor) / UNISWAP_CUM_PRICE_SCALE_FACTOR;
+        cumPriceSeconds = (uniswapCumPrice * scaleFactor) / UNISWAP_CUM_PRICE_SCALE_FACTOR;
     }
 
     /**
@@ -189,6 +187,6 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function calculateTWAP(uint newTimestamp, uint newCumPriceSeconds, uint oldTimestamp, uint oldCumPriceSeconds)
         public pure returns (uint price)
     {
-        price = (newCumPriceSeconds.sub(oldCumPriceSeconds)).div(newTimestamp.sub(oldTimestamp));
+        price = (newCumPriceSeconds - oldCumPriceSeconds) / (newTimestamp - oldTimestamp);
     }
 }

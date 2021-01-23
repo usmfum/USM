@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
-import "./IUSM.sol";
+import "./Ownable.sol";
 import "./MinOut.sol";
+import "./IUSM.sol";
+
 
 /**
  * @title FUM Token
@@ -33,12 +34,13 @@ contract FUM is ERC20Permit, Ownable {
      * If using `transfer`/`transferFrom` as `defund`, and if decimals 8 to 11 (included) of the amount transferred received
      * are `0000` then the next 7 will be parsed as the maximum FUM price accepted, with 5 digits before and 2 digits after the comma.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal override {
+    function _transfer(address sender, address recipient, uint256 amount) internal override returns (bool) {
         if (recipient == address(this) || recipient == address(usm) || recipient == address(0)) {
             usm.defundFromFUM(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {
             super._transfer(sender, recipient, amount);
         }
+        return true;
     }
 
     /**

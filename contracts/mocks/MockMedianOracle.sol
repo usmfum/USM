@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
 import "./SettableOracle.sol";
 import "../oracles/MedianOracle.sol";
@@ -23,7 +23,7 @@ contract MockMedianOracle is MedianOracle, SettableOracle {
 
     function setPrice(uint p) public override {
         savedPrice = p;
-        savedUpdateTime = now;
+        savedUpdateTime = block.timestamp;
     }
 
     function refreshPrice() public virtual override(MedianOracle, Oracle) returns (uint price, uint updateTime) {
