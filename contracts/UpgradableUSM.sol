@@ -50,11 +50,11 @@ contract UpgradableUSM is USM, Ownable {
      * @return success - This determines whether or not the upgrade contract mints new tokens to the holder
      */
     function requestSwap(address holder) external upgrading onlyUpgradeAddress returns (bool){
-        (uint price,,,) = _refreshPrice();
         uint tokenBalance = balanceOf(holder);
+        require(tokenBalance > 0, "Holder has no tokens to swap");
+        (uint price,,,) = _refreshPrice();
         uint ethAmount = tokenBalance.wadDivDown(price);
         require(address(this).balance >= ethAmount, "Not enough ether");
-        require(tokenBalance > 0, "Holder has no tokens to swap");
         _burn(holder, tokenBalance);
         payable(upgradeAddress).sendValue(ethAmount);
         return true;
