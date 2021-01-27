@@ -47,12 +47,13 @@ contract UpgradableUSM is USM, Ownable {
      * @notice Request to swap all old tokens owned by the holder to new upgrade tokens
      * @dev This must be called by the upgrade address
      * @param holder address
-     * @param ethAmount uint amount of ETH collateral to send with swap
      * @return success - This determines whether or not the upgrade contract mints new tokens to the holder
      */
-    function requestSwap(address holder, uint ethAmount) external upgrading onlyUpgradeAddress returns (bool){
-        require(address(this).balance >= ethAmount, "Not enough ether");
+    function requestSwap(address holder) external upgrading onlyUpgradeAddress returns (bool){
+        (uint price,,,) = _refreshPrice();
         uint tokenBalance = balanceOf(holder);
+        uint ethAmount = tokenBalance.wadDivDown(price);
+        require(address(this).balance >= ethAmount, "Not enough ether");
         require(tokenBalance > 0, "Holder has no tokens to swap");
         _burn(holder, tokenBalance);
         payable(upgradeAddress).sendValue(ethAmount);
