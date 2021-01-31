@@ -22,7 +22,7 @@
     "@nomiclabs/hardhat-etherscan": "^2.1.0",
     "@nomiclabs/hardhat-truffle5": "^2.0.0",
     "@nomiclabs/hardhat-web3": "^2.0.0",
-    "@openzeppelin/test-helpers": "^0.5.6",
+    "@openzeppelin/test-helpers": "^0.5.10",
     "@truffle/hdwallet-provider": "^1.0.40",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
