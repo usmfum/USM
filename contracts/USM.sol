@@ -56,7 +56,7 @@ contract USM is IUSM, Oracle, ERC20Permit, Delegable {
     TimedValue public storedMinFumBuyPrice;
     TimedValue public storedBuySellAdjustment = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
-    constructor(Oracle oracle_) public ERC20Permit("Minimal USD", "USM")
+    constructor(Oracle oracle_) public ERC20Permit("Minimal USD v1", "USM")
     {
         fum = new FUM(this);
         oracle = oracle_;

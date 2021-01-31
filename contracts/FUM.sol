@@ -15,7 +15,7 @@ import "./MinOut.sol";
 contract FUM is ERC20Permit, Ownable {
     IUSM public immutable usm;
 
-    constructor(IUSM usm_) public ERC20Permit("Minimal Funding", "FUM") {
+    constructor(IUSM usm_) public ERC20Permit("Minimal Funding v1", "FUM") {
         usm = usm_;
     }
 
