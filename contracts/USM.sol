@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
 import "./ERC20WithOptOut.sol";
+import "./oracles/Oracle.sol";
+import "./Address.sol";
 import "./Delegable.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
 import "./MinOut.sol";
-import "./oracles/Oracle.sol";
-// import "hardhat/console.sol";
+
 
 /**
  * @title USM
@@ -28,7 +27,6 @@ import "./oracles/Oracle.sol";
  */
 contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     using Address for address payable;
-    using SafeMath for uint;
     using WadMath for uint;
 
     event MinFumBuyPriceChanged(uint previous, uint latest);
@@ -144,7 +142,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
             storedPrice.value = uint224(price);
 
             require(adjustment <= UINT224_MAX, "adjustment overflow");
-            storedBuySellAdjustment.timestamp = uint32(now);
+            storedBuySellAdjustment.timestamp = uint32(block.timestamp);
             storedBuySellAdjustment.value = uint224(adjustment);
         }
     }
@@ -163,12 +161,13 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      * If using `transfer`/`transferFrom` as `burn`, and if decimals 8 to 11 (included) of the amount transferred received
      * are `0000` then the next 7 will be parsed as the maximum USM price accepted, with 5 digits before and 2 digits after the comma.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) {
+    function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) returns (bool) {
         if (recipient == address(this) || recipient == address(fum) || recipient == address(0)) {
             _burnUsm(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {
             super._transfer(sender, recipient, amount);
         }
+        return true;
     }
 
     /** INTERNAL TRANSACTIONAL FUNCTIONS */
@@ -177,7 +176,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     {
         // 1. Check that fund() has been called first - no minting before funding:
         uint rawEthInPool = ethPool();
-        uint ethInPool = rawEthInPool.sub(msg.value);   // Backing out the ETH just received, which our calculations should ignore
+        uint ethInPool = rawEthInPool - msg.value;   // Backing out the ETH just received, which our calculations should ignore
         require(ethInPool > 0, "Fund before minting");
 
         // 2. Calculate usmOut:
@@ -202,7 +201,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         require(ethOut >= minEthOut, "Limit not reached");
 
         // 2. Burn the input USM, update storedBuySellAdjustment, and return the user's ETH:
-        uint newDebtRatio = debtRatio(ethUsdPrice0, ethInPool.sub(ethOut), totalSupply().sub(usmToBurn));
+        uint newDebtRatio = debtRatio(ethUsdPrice0, ethInPool - ethOut, totalSupply() - usmToBurn);
         require(newDebtRatio <= WAD, "Debt ratio > 100%");
         _burn(from, usmToBurn);
         _storeBuySellAdjustment(adjustment0.wadMulUp(adjGrowthFactor));
@@ -215,7 +214,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         // 1. Refresh mfbp:
         (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
         uint rawEthInPool = ethPool();
-        uint ethInPool = rawEthInPool.sub(msg.value);   // Backing out the ETH just received, which our calculations should ignore
+        uint ethInPool = rawEthInPool - msg.value;   // Backing out the ETH just received, which our calculations should ignore
         uint usmSupply = totalSupply();
         uint fumSupply = fum.totalSupply();
         _updateMinFumBuyPrice(ethUsdPrice0, ethInPool, usmSupply, fumSupply);
@@ -242,7 +241,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         require(ethOut >= minEthOut, "Limit not reached");
 
         // 2. Burn the input FUM, update storedBuySellAdjustment, and return the user's ETH:
-        uint newDebtRatio = debtRatio(ethUsdPrice0, ethInPool.sub(ethOut), usmSupply);
+        uint newDebtRatio = debtRatio(ethUsdPrice0, ethInPool - ethOut, usmSupply);
         require(newDebtRatio <= MAX_DEBT_RATIO, "Debt ratio > max");
         fum.burn(from, fumToBurn);
         _storeBuySellAdjustment(adjustment0.wadMulDown(adjShrinkFactor));
@@ -280,10 +279,10 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
              */
             if (adjustment > 1) {
                 // max(1, old buy price / new mid price):
-                adjustment = WAD.wadMax((uint(storedPrice.value)).mul(adjustment).div(price));
+                adjustment = WAD.wadMax((uint(storedPrice.value)) * (adjustment / price));
             } else if (adjustment < 1) {
                 // min(1, old sell price / new mid price):
-                adjustment = WAD.wadMin((uint(storedPrice.value)).mul(adjustment).div(price));
+                adjustment = WAD.wadMin((uint(storedPrice.value)) * (adjustment / price));
             }
         } else {
             (price, updateTime) = (storedPrice.value, storedPrice.timestamp);
@@ -318,7 +317,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
             // See reasoning in @dev comment above
             uint mfbp = (WAD - MAX_DEBT_RATIO).wadMulUp(ethInPool).wadDivUp(fumSupply);
             require(mfbp <= UINT224_MAX, "mfbp overflow");
-            storedMinFumBuyPrice.timestamp = uint32(now);
+            storedMinFumBuyPrice.timestamp = uint32(block.timestamp);
             storedMinFumBuyPrice.value = uint224(mfbp);
             emit MinFumBuyPriceChanged(previous, storedMinFumBuyPrice.value);
         }
@@ -343,7 +342,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         uint previous = storedBuySellAdjustment.value; // Not nec same as current buySellAdjustment(), due to the time decay!
 
         require(newAdjustment <= UINT224_MAX, "newAdjustment overflow");
-        storedBuySellAdjustment.timestamp = uint32(now);
+        storedBuySellAdjustment.timestamp = uint32(block.timestamp);
         storedBuySellAdjustment.value = uint224(newAdjustment);
         emit BuySellAdjustmentChanged(previous, newAdjustment);
     }
@@ -468,7 +467,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     {
         // Create USM at a sliding-up USM price (ie, a sliding-down ETH price):
         uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ethUsdPrice0, adjustment0);
-        uint ethQty1 = ethQty0.add(ethIn);
+        uint ethQty1 = ethQty0 + ethIn;
         //adjShrinkFactor = ethQty0.wadDivDown(ethQty1).wadSqrt();      // Another possible function we could use (same result)
         adjShrinkFactor = ethQty0.wadDivDown(ethQty1).wadExp(HALF_WAD);
         int log = ethQty1.wadDivDown(ethQty0).wadLog();
@@ -493,7 +492,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         uint exponent = usmIn.wadMulUp(usmSellPrice0).wadDivUp(ethQty0);
         require(exponent <= INT_MAX, "exponent overflow");
         uint ethQty1 = ethQty0.wadDivUp(exponent.wadExp());
-        ethOut = ethQty0.sub(ethQty1);
+        ethOut = ethQty0 - ethQty1;
         adjGrowthFactor = ethQty0.wadDivUp(ethQty1).wadExp(HALF_WAD);
     }
 
@@ -512,10 +511,10 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
             fumOut = ethIn.wadDivDown(fumBuyPrice0);
         } else {
             // Create FUM at a sliding-up FUM price:
-            uint ethQty1 = ethQty0.add(ethIn);
+            uint ethQty1 = ethQty0 + ethIn;
             uint effectiveUsmQty0 = usmQty0.wadMin(ethQty0.wadMulUp(ethUsdPrice0).wadMulUp(MAX_DEBT_RATIO));
             uint effectiveDebtRatio = debtRatio(ethUsdPrice0, ethQty0, effectiveUsmQty0);
-            uint effectiveFumDelta = WAD.wadDivUp(WAD.sub(effectiveDebtRatio));
+            uint effectiveFumDelta = WAD.wadDivUp(WAD - effectiveDebtRatio);
             adjGrowthFactor = ethQty1.wadDivUp(ethQty0).wadExp(effectiveFumDelta / 2);
             fumOut = calcSlidingFumQty(ethUsdPrice0, ethIn, ethQty0, fumQty0, adjustment0, effectiveUsmQty0, adjGrowthFactor);
         }
@@ -527,7 +526,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     {
         uint ethUsdPrice1 = ethUsdPrice0.wadMulUp(adjGrowthFactor);
         uint avgFumBuyPrice = adjustment0.wadMulUp(
-            ethQty0.sub(effectiveUsmQty0.wadDivDown(ethUsdPrice1)).wadDivUp(fumQty0));
+            (ethQty0 - effectiveUsmQty0.wadDivDown(ethUsdPrice1)).wadDivUp(fumQty0));
         fumOut = ethIn.wadDivDown(avgFumBuyPrice);
     }
 
@@ -542,10 +541,10 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         // Burn FUM at a sliding-down FUM price:
         uint fumQty0 = fum.totalSupply();
         uint debtRatio0 = debtRatio(ethUsdPrice0, ethQty0, usmQty0);
-        uint fumDelta = WAD.wadDivUp(WAD.sub(debtRatio0));
+        uint fumDelta = WAD.wadDivUp(WAD - debtRatio0);
         uint avgFumSellPrice = calcAverageFumSellPrice(ethUsdPrice0, fumIn, ethQty0, usmQty0, fumQty0, adjustment0, fumDelta);
         ethOut = fumIn.wadMulDown(avgFumSellPrice);
-        uint ethQty1 = ethQty0.sub(ethOut);
+        uint ethQty1 = ethQty0 - ethOut;
         adjShrinkFactor = ethQty1.wadDivUp(ethQty0).wadExp(fumDelta / 2);
     }
 
@@ -560,7 +559,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         // the adjShrinkFactor drops.  And the amount by which the ETH pool would drop if our entire defund was at the starting
         // fumSellPrice0, is an upper bound on how much the pool could shrink.  Therefore, the adjShrinkFactor implied by that
         // maximum ETH pool reduction, is an upper bound on the actual adjShrinkFactor of this defund() call:
-        uint lowerBoundEthQty1 = ethQty0.sub(fumIn.wadMulUp(fumSellPrice0));
+        uint lowerBoundEthQty1 = ethQty0 - fumIn.wadMulUp(fumSellPrice0);
         uint lowerBoundAdjShrinkFactor = lowerBoundEthQty1.wadDivDown(ethQty0).wadExp(fumDelta / 2);
         uint lowerBoundEthUsdPrice1 = ethUsdPrice0.wadMulDown(lowerBoundAdjShrinkFactor);
 
@@ -574,7 +573,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      */
     function minFumBuyPrice() public view returns (uint mfbp) {
         if (storedMinFumBuyPrice.value != 0) {
-            uint numHalvings = now.sub(storedMinFumBuyPrice.timestamp).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
+            uint numHalvings = (block.timestamp - storedMinFumBuyPrice.timestamp).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
             uint decayFactor = numHalvings.wadHalfExp();
             mfbp = uint256(storedMinFumBuyPrice.value).wadMulUp(decayFactor);
         }   // Otherwise just returns 0
@@ -593,12 +592,12 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      * @return adjustment The sliding-price buy/sell adjustment
      */
     function buySellAdjustment() public override view returns (uint adjustment) {
-        uint numHalvings = now.sub(storedBuySellAdjustment.timestamp).wadDivDown(BUY_SELL_ADJUSTMENT_HALF_LIFE);
+        uint numHalvings = (block.timestamp - storedBuySellAdjustment.timestamp).wadDivDown(BUY_SELL_ADJUSTMENT_HALF_LIFE);
         uint decayFactor = numHalvings.wadHalfExp(10);
         // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
         // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
         // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
-        adjustment = WAD.add(uint256(storedBuySellAdjustment.value).wadMulDown(decayFactor)).sub(decayFactor);
+        adjustment = WAD + uint256(storedBuySellAdjustment.value).wadMulDown(decayFactor) - decayFactor;
     }
 }

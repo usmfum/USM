@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import "./SettableOracle.sol";
@@ -18,7 +18,7 @@ contract MockChainlinkOracle is ChainlinkOracle, SettableOracle {
 
     function setPrice(uint p) public override {
         savedPrice = p;
-        savedUpdateTime = now;
+        savedUpdateTime = block.timestamp;
     }
 
     function refreshPrice() public override returns (uint price, uint updateTime) {

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Oracle.sol";
 
 interface UniswapAnchoredView {
@@ -12,7 +11,6 @@ interface UniswapAnchoredView {
  * @title CompoundOpenOracle
  */
 contract CompoundOpenOracle is Oracle {
-    using SafeMath for uint;
 
     uint private constant SCALE_FACTOR = 10 ** 12;      // Since Compound has 6 dec places, and latestPrice() needs 18
 
@@ -33,11 +31,11 @@ contract CompoundOpenOracle is Oracle {
     }
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
-        price = anchoredView.price("ETH").mul(SCALE_FACTOR);
+        price = anchoredView.price("ETH") * SCALE_FACTOR;
         if (price != storedCompoundPrice.price) {
-            require(now <= UINT32_MAX, "timestamp overflow");
+            require(block.timestamp <= UINT32_MAX, "timestamp overflow");
             require(price <= UINT224_MAX, "price overflow");
-            (storedCompoundPrice.updateTime, storedCompoundPrice.price) = (uint32(now), uint224(price));
+            (storedCompoundPrice.updateTime, storedCompoundPrice.price) = (uint32(block.timestamp), uint224(price));
         }
         return (price, storedCompoundPrice.updateTime);
     }
