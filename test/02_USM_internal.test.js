@@ -20,7 +20,7 @@ contract('USM - Internal functions', (accounts) => {
 
   beforeEach(async () => {
     oracle = await TestOracle.new(priceWAD, { from: deployer })
-    usm = await USM.new(oracle.address, { from: deployer })
+    usm = await USM.new(oracle.address, [], { from: deployer })
     await usm.refreshPrice()    // Ensures the savedPrice set in TestOracle is also set in usm.storedPrice
     usmView = await USMView.new(usm.address, { from: deployer })
   })

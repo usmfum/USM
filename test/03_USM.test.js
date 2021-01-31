@@ -113,7 +113,7 @@ contract('USM', (accounts) => {
       oracle = await MedianOracle.new(aggregator.address, anchoredView.address,
                                       usdcEthPair.address, usdcDecimals, ethDecimals, uniswapTokensInReverseOrder,
                                       { from: deployer })
-      usm = await USM.new(oracle.address, { from: deployer })
+      usm = await USM.new(oracle.address, [], { from: deployer })
       await usm.refreshPrice()  // This call stores the Uniswap cumPriceSeconds record for time usdcEthTimestamp_0
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
@@ -651,6 +651,10 @@ contract('USM', (accounts) => {
             ethPool.should.be.bignumber.lt(ethPool0)
           })
 
+          it("sending FUM to the oracle fails", async () => {
+            await expectRevert(fum.transfer(oracle.address, user2FumBalance0, { from: user2 }), "Invalid recipient")
+          })
+
           it("doesn't allow burning FUM if it would push debt ratio above MAX_DEBT_RATIO", async () => {
             // Move price to get debt ratio just *below* MAX.  Eg, if debt ratio is currently 156%, increasing the price by
             // (156% / 79%) should bring debt ratio to just about 79%:
@@ -802,6 +806,10 @@ contract('USM', (accounts) => {
             const price = (await usm.latestPrice())[0]
             const targetPrice = wad(fl(price0) * adjGrowthFactor)
             shouldEqualApprox(price, targetPrice)
+          })
+
+          it("sending USM to the oracle fails", async () => {
+            await expectRevert(usm.transfer(oracle.address, user1UsmBalance0, { from: user1 }), "Invalid recipient")
           })
 
           it("doesn't allow burning USM if debt ratio over 100%", async () => {
