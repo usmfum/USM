@@ -55,12 +55,11 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     TimedValue public storedMinFumBuyPrice;
     TimedValue public storedBuySellAdjustment = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
-    constructor(Oracle oracle_) public
-        ERC20WithOptOut("Minimal USD", "USM")
+    constructor(Oracle oracle_, address[] memory optedOut_) public
+        ERC20WithOptOut("Minimal USD", "USM", optedOut_)
     {
         oracle = oracle_;
-        fum = new FUM(this);
-        optedOut[address(oracle_)] = true;
+        fum = new FUM(this, optedOut_);
     }
 
     /** PUBLIC AND EXTERNAL TRANSACTIONAL FUNCTIONS **/
