@@ -113,7 +113,7 @@ contract('USM', (accounts) => {
       oracle = await MedianOracle.new(aggregator.address, anchoredView.address,
                                       usdcEthPair.address, usdcDecimals, ethDecimals, uniswapTokensInReverseOrder,
                                       { from: deployer })
-      usm = await USM.new(oracle.address, [], { from: deployer })
+      usm = await USM.new(oracle.address, { from: deployer })
       await usm.refreshPrice()  // This call stores the Uniswap cumPriceSeconds record for time usdcEthTimestamp_0
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
@@ -651,8 +651,15 @@ contract('USM', (accounts) => {
             ethPool.should.be.bignumber.lt(ethPool0)
           })
 
-          it("sending FUM to the oracle fails", async () => {
-            await expectRevert(fum.transfer(oracle.address, user2FumBalance0, { from: user2 }), "Invalid recipient")
+          it("users can opt out of receiving FUM", async () => {
+            await fum.optOut({ from: user1 })
+            await expectRevert(fum.transfer(user1, 1, { from: user2 }), "Target opted out")
+          })
+
+          it("users can opt back in to receiving FUM", async () => {
+            await fum.optOut({ from: user1 })
+            await fum.optBackIn({ from: user1 })
+            await fum.transfer(user1, 1, { from: user2 })
           })
 
           it("doesn't allow burning FUM if it would push debt ratio above MAX_DEBT_RATIO", async () => {
@@ -808,8 +815,15 @@ contract('USM', (accounts) => {
             shouldEqualApprox(price, targetPrice)
           })
 
-          it("sending USM to the oracle fails", async () => {
-            await expectRevert(usm.transfer(oracle.address, user1UsmBalance0, { from: user1 }), "Invalid recipient")
+          it("users can opt out of receiving USM", async () => {
+            await usm.optOut({ from: user2 })
+            await expectRevert(usm.transfer(user2, user1UsmBalance0, { from: user1 }), "Target opted out")
+          })
+
+          it("users can opt back in to receiving USM", async () => {
+            await usm.optOut({ from: user2 })
+            await usm.optBackIn({ from: user2 })
+            await usm.transfer(user2, user1UsmBalance0, { from: user1 })
           })
 
           it("doesn't allow burning USM if debt ratio over 100%", async () => {

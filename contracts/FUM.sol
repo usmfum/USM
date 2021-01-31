@@ -4,7 +4,7 @@ pragma solidity ^0.6.6;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
-import "./ERC20WithBlacklist.sol";
+import "./ERC20WithOptOut.sol";
 import "./MinOut.sol";
 
 /**
@@ -13,12 +13,11 @@ import "./MinOut.sol";
  *
  * @notice This should be owned by the stablecoin.
  */
-contract FUM is ERC20WithBlacklist, Ownable {
+contract FUM is ERC20WithOptOut, Ownable {
     IUSM public immutable usm;
 
-    constructor(IUSM usm_, address[] memory initialBlacklist) public
-        ERC20Permit("Minimal Funding", "FUM")
-        ERC20WithBlacklist(initialBlacklist)
+    constructor(IUSM usm_) public
+        ERC20WithOptOut("Minimal Funding", "FUM")
     {
         usm = usm_;
     }
@@ -37,7 +36,7 @@ contract FUM is ERC20WithBlacklist, Ownable {
      * If using `transfer`/`transferFrom` as `defund`, and if decimals 8 to 11 (included) of the amount transferred received
      * are `0000` then the next 7 will be parsed as the maximum FUM price accepted, with 5 digits before and 2 digits after the comma.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal override {
+    function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) {
         if (recipient == address(this) || recipient == address(usm) || recipient == address(0)) {
             usm.defundFromFUM(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {

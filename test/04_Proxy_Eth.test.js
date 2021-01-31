@@ -28,7 +28,7 @@ contract('USM - Proxy - Eth', (accounts) => {
       // Deploy contracts
       weth = await WETH9.new({ from: deployer })
       oracle = await TestOracle.new(priceWAD, { from: deployer })
-      usm = await USM.new(oracle.address, [], { from: deployer })
+      usm = await USM.new(oracle.address, { from: deployer })
       await usm.refreshPrice()  // Ensures the savedPrice passed to the constructor above is also set in usm.storedPrice
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })

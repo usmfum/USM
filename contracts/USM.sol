@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
-import "./ERC20WithBlacklist.sol";
+import "./ERC20WithOptOut.sol";
 import "./Delegable.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
@@ -26,7 +26,7 @@ import "./oracles/Oracle.sol";
  * calls *internal* rather than calls to a separate oracle contract (or multiple contracts) - which leads to a significant
  * saving in gas.
  */
-contract USM is IUSM, Oracle, ERC20WithBlacklist, Delegable {
+contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     using Address for address payable;
     using SafeMath for uint;
     using WadMath for uint;
@@ -57,19 +57,12 @@ contract USM is IUSM, Oracle, ERC20WithBlacklist, Delegable {
     TimedValue public storedMinFumBuyPrice;
     TimedValue public storedBuySellAdjustment = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
-    constructor(Oracle oracle_, address[] memory initialBlacklist) public
-        ERC20Permit("Minimal USD", "USM")
-        ERC20WithBlacklist(initialBlacklist)
+    constructor(Oracle oracle_) public
+        ERC20WithOptOut("Minimal USD", "USM")
     {
         oracle = oracle_;
-        addToBlacklist(address(oracle_));
-
-        address[] memory fumInitialBlacklist = new address[](initialBlacklist.length + 1);
-        for (uint i = 0; i < initialBlacklist.length; ++i) {       // There's gotta be a better way to copy an array but...
-            fumInitialBlacklist[i] = initialBlacklist[i];
-        }
-        fumInitialBlacklist[initialBlacklist.length] = address(oracle_);
-        fum = new FUM(this, fumInitialBlacklist);
+        fum = new FUM(this);
+        optedOut[address(oracle_)] = true;
     }
 
     /** PUBLIC AND EXTERNAL TRANSACTIONAL FUNCTIONS **/
@@ -170,7 +163,7 @@ contract USM is IUSM, Oracle, ERC20WithBlacklist, Delegable {
      * If using `transfer`/`transferFrom` as `burn`, and if decimals 8 to 11 (included) of the amount transferred received
      * are `0000` then the next 7 will be parsed as the maximum USM price accepted, with 5 digits before and 2 digits after the comma.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal override {
+    function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) {
         if (recipient == address(this) || recipient == address(fum) || recipient == address(0)) {
             _burnUsm(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {
