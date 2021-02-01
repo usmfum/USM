@@ -9,7 +9,7 @@ contract GasMeasuredOracleWrapper is Oracle {
     Oracle internal immutable measuredOracle;
     string internal oracleName;
 
-    constructor(Oracle oracle, string memory name) public {
+    constructor(Oracle oracle, string memory name) {
         measuredOracle = oracle;
         oracleName = name;
     }

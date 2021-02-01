@@ -7,7 +7,7 @@ contract WETH9Fuzzing {
 
     MockWETH9 internal weth;
 
-    constructor () public {
+    constructor () {
         weth = new MockWETH9();
     }
 

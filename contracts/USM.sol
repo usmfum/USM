@@ -55,7 +55,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     TimedValue public storedMinFumBuyPrice;
     TimedValue public storedBuySellAdjustment = TimedValue({ timestamp: 0, value: uint224(WAD) });
 
-    constructor(Oracle oracle_, address[] memory optedOut_) public
+    constructor(Oracle oracle_, address[] memory optedOut_)
         ERC20WithOptOut("Minimal USD", "USM", optedOut_)
     {
         oracle = oracle_;
@@ -417,7 +417,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      * @notice Calculate the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
-    function usmPrice(IUSM.Side side, uint ethUsdPrice, uint adjustment) public override view returns (uint price) {
+    function usmPrice(IUSM.Side side, uint ethUsdPrice, uint adjustment) public override pure returns (uint price) {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
         price = usmToEth(ethUsdPrice, WAD, upOrDown);
 
@@ -462,7 +462,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      * @return usmOut The amount of USM to receive in exchange
      */
     function usmFromMint(uint ethUsdPrice0, uint ethIn, uint ethQty0, uint adjustment0)
-        public view returns (uint usmOut, uint adjShrinkFactor)
+        public pure returns (uint usmOut, uint adjShrinkFactor)
     {
         // Create USM at a sliding-up USM price (ie, a sliding-down ETH price):
         uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ethUsdPrice0, adjustment0);
@@ -480,7 +480,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      * @return ethOut The amount of ETH to receive in exchange
      */
     function ethFromBurn(uint ethUsdPrice0, uint usmIn, uint ethQty0, uint adjustment0)
-        public view returns (uint ethOut, uint adjGrowthFactor)
+        public pure returns (uint ethOut, uint adjGrowthFactor)
     {
         // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price):
         uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, ethUsdPrice0, adjustment0);

@@ -11,7 +11,7 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOr
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
         IUniswapV2Pair uniswapPair, uint uniswapToken0Decimals, uint uniswapToken1Decimals, bool uniswapTokensInReverseOrder
-    ) public
+    )
         ChainlinkOracle(chainlinkAggregator)
         CompoundOpenOracle(compoundView)
         OurUniswapV2TWAPOracle(uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}

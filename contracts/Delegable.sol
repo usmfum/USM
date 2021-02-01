@@ -14,7 +14,7 @@ contract Delegable {
 
     mapping(address => mapping(address => bool)) public delegated;
 
-    constructor () public {
+    constructor () {
         uint256 chainId;
         assembly {
             chainId := chainid()

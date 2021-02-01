@@ -14,7 +14,7 @@ contract MockChainlinkOracle is ChainlinkOracle, SettableOracle {
     uint public savedPrice;
     uint public savedUpdateTime;
 
-    constructor(AggregatorV3Interface aggregator_) public ChainlinkOracle(aggregator_) {}
+    constructor(AggregatorV3Interface aggregator_) ChainlinkOracle(aggregator_) {}
 
     function setPrice(uint p) public override {
         savedPrice = p;

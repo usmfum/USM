@@ -17,7 +17,7 @@ contract MockMedianOracle is MedianOracle, SettableOracle {
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
         IUniswapV2Pair uniswapPair, uint uniswapToken0Decimals, uint uniswapToken1Decimals, bool uniswapTokensInReverseOrder
-    ) public
+    )
         MedianOracle(chainlinkAggregator, compoundView,
             uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 

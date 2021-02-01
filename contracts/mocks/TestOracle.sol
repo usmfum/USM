@@ -8,7 +8,7 @@ contract TestOracle is SettableOracle, Ownable {
     uint internal savedPrice;
     uint internal savedUpdateTime;
 
-    constructor(uint p) public {
+    constructor(uint p) {
         setPrice(p);
     }
 

@@ -54,7 +54,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, true, 6, 18 (USDC reserve is stored w/ 6 dec places, WETH w/ 18)
      * DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, true, 18, 18 (DAI reserve is stored w/ 18 dec places, WETH w/ 18)
      */
-    constructor(IUniswapV2Pair uniswapPair_, uint token0Decimals_, uint token1Decimals_, bool tokensInReverseOrder_) public {
+    constructor(IUniswapV2Pair uniswapPair_, uint token0Decimals_, uint token1Decimals_, bool tokensInReverseOrder_) {
         uniswapPair = uniswapPair_;
         token0Decimals = token0Decimals_;
         token1Decimals = token1Decimals_;

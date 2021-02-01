@@ -13,7 +13,6 @@ contract Proxy {
     IWETH9 public immutable weth;
 
     constructor(IUSM usm_, IWETH9 weth_)
-        public
     {
         usm = usm_;
         weth = weth_;

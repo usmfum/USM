@@ -11,7 +11,6 @@ contract USMView {
     IUSM public immutable usm;
 
     constructor(IUSM usm_)
-        public
     {
         usm = usm_;
     }
