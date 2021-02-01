@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
 import "./IUSM.sol";
 
@@ -11,7 +11,6 @@ contract USMView {
     IUSM public immutable usm;
 
     constructor(IUSM usm_)
-        public
     {
         usm = usm_;
     }

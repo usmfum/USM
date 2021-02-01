@@ -15,7 +15,7 @@ const USMView = artifacts.require('USMView')
 require('chai').use(require('chai-as-promised')).should()
 
 contract('USM', (accounts) => {
-  const [deployer, user1, user2, user3] = accounts
+  const [deployer, user1, user2, user3, optOut1, optOut2] = accounts
   const [ZERO, ONE, TWO, FOUR, SIX, EIGHT, EIGHTEEN, HUNDRED, THOUSAND, WAD] =
         [0, 1, 2, 4, 6, 8, 18, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
   const WAD_MINUS_1 = WAD.sub(ONE)
@@ -113,7 +113,7 @@ contract('USM', (accounts) => {
       oracle = await MedianOracle.new(aggregator.address, anchoredView.address,
                                       usdcEthPair.address, usdcDecimals, ethDecimals, uniswapTokensInReverseOrder,
                                       { from: deployer })
-      usm = await USM.new(oracle.address, { from: deployer })
+      usm = await USM.new(oracle.address, [optOut1, optOut2], { from: deployer })
       await usm.refreshPrice()  // This call stores the Uniswap cumPriceSeconds record for time usdcEthTimestamp_0
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
@@ -651,6 +651,19 @@ contract('USM', (accounts) => {
             ethPool.should.be.bignumber.lt(ethPool0)
           })
 
+          it("users can opt out of receiving FUM", async () => {
+            await expectRevert(fum.transfer(optOut1, 1, { from: user2 }), "Target opted out") // Set in constructor
+            await expectRevert(fum.transfer(optOut2, 1, { from: user2 }), "Target opted out") // Set in constructor
+            await fum.optOut({ from: user1 })
+            await expectRevert(fum.transfer(user1, 1, { from: user2 }), "Target opted out")
+          })
+
+          it("users can opt back in to receiving FUM", async () => {
+            await fum.optOut({ from: user1 })
+            await fum.optBackIn({ from: user1 })
+            await fum.transfer(user1, 1, { from: user2 })
+          })
+
           it("doesn't allow burning FUM if it would push debt ratio above MAX_DEBT_RATIO", async () => {
             // Move price to get debt ratio just *below* MAX.  Eg, if debt ratio is currently 156%, increasing the price by
             // (156% / 79%) should bring debt ratio to just about 79%:
@@ -802,6 +815,19 @@ contract('USM', (accounts) => {
             const price = (await usm.latestPrice())[0]
             const targetPrice = wad(fl(price0) * adjGrowthFactor)
             shouldEqualApprox(price, targetPrice)
+          })
+
+          it("users can opt out of receiving USM", async () => {
+            await expectRevert(usm.transfer(optOut1, 1, { from: user1 }), "Target opted out") // Set in constructor
+            await expectRevert(usm.transfer(optOut2, 1, { from: user1 }), "Target opted out") // Set in constructor
+            await usm.optOut({ from: user2 })
+            await expectRevert(usm.transfer(user2, user1UsmBalance0, { from: user1 }), "Target opted out")
+          })
+
+          it("users can opt back in to receiving USM", async () => {
+            await usm.optOut({ from: user2 })
+            await usm.optBackIn({ from: user2 })
+            await usm.transfer(user2, user1UsmBalance0, { from: user1 })
           })
 
           it("doesn't allow burning USM if debt ratio over 100%", async () => {

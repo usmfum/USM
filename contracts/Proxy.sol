@@ -1,21 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/Address.sol";
-import "./IUSM.sol";
 import "./external/IWETH9.sol";
+import "./IUSM.sol";
 
 /**
  * @title USM Frontend Proxy
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  */
 contract Proxy {
-    using Address for address payable;
     IUSM public immutable usm;
     IWETH9 public immutable weth;
 
     constructor(IUSM usm_, IWETH9 weth_)
-        public
     {
         usm = usm_;
         weth = weth_;
@@ -52,7 +49,7 @@ contract Proxy {
     function burn(address to, uint usmToBurn, uint minEthOut)
         external returns (uint ethOut)
     {
-        ethOut = usm.burn(msg.sender, address(this), usmToBurn, minEthOut);
+        ethOut = usm.burn(msg.sender, payable(this), usmToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
         require(weth.transferFrom(address(this), to, ethOut), "WETH transfer fail");
     }
@@ -81,7 +78,7 @@ contract Proxy {
     function defund(address to, uint fumToBurn, uint minEthOut)
         external returns (uint ethOut)
     {
-        ethOut = usm.defund(msg.sender, address(this), fumToBurn, minEthOut);
+        ethOut = usm.defund(msg.sender, payable(this), fumToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
         require(weth.transferFrom(address(this), to, ethOut), "WETH transfer fail");
     }
