@@ -21,8 +21,6 @@ library WadMath {
     uint public constant LOG_2_E_SCALED = 3835341275459348169893510517860103418;       // log_2(e) * 2**121
     uint public constant LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;                // log_2(e) * 2**121 / 10**18
 
-    uint private constant UINT128_MAX = 2 ** 128 - 1;   // Should really be type(uint128).max, but that needs Solidity 0.6.8...
-
     function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint) {
         return upOrDown == Round.Down ? wadMulDown(x, y) : wadMulUp(x, y);
     }
@@ -103,7 +101,7 @@ library WadMath {
      * Returns the (approximate!) natural logarithm of x, where both x and the return value are in WAD fixed-point form.
      */
     function wadLog(uint x) internal pure returns (int z) {
-        require(x <= UINT128_MAX, "x overflow");
+        require(x <= type(uint128).max, "x overflow");
         z = (int(log_2(uint128(x))) - int(LOG_2_WAD_SCALED)) / int(LOG_2_E_SCALED_OVER_WAD);
     }
 
@@ -118,7 +116,7 @@ library WadMath {
      */
     function wadExp(uint y) internal pure returns (uint z) {
         uint exponent = LOG_2_WAD_SCALED + wadMulDown(y, LOG_2_E_SCALED);
-        require(exponent <= UINT128_MAX, "exponent overflow");
+        require(exponent <= type(uint128).max, "exponent overflow");
         z = pow_2(uint128(exponent));
     }
 
@@ -133,17 +131,17 @@ library WadMath {
      *     wadExp(x, y < 0) = 1 / wadExp(x, -y > 0) = WAD.div(wadExp(x, -y > 0))
      */
     function wadExp(uint x, uint y) internal pure returns (uint z) {
-        require(x <= UINT128_MAX, "x overflow");
+        require(x <= type(uint128).max, "x overflow");
         uint logX = log_2(uint128(x));
         uint exponent;
         if (logX >= LOG_2_WAD_SCALED) {
             exponent = LOG_2_WAD_SCALED + wadMulDown(y, logX - LOG_2_WAD_SCALED);
-            require(exponent <= UINT128_MAX, "exponent overflow");
+            require(exponent <= type(uint128).max, "exponent overflow");
             z = pow_2(uint128(exponent));
         } else {
             uint exponentSubtrahend = wadMulDown(y, LOG_2_WAD_SCALED - logX);
             if (exponentSubtrahend <= LOG_2_WAD_SCALED) {
-                exponent = LOG_2_WAD_SCALED - exponentSubtrahend;    // Guaranteed to be <= LOG_2_WAD_SCALED < UINT128_MAX
+                exponent = LOG_2_WAD_SCALED - exponentSubtrahend;    // Guaranteed to be <= LOG_2_WAD_SCALED < type(uint128).max
                 z = pow_2(uint128(exponent));
             } else {
                 z = 0;  // exponent would be < 0, so pow_2(exponent) is vanishingly small (as a WAD-formatted num) - call it 0

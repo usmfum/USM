@@ -39,10 +39,6 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
     uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
 
-    uint private constant UINT32_MAX = 2 ** 32 - 1;      // Should really be type(uint32).max, but that needs Solidity 0.6.8...
-    uint private constant UINT224_MAX = 2 ** 224 - 1;    // Ditto, type(uint224).max
-    uint private constant INT_MAX = 2**256 - 1;          // Ditto, type(int).max
-
     FUM public immutable fum;
     Oracle public immutable oracle;
 
@@ -135,12 +131,12 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         bool priceChanged;
         (price, updateTime, adjustment, priceChanged) = _refreshPrice();
         if (priceChanged) {
-            require(updateTime <= UINT32_MAX, "updateTime overflow");
-            require(price <= UINT224_MAX, "price overflow");
+            require(updateTime <= type(uint32).max, "updateTime overflow");
+            require(price <= type(uint224).max, "price overflow");
             storedPrice.timestamp = uint32(updateTime);
             storedPrice.value = uint224(price);
 
-            require(adjustment <= UINT224_MAX, "adjustment overflow");
+            require(adjustment <= type(uint224).max, "adjustment overflow");
             storedBuySellAdjustment.timestamp = uint32(block.timestamp);
             storedBuySellAdjustment.value = uint224(adjustment);
         }
@@ -315,7 +311,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         } else if (previous == 0) {                         // We were < max debt ratio, but have now crossed above - so set mfbp
             // See reasoning in @dev comment above
             uint mfbp = (WAD - MAX_DEBT_RATIO).wadMulUp(ethInPool).wadDivUp(fumSupply);
-            require(mfbp <= UINT224_MAX, "mfbp overflow");
+            require(mfbp <= type(uint224).max, "mfbp overflow");
             storedMinFumBuyPrice.timestamp = uint32(block.timestamp);
             storedMinFumBuyPrice.value = uint224(mfbp);
             emit MinFumBuyPriceChanged(previous, storedMinFumBuyPrice.value);
@@ -329,7 +325,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     function _storePrice(uint newPrice) internal {
         uint previous = storedPrice.value;
 
-        require(newPrice <= UINT224_MAX, "newPrice overflow");
+        require(newPrice <= type(uint224).max, "newPrice overflow");
         storedPrice.value = uint224(newPrice);
         emit PriceChanged(previous, newPrice);
     }
@@ -340,7 +336,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     function _storeBuySellAdjustment(uint newAdjustment) internal {
         uint previous = storedBuySellAdjustment.value; // Not nec same as current buySellAdjustment(), due to the time decay!
 
-        require(newAdjustment <= UINT224_MAX, "newAdjustment overflow");
+        require(newAdjustment <= type(uint224).max, "newAdjustment overflow");
         storedBuySellAdjustment.timestamp = uint32(block.timestamp);
         storedBuySellAdjustment.value = uint224(newAdjustment);
         emit BuySellAdjustmentChanged(previous, newAdjustment);
@@ -489,7 +485,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         // above: if debtRatio() *= k (here, k < 1), ETH price *= 1/k**2, ie, USM price in ETH terms *= k**2.
         // e_0 - e = e_0 - (e_0**2 * (e_0 - usp_0 * u_0 * (1 - (u / u_0)**3)))**(1/3)
         uint exponent = usmIn.wadMulUp(usmSellPrice0).wadDivUp(ethQty0);
-        require(exponent <= INT_MAX, "exponent overflow");
+        require(exponent <= uint(type(int).max), "exponent overflow");
         uint ethQty1 = ethQty0.wadDivUp(exponent.wadExp());
         ethOut = ethQty0 - ethQty1;
         adjGrowthFactor = ethQty0.wadDivUp(ethQty1).wadExp(HALF_WAD);

@@ -25,9 +25,6 @@ contract OurUniswapV2TWAPOracle is Oracle {
     // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
     uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
 
-    uint private constant UINT32_MAX = 2 ** 32 - 1;     // Should really be type(uint32).max, but that needs Solidity 0.6.8...
-    uint private constant UINT224_MAX = 2 ** 224 - 1;   // Ditto, type(uint224).max
-
     IUniswapV2Pair public immutable uniswapPair;
     uint public immutable token0Decimals;
     uint public immutable token1Decimals;
@@ -118,8 +115,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
 
     function storeCumulativePrice(uint timestamp, uint cumPriceSeconds, CumulativePrice storage olderStoredPrice) internal
     {
-        require(timestamp <= UINT32_MAX, "timestamp overflow");
-        require(cumPriceSeconds <= UINT224_MAX, "cumPriceSeconds overflow");
+        require(timestamp <= type(uint32).max, "timestamp overflow");
+        require(cumPriceSeconds <= type(uint224).max, "cumPriceSeconds overflow");
         // (Note: this assignment only stores because olderStoredPrice has modifier "storage" - ie, store by reference!)
         (olderStoredPrice.timestamp, olderStoredPrice.cumPriceSeconds) = (uint32(timestamp), uint224(cumPriceSeconds));
 
