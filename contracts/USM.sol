@@ -278,10 +278,10 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
              */
             if (adjustment > 1) {
                 // max(1, old buy price / new mid price):
-                adjustment = WAD.wadMax((uint(storedPrice.value)) * (adjustment / price));
+                adjustment = WAD.wadMax(uint(storedPrice.value) * adjustment / price);
             } else if (adjustment < 1) {
                 // min(1, old sell price / new mid price):
-                adjustment = WAD.wadMin((uint(storedPrice.value)) * (adjustment / price));
+                adjustment = WAD.wadMin(uint(storedPrice.value) * adjustment / price);
             }
         } else {
             (price, updateTime) = (storedPrice.value, storedPrice.timestamp);
