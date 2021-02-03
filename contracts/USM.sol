@@ -131,14 +131,8 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         bool priceChanged;
         (price, updateTime, adjustment, priceChanged) = _refreshPrice();
         if (priceChanged) {
-            require(updateTime <= type(uint32).max, "updateTime overflow");
-            require(price <= type(uint224).max, "price overflow");
-            storedPrice.timestamp = uint32(updateTime);
-            storedPrice.value = uint224(price);
-
-            require(adjustment <= type(uint224).max, "adjustment overflow");
-            storedBuySellAdjustment.timestamp = uint32(block.timestamp);
-            storedBuySellAdjustment.value = uint224(adjustment);
+            _storeBuySellAdjustment(adjustment);
+            _storePrice(price, updateTime);
         }
     }
 
@@ -175,21 +169,21 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         require(ethInPool > 0, "Fund before minting");
 
         // 2. Calculate usmOut:
-        (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
+        (uint ethUsdPrice0, uint priceUpdateTime, uint adjustment0, ) = _refreshPrice();
         uint adjShrinkFactor;
         (usmOut, adjShrinkFactor) = usmFromMint(ethUsdPrice0, msg.value, ethInPool, adjustment0);
         require(usmOut >= minUsmOut, "Limit not reached");
 
         // 3. Update storedBuySellAdjustment and mint the user's new USM:
         _storeBuySellAdjustment(adjustment0.wadMulDown(adjShrinkFactor));
-        _storePrice(ethUsdPrice0.wadMulDown(adjShrinkFactor));
+        _storePrice(ethUsdPrice0.wadMulDown(adjShrinkFactor), priceUpdateTime);
         _mint(to, usmOut);
     }
 
     function _burnUsm(address from, address payable to, uint usmToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
+        (uint ethUsdPrice0, uint priceUpdateTime, uint adjustment0, ) = _refreshPrice();
         uint ethInPool = ethPool();
         uint adjGrowthFactor;
         (ethOut, adjGrowthFactor) = ethFromBurn(ethUsdPrice0, usmToBurn, ethInPool, adjustment0);
@@ -200,14 +194,14 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         require(newDebtRatio <= WAD, "Debt ratio > 100%");
         _burn(from, usmToBurn);
         _storeBuySellAdjustment(adjustment0.wadMulUp(adjGrowthFactor));
-        _storePrice(ethUsdPrice0.wadMulUp(adjGrowthFactor));
+        _storePrice(ethUsdPrice0.wadMulUp(adjGrowthFactor), priceUpdateTime);
         to.sendValue(ethOut);
     }
 
     function _fundFum(address to, uint minFumOut) internal returns (uint fumOut)
     {
         // 1. Refresh mfbp:
-        (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
+        (uint ethUsdPrice0, uint priceUpdateTime, uint adjustment0, ) = _refreshPrice();
         uint rawEthInPool = ethPool();
         uint ethInPool = rawEthInPool - msg.value;   // Backing out the ETH just received, which our calculations should ignore
         uint usmSupply = totalSupply();
@@ -221,14 +215,14 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
 
         // 3. Update storedBuySellAdjustment and mint the user's new FUM:
         _storeBuySellAdjustment(adjustment0.wadMulUp(adjGrowthFactor));
-        _storePrice(ethUsdPrice0.wadMulUp(adjGrowthFactor));
+        _storePrice(ethUsdPrice0.wadMulUp(adjGrowthFactor), priceUpdateTime);
         fum.mint(to, fumOut);
     }
 
     function _defundFum(address from, address payable to, uint fumToBurn, uint minEthOut) internal returns (uint ethOut)
     {
         // 1. Calculate ethOut:
-        (uint ethUsdPrice0,, uint adjustment0, ) = _refreshPrice();
+        (uint ethUsdPrice0, uint priceUpdateTime, uint adjustment0, ) = _refreshPrice();
         uint ethInPool = ethPool();
         uint usmSupply = totalSupply();
         uint adjShrinkFactor;
@@ -240,7 +234,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         require(newDebtRatio <= MAX_DEBT_RATIO, "Debt ratio > max");
         fum.burn(from, fumToBurn);
         _storeBuySellAdjustment(adjustment0.wadMulDown(adjShrinkFactor));
-        _storePrice(ethUsdPrice0.wadMulDown(adjShrinkFactor));
+        _storePrice(ethUsdPrice0.wadMulDown(adjShrinkFactor), priceUpdateTime);
         to.sendValue(ethOut);
     }
 
@@ -319,13 +313,15 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     }
 
     /**
-     * @notice Store the new ETH mid price after a price-moving operation.  Note that storedPrice.timestamp is *not* updated:
-     * it refers to the time of the most recent *oracle* update, not of internal USM price updates by this function.
+     * @notice Store the new ETH mid price after a price-moving operation.  Note that storedPrice.timestamp is *not* updated
+     * every time this is called with a fresh value, but only when the oracle's price is refreshed - itself a subtle idea: see
+     * the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
      */
-    function _storePrice(uint newPrice) internal {
+    function _storePrice(uint newPrice, uint updateTime) internal {
         uint previous = storedPrice.value;
 
         require(newPrice <= type(uint224).max, "newPrice overflow");
+        storedPrice.timestamp = uint32(updateTime);
         storedPrice.value = uint224(newPrice);
         emit PriceChanged(previous, newPrice);
     }
