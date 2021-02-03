@@ -58,7 +58,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         fum = new FUM(this, optedOut_);
     }
 
-    /** PUBLIC AND EXTERNAL TRANSACTIONAL FUNCTIONS **/
+    // ____________________ External transactional functions ____________________
 
     /**
      * @notice Mint new USM, sending it to the given address, and only if the amount minted >= minUsmOut.  The amount of ETH is
@@ -126,6 +126,17 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         ethOut = _defundFum(from, to, fumToBurn, minEthOut);
     }
 
+    /**
+     * @notice If anyone sends ETH here, assume they intend it as a `mint`.
+     * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
+     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma.
+     */
+    receive() external payable {
+        _mintUsm(msg.sender, MinOut.parseMinTokenOut(msg.value));
+    }
+
+    // ____________________ Public transactional functions ____________________
+
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
         uint adjustment;
         bool priceChanged;
@@ -136,14 +147,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         }
     }
 
-    /**
-     * @notice If anyone sends ETH here, assume they intend it as a `mint`.
-     * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
-     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma.
-     */
-    receive() external payable {
-        _mintUsm(msg.sender, MinOut.parseMinTokenOut(msg.value));
-    }
+    // ____________________ Internal ERC20 transactional functions ____________________
 
     /**
      * @notice If a user sends USM tokens directly to this contract (or to the FUM contract), assume they intend it as a `burn`.
@@ -159,7 +163,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         return true;
     }
 
-    /** INTERNAL TRANSACTIONAL FUNCTIONS */
+    // ____________________ Internal helper transactional functions (for functions above) ____________________
 
     function _mintUsm(address to, uint minUsmOut) internal returns (uint usmOut)
     {
@@ -338,11 +342,13 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         emit BuySellAdjustmentChanged(previous, newAdjustment);
     }
 
-    /** PUBLIC VIEW FUNCTIONS **/
+    // ____________________ Public Oracle view functions ____________________
 
     function latestPrice() public virtual override(IUSM, Oracle) view returns (uint price, uint updateTime) {
         (price, updateTime) = (storedPrice.value, storedPrice.timestamp);
     }
+
+    // ____________________ Public informational view functions ____________________
 
     function latestOraclePrice() public virtual override view returns (uint price, uint updateTime) {
         (price, updateTime) = oracle.latestPrice();
@@ -355,6 +361,28 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     function ethPool() public override view returns (uint pool) {
         pool = address(this).balance;
     }
+
+    function usmTotalSupply() public override view returns (uint supply) {
+        supply = totalSupply();
+    }
+
+    function fumTotalSupply() public override view returns (uint supply) {
+        supply = fum.totalSupply();
+    }
+
+    /**
+     * @notice The current min FUM buy price, equal to the stored value decayed by time since minFumBuyPriceTimestamp.
+     * @return mfbp The minFumBuyPrice, in ETH terms
+     */
+    function minFumBuyPrice() public view returns (uint mfbp) {
+        if (storedMinFumBuyPrice.value != 0) {
+            uint numHalvings = (block.timestamp - storedMinFumBuyPrice.timestamp).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
+            uint decayFactor = numHalvings.wadHalfExp();
+            mfbp = uint256(storedMinFumBuyPrice.value).wadMulUp(decayFactor);
+        }   // Otherwise just returns 0
+    }
+
+    // ____________________ Public helper pure functions (for functions above) ____________________
 
     /**
      * @notice Calculate the amount of ETH in the buffer.
@@ -395,14 +423,6 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      */
     function usmToEth(uint ethUsdPrice, uint usmAmount, WadMath.Round upOrDown) public override pure returns (uint ethOut) {
         ethOut = usmAmount.wadDiv(ethUsdPrice, upOrDown);
-    }
-
-    function usmTotalSupply() public override view returns (uint supply) {
-        supply = totalSupply();
-    }
-
-    function fumTotalSupply() public override view returns (uint supply) {
-        supply = fum.totalSupply();
     }
 
     /**
@@ -446,6 +466,28 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
                 price = price.wadMulDown(adjustment);
             }
         }
+    }
+
+    /**
+     * @notice The current buy/sell adjustment, equal to the stored value decayed by time since buySellAdjustmentTimestamp.  This
+     * adjustment is intended as a measure of "how long-ETH recent user activity has been", so that we can slide price
+     * accordingly: if recent activity was mostly long-ETH (fund() and burn()), raise FUM buy price/reduce USM sell price; if
+     * recent activity was short-ETH (defund() and mint()), reduce FUM sell price/raise USM buy price.  We use "it reduced debt
+     * ratio" as a rough proxy for "the operation was long-ETH".
+     *
+     * (There is one odd case: when debt ratio > 100%, a *short*-ETH mint() will actually reduce debt ratio.  This does no real
+     * harm except to make fast-succession mint()s and fund()s in such > 100% cases a little more expensive than they would be.)
+     *
+     * @return adjustment The sliding-price buy/sell adjustment
+     */
+    function buySellAdjustment() public override view returns (uint adjustment) {
+        uint numHalvings = (block.timestamp - storedBuySellAdjustment.timestamp).wadDivDown(BUY_SELL_ADJUSTMENT_HALF_LIFE);
+        uint decayFactor = numHalvings.wadHalfExp(10);
+        // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
+        // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
+        // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
+        // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
+        adjustment = WAD + uint256(storedBuySellAdjustment.value).wadMulDown(decayFactor) - decayFactor;
     }
 
     /**
@@ -556,39 +598,5 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
 
         // Using this ending ETH mid price lowerBoundEthUsdPrice1, we can calc the actual average FUM sell price of the defund:
         avgFumSellPrice = fumPrice(IUSM.Side.Sell, lowerBoundEthUsdPrice1, ethQty0, usmQty0, fumQty0, adjustment0);
-    }
-
-    /**
-     * @notice The current min FUM buy price, equal to the stored value decayed by time since minFumBuyPriceTimestamp.
-     * @return mfbp The minFumBuyPrice, in ETH terms
-     */
-    function minFumBuyPrice() public view returns (uint mfbp) {
-        if (storedMinFumBuyPrice.value != 0) {
-            uint numHalvings = (block.timestamp - storedMinFumBuyPrice.timestamp).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
-            uint decayFactor = numHalvings.wadHalfExp();
-            mfbp = uint256(storedMinFumBuyPrice.value).wadMulUp(decayFactor);
-        }   // Otherwise just returns 0
-    }
-
-    /**
-     * @notice The current buy/sell adjustment, equal to the stored value decayed by time since buySellAdjustmentTimestamp.  This
-     * adjustment is intended as a measure of "how long-ETH recent user activity has been", so that we can slide price
-     * accordingly: if recent activity was mostly long-ETH (fund() and burn()), raise FUM buy price/reduce USM sell price; if
-     * recent activity was short-ETH (defund() and mint()), reduce FUM sell price/raise USM buy price.  We use "it reduced debt
-     * ratio" as a rough proxy for "the operation was long-ETH".
-     *
-     * (There is one odd case: when debt ratio > 100%, a *short*-ETH mint() will actually reduce debt ratio.  This does no real
-     * harm except to make fast-succession mint()s and fund()s in such > 100% cases a little more expensive than they would be.)
-     *
-     * @return adjustment The sliding-price buy/sell adjustment
-     */
-    function buySellAdjustment() public override view returns (uint adjustment) {
-        uint numHalvings = (block.timestamp - storedBuySellAdjustment.timestamp).wadDivDown(BUY_SELL_ADJUSTMENT_HALF_LIFE);
-        uint decayFactor = numHalvings.wadHalfExp(10);
-        // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
-        // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
-        // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
-        // (Don't calculate it as 1 + (b-1)p because we're using uints, b-1 can be negative!)
-        adjustment = WAD + uint256(storedBuySellAdjustment.value).wadMulDown(decayFactor) - decayFactor;
     }
 }

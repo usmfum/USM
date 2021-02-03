@@ -91,7 +91,7 @@ contract('USM', (accounts) => {
     return new BN(BigInt(Math.round(parseFloat(x) * WAD)))
   }
 
-  /* ____________________ Deployment ____________________ */
+  // ____________________ Deployment ____________________
 
   describe("mints and burns a static amount", () => {
     let oracle, usm, fum, usmView, ethPerFund, ethPerMint, bitOfEth, snapshot, snapshotId
@@ -149,7 +149,7 @@ contract('USM', (accounts) => {
       })
     })
 
-    /* ____________________ Minting and burning ____________________ */
+    // ____________________ Minting and burning ____________________
 
     describe("minting and burning", () => {
       let MAX_DEBT_RATIO
@@ -226,7 +226,7 @@ contract('USM', (accounts) => {
             usmSellPrice0 = await usmView.usmPrice(sides.SELL)
           })
 
-          /* ____________________ Minting FUM (aka fund()) ____________________ */
+          // ____________________ Minting FUM (aka fund()) ____________________
 
           it("calculates log/exp correctly", async () => {
             const w = await WadMath.new()
@@ -413,7 +413,7 @@ contract('USM', (accounts) => {
             totalFumSupply.should.be.bignumber.gt(totalFumSupply0)
           })
 
-          /* ____________________ Minting USM (aka mint()), at sliding price ____________________ */
+          // ____________________ Minting USM (aka mint()), at sliding price ____________________
 
           describe("with USM minted at sliding price", () => {
             let ethPoolM, priceM, debtRatioM, user2FumBalanceM, totalFumSupplyM, buySellAdjM, fumBuyPriceM,
@@ -530,7 +530,7 @@ contract('USM', (accounts) => {
             shouldEqualApprox(totalUsmSupply, targetTotalUsmSupply)
           })
 
-          /* ____________________ Burning FUM (aka defund()) ____________________ */
+          // ____________________ Burning FUM (aka defund()) ____________________
 
           it("allows burning FUM", async () => {
             const fumToBurn = user2FumBalance0.div(TWO) // defund 50% of the user's FUM
@@ -698,7 +698,7 @@ contract('USM', (accounts) => {
             await expectRevert(usm.defund(user2, user1, oneFum, 0, { from: user2 }), "Debt ratio > max")
           })
 
-          /* ____________________ Burning USM (aka burn()) ____________________ */
+          // ____________________ Burning USM (aka burn()) ____________________
 
           it("allows burning USM", async () => {
             const usmToBurn = user1UsmBalance0.div(TWO) // defund 50% of the user's USM

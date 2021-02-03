@@ -15,7 +15,7 @@ contract USMView {
         usm = usm_;
     }
 
-    /** EXTERNAL VIEW FUNCTIONS */
+    // ____________________ External informational view functions ____________________
 
     /**
      * @notice Calculate the amount of ETH in the buffer.
