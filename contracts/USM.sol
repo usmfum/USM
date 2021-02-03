@@ -272,10 +272,10 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
              * In cases like this, our buySellAdj update has protected the system, by preventing users from getting any chance
              * to buy at the bogus $99 price.
              */
-            if (adjustment > 1) {
+            if (adjustment > WAD) {
                 // max(1, old buy price / new mid price):
                 adjustment = WAD.wadMax(uint(storedPrice.value) * adjustment / price);
-            } else if (adjustment < 1) {
+            } else if (adjustment < WAD) {
                 // min(1, old sell price / new mid price):
                 adjustment = WAD.wadMin(uint(storedPrice.value) * adjustment / price);
             }
