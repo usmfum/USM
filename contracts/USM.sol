@@ -425,7 +425,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      *    `usmSupplyForFumBuys` instead = 20,000: the USM quantity at which debt ratio would equal 80% (20,000 / $25,000).
      *    (Call this the "80% supply".)
      * 3. ...Except, we also gradually increase the supply over time while we remain underwater.  This has the effect of
-     *    *reducing* the FUM buy price inferred from that supply (higher USM supply -> smaller buffer -> lower FUM price).
+     *    *reducing* the FUM buy price inferred from that supply (higher JacobUSM supply -> smaller buffer -> lower FUM price).
      *    The math we use gradually increases the supply from its initial "80% supply" value, where debt ratio = MAX_DEBT_RATIO
      *    (20,000 above), to a theoretical maximum "100% supply" value, where debt ratio = 100% (in the $500 example above,
      *    this would be 25,000).  (Or the actual supply, whichever is lower: we never increase `usmSupplyForFumBuys` above

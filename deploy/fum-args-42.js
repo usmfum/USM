@@ -1,6 +1,6 @@
 // Used for contract verification on Etherscan
 const addresses = {
-    'usm': '0x06192BFC846aF8c8d9BEE264AA1b451738117c81',
+    'usm': '0x6dcc375aE1f43c8FA4e13D56E6ec584BeE25A88F',
     'USMv0.1': '0x21453979384f21D09534f8801467BDd5d90eCD6C',
     'FUMv0.1': '0x96F8F5323Aa6CB0e6F311bdE6DEEFb1c81Cb1898',
     'USMv0.2': '0xf05627D4F72bC4778BAECcbeaCa44b013e9b8227',
