@@ -12,29 +12,31 @@ interface UniswapAnchoredView {
  */
 contract CompoundOpenOracle is Oracle {
 
-    uint private constant SCALE_FACTOR = 10 ** 12;      // Since Compound has 6 dec places, and latestPrice() needs 18
+    uint public constant COMPOUND_SCALE_FACTOR = 10 ** 12;  // Since Compound has 6 dec places, and latestPrice() needs 18
 
     struct TimedPrice {
         uint32 updateTime;
         uint224 price;
     }
 
-    UniswapAnchoredView public anchoredView;
-    TimedPrice public storedCompoundPrice;
+    UniswapAnchoredView public compounUniswapAnchoredView;
+    TimedPrice public compoundStoredPrice;
 
-    constructor(UniswapAnchoredView anchoredView_)
+    constructor(UniswapAnchoredView anchoredView)
     {
-        anchoredView = anchoredView_;
+        compounUniswapAnchoredView = anchoredView;
     }
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
-        price = anchoredView.price("ETH") * SCALE_FACTOR;
-        if (price != storedCompoundPrice.price) {
-            require(block.timestamp <= type(uint32).max, "timestamp overflow");
+        price = compounUniswapAnchoredView.price("ETH") * COMPOUND_SCALE_FACTOR;
+        if (price != compoundStoredPrice.price) {
+            updateTime = block.timestamp;
+            require(updateTime <= type(uint32).max, "timestamp overflow");
             require(price <= type(uint224).max, "price overflow");
-            (storedCompoundPrice.updateTime, storedCompoundPrice.price) = (uint32(block.timestamp), uint224(price));
+            (compoundStoredPrice.updateTime, compoundStoredPrice.price) = (uint32(updateTime), uint224(price));
+        } else {
+            updateTime = compoundStoredPrice.updateTime;
         }
-        return (price, storedCompoundPrice.updateTime);
     }
 
     /**
@@ -43,10 +45,10 @@ contract CompoundOpenOracle is Oracle {
      * annoyingly) Compound's UniswapAnchoredView stores but doesn't expose the updateTime of the price it returns.
      */
     function latestPrice() public virtual override view returns (uint price, uint updateTime) {
-        (price, updateTime) = (storedCompoundPrice.price, storedCompoundPrice.updateTime);
+        (price, updateTime) = (compoundStoredPrice.price, compoundStoredPrice.updateTime);
     }
 
     function latestCompoundPrice() public view returns (uint price, uint updateTime) {
-        (price, updateTime) = (storedCompoundPrice.price, storedCompoundPrice.updateTime);
+        (price, updateTime) = (compoundStoredPrice.price, compoundStoredPrice.updateTime);
     }
 }

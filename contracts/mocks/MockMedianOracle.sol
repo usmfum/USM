@@ -10,9 +10,6 @@ import "../oracles/MedianOracle.sol";
  * @notice A MedianOracle which also, for testing purposes, has SettableOracle functionality.
  */
 contract MockMedianOracle is MedianOracle, SettableOracle {
-    uint private savedPrice;
-    uint private savedUpdateTime;
-
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
@@ -21,16 +18,11 @@ contract MockMedianOracle is MedianOracle, SettableOracle {
         MedianOracle(chainlinkAggregator, compoundView,
             uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
 
-    function setPrice(uint p) public override {
-        savedPrice = p;
-        savedUpdateTime = block.timestamp;
-    }
-
-    function refreshPrice() public virtual override(MedianOracle, Oracle) returns (uint price, uint updateTime) {
+    function refreshPrice() public override(MedianOracle, Oracle) returns (uint price, uint updateTime) {
         (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.refreshPrice();
     }
 
-    function latestPrice() public virtual override(MedianOracle, Oracle) view returns (uint price, uint updateTime) {
+    function latestPrice() public override(MedianOracle, Oracle) view returns (uint price, uint updateTime) {
         (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.latestPrice();
     }
 }
