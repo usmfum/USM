@@ -19,16 +19,16 @@ contract CompoundOpenOracle is Oracle {
         uint224 price;
     }
 
-    UniswapAnchoredView public compounUniswapAnchoredView;
+    UniswapAnchoredView public compoundUniswapAnchoredView;
     TimedPrice public compoundStoredPrice;
 
     constructor(UniswapAnchoredView anchoredView)
     {
-        compounUniswapAnchoredView = anchoredView;
+        compoundUniswapAnchoredView = anchoredView;
     }
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
-        price = compounUniswapAnchoredView.price("ETH") * COMPOUND_SCALE_FACTOR;
+        price = compoundUniswapAnchoredView.price("ETH") * COMPOUND_SCALE_FACTOR;
         if (price != compoundStoredPrice.price) {
             updateTime = block.timestamp;
             require(updateTime <= type(uint32).max, "timestamp overflow");

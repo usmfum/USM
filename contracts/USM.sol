@@ -457,21 +457,15 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     // ____________________ Public helper view functions (for functions above) ____________________
 
     function loadState() public view returns (LoadedState memory ls) {
-        (ls.timeSystemWentUnderwater,
-         ls.ethUsdPriceTimestamp,
-         ls.ethUsdPrice,
-         ls.buySellAdjustmentTimestamp,
-         ls.buySellAdjustment,
-         ls.ethPool,
-         ls.usmTotalSupply) =
-            (storedState.timeSystemWentUnderwater,
-             storedState.ethUsdPriceTimestamp,
-             storedState.ethUsdPrice * BILLION,     // Converting stored BILLION (10**9) format to WAD (10**18)
-             block.timestamp,   // Bring buySellAdjustment from its stored time to the present: it gravitates -> 1 over time
-             buySellAdjustment(storedState.buySellAdjustmentTimestamp, storedState.buySellAdjustment * BILLION,
-                               block.timestamp),
-             ethPool(),
-             totalSupply());
+        ls.timeSystemWentUnderwater = storedState.timeSystemWentUnderwater;
+        ls.ethUsdPriceTimestamp = storedState.ethUsdPriceTimestamp;
+        ls.ethUsdPrice = storedState.ethUsdPrice * BILLION;     // Converting stored BILLION (10**9) format to WAD (10**18)
+        ls.buySellAdjustmentTimestamp = block.timestamp;   // Bring buySellAdjustment from its stored time to the present: it gravitates -> 1 over time
+        ls.buySellAdjustment = buySellAdjustment(storedState.buySellAdjustmentTimestamp,
+                                                 storedState.buySellAdjustment * BILLION,
+                                                 block.timestamp);
+        ls.ethPool = ethPool();
+        ls.usmTotalSupply = totalSupply();
     }
 
     // ____________________ Public helper pure functions (for functions above) ____________________
