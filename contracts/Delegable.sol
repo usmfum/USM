@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
 
 /// @dev Delegable enables users to delegate their account management to other users.
@@ -14,7 +14,7 @@ contract Delegable {
 
     mapping(address => mapping(address => bool)) public delegated;
 
-    constructor () public {
+    constructor () {
         uint256 chainId;
         assembly {
             chainId := chainid()

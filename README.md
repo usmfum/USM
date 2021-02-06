@@ -6,11 +6,11 @@ Originally proposed by [@jacob-eliosoff](https://github.com/jacob-eliosoff) in [
 
 ### USM v0.2 (Kovan testnet)
 
- - Oracle: [0x7525D619F2A01aea8ADc92cDD06152b25267c765](https://kovan.etherscan.io/address/0x7525D619F2A01aea8ADc92cDD06152b25267c765)
- - USM: [0xf05627D4F72bC4778BAECcbeaCa44b013e9b8227](https://kovan.etherscan.io/address/0xf05627D4F72bC4778BAECcbeaCa44b013e9b8227)
- - FUM: [0xe13b57555e5a538785130fda6e918185b9fe1599](https://kovan.etherscan.io/address/0xe13b57555e5a538785130fda6e918185b9fe1599)
- - USMView: [0x66e8BCFDeeB6c4300e38041De859Dac965626BD4](https://kovan.etherscan.io/address/0x66e8BCFDeeB6c4300e38041De859Dac965626BD4)
- - Proxy: [0x25603063ddD0BcB0091BF7436d67ECAa034e7F05](https://kovan.etherscan.io/address/0x25603063ddD0BcB0091BF7436d67ECAa034e7F05)
+ - Oracle: [0x4B2D04f6d7721B09024E0d61C1617DF04e4C21ae](https://kovan.etherscan.io/address/0x4B2D04f6d7721B09024E0d61C1617DF04e4C21ae)
+ - USM: [0x6dcc375aE1f43c8FA4e13D56E6ec584BeE25A88F](https://kovan.etherscan.io/address/0x6dcc375aE1f43c8FA4e13D56E6ec584BeE25A88F)
+ - FUM: [0xf99b440d8e18f850187ae53cdd4ebc959ebf36df](https://kovan.etherscan.io/address/0xf99b440d8e18f850187ae53cdd4ebc959ebf36df)
+ - USMView: [0x5442818E2E38FB2c8F4CEed22782663b8FCBD0b5](https://kovan.etherscan.io/address/0x5442818E2E38FB2c8F4CEed22782663b8FCBD0b5)
+ - Proxy: [0xaCDCd6A936134D7C84163CD9B23B256cb25942D0](https://kovan.etherscan.io/address/0xaCDCd6A936134D7C84163CD9B23B256cb25942D0)
 
 ### USM v0.1 ("Baby USM") - Mainnet
 

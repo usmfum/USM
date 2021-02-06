@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../oracles/Oracle.sol";
 import "hardhat/console.sol";
 
 contract GasMeasuredOracleWrapper is Oracle {
-    using SafeMath for uint;
 
     Oracle internal immutable measuredOracle;
     string internal oracleName;
 
-    constructor(Oracle oracle, string memory name) public {
+    constructor(Oracle oracle, string memory name) {
         measuredOracle = oracle;
         oracleName = name;
     }
@@ -20,13 +18,13 @@ contract GasMeasuredOracleWrapper is Oracle {
         uint gasStart = gasleft();
         (price, updateTime) = measuredOracle.latestPrice();
         uint gasEnd = gasleft();
-        console.log("        ", oracleName, "oracle.latestPrice() cost: ", gasStart.sub(gasEnd));
+        console.log("        ", oracleName, "oracle.latestPrice() cost: ", gasStart - gasEnd);
     }
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
         uint gasStart = gasleft();
         (price, updateTime) = measuredOracle.refreshPrice();
         uint gasEnd = gasleft();
-        console.log("        ", oracleName, "oracle.refreshPrice() cost: ", gasStart.sub(gasEnd));
+        console.log("        ", oracleName, "oracle.refreshPrice() cost: ", gasStart - gasEnd);
     }
 }

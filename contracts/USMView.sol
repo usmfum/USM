@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
 import "./IUSM.sol";
 
@@ -11,12 +11,11 @@ contract USMView {
     IUSM public immutable usm;
 
     constructor(IUSM usm_)
-        public
     {
         usm = usm_;
     }
 
-    /** EXTERNAL VIEW FUNCTIONS */
+    // ____________________ External informational view functions ____________________
 
     /**
      * @notice Calculate the amount of ETH in the buffer.
@@ -71,7 +70,12 @@ contract USMView {
      */
     function fumPrice(IUSM.Side side) external view returns (uint price) {
         (uint ethUsdPrice, ) = usm.latestPrice();
-        price = usm.fumPrice(side, ethUsdPrice, usm.ethPool(), usm.usmTotalSupply(), usm.fumTotalSupply(),
-                             usm.buySellAdjustment());
+        uint ethPool_ = usm.ethPool();
+        uint usmSupply = usm.usmTotalSupply();
+        uint oldTimeUnderwater = usm.timeSystemWentUnderwater();
+        if (side == IUSM.Side.Buy) {
+            (, usmSupply) = usm.checkIfUnderwater(usmSupply, ethPool_, ethUsdPrice, oldTimeUnderwater);
+        }
+        price = usm.fumPrice(side, ethUsdPrice, ethPool_, usmSupply, usm.fumTotalSupply(), usm.buySellAdjustment());
     }
 }

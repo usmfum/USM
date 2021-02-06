@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./Oracle.sol";
 
 contract OurUniswapV2TWAPOracle is Oracle {
-    using SafeMath for uint;
 
     /**
      * MIN_TWAP_PERIOD plays two roles:
@@ -26,9 +24,6 @@ contract OurUniswapV2TWAPOracle is Oracle {
 
     // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
     uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
-
-    uint private constant UINT32_MAX = 2 ** 32 - 1;     // Should really be type(uint32).max, but that needs Solidity 0.6.8...
-    uint private constant UINT224_MAX = 2 ** 224 - 1;   // Ditto, type(uint224).max
 
     IUniswapV2Pair public immutable uniswapPair;
     uint public immutable token0Decimals;
@@ -56,7 +51,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, true, 6, 18 (USDC reserve is stored w/ 6 dec places, WETH w/ 18)
      * DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, true, 18, 18 (DAI reserve is stored w/ 18 dec places, WETH w/ 18)
      */
-    constructor(IUniswapV2Pair uniswapPair_, uint token0Decimals_, uint token1Decimals_, bool tokensInReverseOrder_) public {
+    constructor(IUniswapV2Pair uniswapPair_, uint token0Decimals_, uint token1Decimals_, bool tokensInReverseOrder_) {
         uniswapPair = uniswapPair_;
         token0Decimals = token0Decimals_;
         token1Decimals = token1Decimals_;
@@ -65,7 +60,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
         (uint aDecimals, uint bDecimals) = tokensInReverseOrder_ ?
             (token1Decimals_, token0Decimals_) :
             (token0Decimals_, token1Decimals_);
-        scaleFactor = 10 ** aDecimals.add(18).sub(bDecimals);
+        scaleFactor = 10 ** (aDecimals + 18 - bDecimals);
     }
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
@@ -120,8 +115,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
 
     function storeCumulativePrice(uint timestamp, uint cumPriceSeconds, CumulativePrice storage olderStoredPrice) internal
     {
-        require(timestamp <= UINT32_MAX, "timestamp overflow");
-        require(cumPriceSeconds <= UINT224_MAX, "cumPriceSeconds overflow");
+        require(timestamp <= type(uint32).max, "timestamp overflow");
+        require(cumPriceSeconds <= type(uint224).max, "cumPriceSeconds overflow");
         // (Note: this assignment only stores because olderStoredPrice has modifier "storage" - ie, store by reference!)
         (olderStoredPrice.timestamp, olderStoredPrice.cumPriceSeconds) = (uint32(timestamp), uint224(cumPriceSeconds));
 
@@ -176,7 +171,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
         uint uniswapCumPrice = tokensInReverseOrder ?
             uniswapPair.price1CumulativeLast() :
             uniswapPair.price0CumulativeLast();
-        cumPriceSeconds = uniswapCumPrice.mul(scaleFactor) / UNISWAP_CUM_PRICE_SCALE_FACTOR;
+        cumPriceSeconds = (uniswapCumPrice * scaleFactor) / UNISWAP_CUM_PRICE_SCALE_FACTOR;
     }
 
     /**
@@ -189,6 +184,6 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function calculateTWAP(uint newTimestamp, uint newCumPriceSeconds, uint oldTimestamp, uint oldCumPriceSeconds)
         public pure returns (uint price)
     {
-        price = (newCumPriceSeconds.sub(oldCumPriceSeconds)).div(newTimestamp.sub(oldTimestamp));
+        price = (newCumPriceSeconds - oldCumPriceSeconds) / (newTimestamp - oldTimestamp);
     }
 }
