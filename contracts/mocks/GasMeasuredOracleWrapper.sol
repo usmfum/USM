@@ -6,8 +6,8 @@ import "hardhat/console.sol";
 
 contract GasMeasuredOracleWrapper is Oracle {
 
-    Oracle internal immutable measuredOracle;
-    string internal oracleName;
+    Oracle public immutable measuredOracle;
+    string public oracleName;
 
     constructor(Oracle oracle, string memory name) {
         measuredOracle = oracle;

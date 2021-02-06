@@ -343,34 +343,32 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      * The oracle price being "refreshed" is itself a subtle idea: see the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
      */
     function _storeState(LoadedState memory ls) internal {
-        StoredState memory ss;
-
         uint previousTimeUnderwater = storedState.timeSystemWentUnderwater;
         require(ls.timeSystemWentUnderwater <= type(uint32).max, "timeSystemWentUnderwater overflow");
-        ss.timeSystemWentUnderwater = uint32(ls.timeSystemWentUnderwater);
         emit PriceChanged(previousTimeUnderwater, ls.timeSystemWentUnderwater);
 
         require(ls.ethUsdPriceTimestamp <= type(uint32).max, "ethUsdPriceTimestamp overflow");
-        ss.ethUsdPriceTimestamp = uint32(ls.ethUsdPriceTimestamp);
 
         uint previousPrice = storedState.ethUsdPrice * BILLION;
         uint priceToStore = ls.ethUsdPrice + HALF_BILLION;
         unchecked { priceToStore /= BILLION; }
         require(priceToStore <= type(uint80).max, "ethUsdPrice overflow");
-        ss.ethUsdPrice = uint80(priceToStore);
         emit PriceChanged(previousPrice, ls.ethUsdPrice);
 
         require(ls.buySellAdjustmentTimestamp <= type(uint32).max, "buySellAdjustmentTimestamp overflow");
-        ss.buySellAdjustmentTimestamp = uint32(ls.buySellAdjustmentTimestamp);
 
         uint previousAdjustment = storedState.buySellAdjustment * BILLION;
         uint adjustmentToStore = ls.buySellAdjustment + HALF_BILLION;
         unchecked { adjustmentToStore /= BILLION; }
         require(adjustmentToStore <= type(uint80).max, "buySellAdjustment overflow");
-        ss.buySellAdjustment = uint80(adjustmentToStore);
         emit BuySellAdjustmentChanged(previousAdjustment, ls.buySellAdjustment);
 
-        storedState = ss;
+        (storedState.timeSystemWentUnderwater,
+         storedState.ethUsdPriceTimestamp, storedState.ethUsdPrice,
+         storedState.buySellAdjustmentTimestamp, storedState.buySellAdjustment) =
+            (uint32(ls.timeSystemWentUnderwater),
+             uint32(ls.ethUsdPriceTimestamp), uint80(priceToStore),
+             uint32(ls.buySellAdjustmentTimestamp), uint80(adjustmentToStore));
     }
 
     // ____________________ Public Oracle view functions ____________________
@@ -462,14 +460,12 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         ls.timeSystemWentUnderwater = storedState.timeSystemWentUnderwater;
         ls.ethUsdPriceTimestamp = storedState.ethUsdPriceTimestamp;
         ls.ethUsdPrice = storedState.ethUsdPrice * BILLION;     // Converting stored BILLION (10**9) format to WAD (10**18)
-        ls.buySellAdjustmentTimestamp = storedState.buySellAdjustmentTimestamp;
-        ls.buySellAdjustment = storedState.buySellAdjustment * BILLION;
+        ls.buySellAdjustmentTimestamp = block.timestamp;   // Bring buySellAdjustment from its stored time to the present: it gravitates -> 1 over time
+        ls.buySellAdjustment = buySellAdjustment(storedState.buySellAdjustmentTimestamp,
+                                                 storedState.buySellAdjustment * BILLION,
+                                                 block.timestamp);
         ls.ethPool = ethPool();
         ls.usmTotalSupply = totalSupply();
-
-        // Bring buySellAdjustment from its stored time to the present - it gravitates towards 1 over time:
-        ls.buySellAdjustment = buySellAdjustment(ls.buySellAdjustmentTimestamp, ls.buySellAdjustment, block.timestamp);
-        ls.buySellAdjustmentTimestamp = block.timestamp;
     }
 
     // ____________________ Public helper pure functions (for functions above) ____________________

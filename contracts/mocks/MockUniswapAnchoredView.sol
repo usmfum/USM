@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract MockUniswapAnchoredView {
-    uint internal _price;
+    uint public _price;
 
     function set(uint value) external {
         _price = value;

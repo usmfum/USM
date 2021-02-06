@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract MockChainlinkAggregatorV3 {
-    int internal _answer;
+    int public _answer;
 
     function set(int value) external {
         _answer = value;
