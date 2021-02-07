@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import "acc-erc20/contracts/IERC20.sol";
 import "./WadMath.sol";
 
-abstract contract IUSM {
+abstract contract IUSM is IERC20 {
     enum Side {Buy, Sell}
 
     function mint(address to, uint minUsmOut) external virtual payable returns (uint);
@@ -17,7 +18,6 @@ abstract contract IUSM {
     function latestPrice() public virtual view returns (uint price, uint updateTime);
     function latestOraclePrice() public virtual view returns (uint price, uint updateTime);
     function ethPool() public virtual view returns (uint pool);
-    function usmTotalSupply() public virtual view returns (uint supply);    // Is there a way to scrap this and just use ERC20(Permit)'s totalSupply()?
     function fumTotalSupply() public virtual view returns (uint supply);
     function buySellAdjustment() public virtual view returns (uint adjustment);
     function timeSystemWentUnderwater() public virtual view returns (uint timestamp);

@@ -391,10 +391,6 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         pool = address(this).balance;
     }
 
-    function usmTotalSupply() public override view returns (uint supply) {
-        supply = totalSupply();
-    }
-
     function fumTotalSupply() public override view returns (uint supply) {
         supply = fum.totalSupply();
     }
