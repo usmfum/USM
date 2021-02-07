@@ -29,7 +29,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     using Address for address payable;
     using WadMath for uint;
 
-    event UnderwaterStatusChanged(bool previous, bool latest);
+    event TimeSystemWentUnderwaterChanged(uint previous, uint latest);
     event BuySellAdjustmentChanged(uint previous, uint latest);
     event PriceChanged(uint previous, uint latest);
 
@@ -345,24 +345,30 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      */
     function _storeState(LoadedState memory ls) internal {
         uint previousTimeUnderwater = storedState.timeSystemWentUnderwater;
-        require(ls.timeSystemWentUnderwater <= type(uint32).max, "timeSystemWentUnderwater overflow");
-        emit PriceChanged(previousTimeUnderwater, ls.timeSystemWentUnderwater);
+        if (ls.timeSystemWentUnderwater != previousTimeUnderwater) {
+            require(ls.timeSystemWentUnderwater <= type(uint32).max, "timeSystemWentUnderwater overflow");
+            emit TimeSystemWentUnderwaterChanged(previousTimeUnderwater, ls.timeSystemWentUnderwater);
+        }
 
         require(ls.ethUsdPriceTimestamp <= type(uint32).max, "ethUsdPriceTimestamp overflow");
 
-        uint previousPrice = storedState.ethUsdPrice * BILLION;
         uint priceToStore = ls.ethUsdPrice + HALF_BILLION;
         unchecked { priceToStore /= BILLION; }
-        require(priceToStore <= type(uint80).max, "ethUsdPrice overflow");
-        emit PriceChanged(previousPrice, ls.ethUsdPrice);
+        uint previousStoredPrice = storedState.ethUsdPrice;
+        if (priceToStore != previousStoredPrice) {
+            require(priceToStore <= type(uint80).max, "ethUsdPrice overflow");
+            unchecked { emit PriceChanged(previousStoredPrice * BILLION, priceToStore * BILLION); }
+        }
 
         require(ls.buySellAdjustmentTimestamp <= type(uint32).max, "buySellAdjustmentTimestamp overflow");
 
-        uint previousAdjustment = storedState.buySellAdjustment * BILLION;
         uint adjustmentToStore = ls.buySellAdjustment + HALF_BILLION;
         unchecked { adjustmentToStore /= BILLION; }
-        require(adjustmentToStore <= type(uint80).max, "buySellAdjustment overflow");
-        emit BuySellAdjustmentChanged(previousAdjustment, ls.buySellAdjustment);
+        uint previousStoredAdjustment = storedState.buySellAdjustment;
+        if (adjustmentToStore != previousStoredAdjustment) {
+            require(adjustmentToStore <= type(uint80).max, "buySellAdjustment overflow");
+            unchecked { emit BuySellAdjustmentChanged(previousStoredAdjustment * BILLION, adjustmentToStore * BILLION); }
+        }
 
         (storedState.timeSystemWentUnderwater,
          storedState.ethUsdPriceTimestamp, storedState.ethUsdPrice,
