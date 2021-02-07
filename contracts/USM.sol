@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
-import "./ERC20WithOptOut.sol";
+import "./WithOptOut.sol";
 import "./oracles/Oracle.sol";
 import "./Address.sol";
 import "./Delegable.sol";
@@ -25,7 +25,7 @@ import "./MinOut.sol";
  * calls *internal* rather than calls to a separate oracle contract (or multiple contracts) - which leads to a significant
  * saving in gas.
  */
-contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
+contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     using Address for address payable;
     using WadMath for uint;
 
@@ -68,7 +68,8 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     });
 
     constructor(Oracle oracle_, address[] memory optedOut_)
-        ERC20WithOptOut("Minimalist USD v1.0", "USM", optedOut_)
+        ERC20Permit("Minimalist USD v1.0", "USM")
+        WithOptOut(optedOut_)
     {
         oracle = oracle_;
         fum = new FUM(this, optedOut_);

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
-import "./ERC20WithOptOut.sol";
+import "./WithOptOut.sol";
 import "./Ownable.sol";
 import "./MinOut.sol";
 import "./IUSM.sol";
@@ -15,11 +15,12 @@ import "./IUSM.sol";
  *
  * @notice This should be owned by the stablecoin.
  */
-contract FUM is ERC20WithOptOut, Ownable {
+contract FUM is ERC20Permit, WithOptOut, Ownable {
     IUSM public immutable usm;
 
     constructor(IUSM usm_, address[] memory optedOut_)
-        ERC20WithOptOut("Minimalist Funding v1.0", "FUM", optedOut_)
+        ERC20Permit("Minimalist Funding v1.0", "FUM")
+        WithOptOut(optedOut_)
     {
         usm = usm_;
     }
