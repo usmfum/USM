@@ -7,7 +7,7 @@ import "./Oracle.sol";
 contract OurUniswapV2TWAPOracle is Oracle {
 
     /**
-     * MIN_TWAP_PERIOD plays two roles:
+     * UNISWAP_MIN_TWAP_PERIOD plays two roles:
      *
      * 1. Minimum age of the stored CumulativePrice we calculate our current TWAP vs.  Eg, if one of our stored prices is from
      * 5 secs ago, and the other from 10 min ago, we should calculate TWAP vs the 10-min-old one, since a 5-second TWAP is too
@@ -20,16 +20,16 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * These roles could in principle be separated, eg: "Require the stored price we calculate TWAP from to be >= 2 minutes
      * old, but leave >= 10 minutes before storing a new price."  But for simplicity we manage both with one constant.
      */
-    uint public constant MIN_TWAP_PERIOD = 10 minutes;
+    uint public constant UNISWAP_MIN_TWAP_PERIOD = 10 minutes;
 
     // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
     uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
 
     IUniswapV2Pair public immutable uniswapPair;
-    uint public immutable token0Decimals;
-    uint public immutable token1Decimals;
-    bool public immutable tokensInReverseOrder;
-    uint public immutable scaleFactor;
+    uint public immutable uniswapToken0Decimals;
+    uint public immutable uniswapToken1Decimals;
+    bool public immutable uniswapTokensInReverseOrder;
+    uint public immutable uniswapScaleFactor;
 
     struct CumulativePrice {
         uint32 timestamp;
@@ -42,25 +42,25 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * We store two CumulativePrices, A and B, without specifying which is more recent.  This is so that we only need to do one
      * SSTORE each time we save a new one: we can inspect them later to figure out which is newer - see orderedStoredPrices().
      */
-    CumulativePrice public storedUniswapPriceA;
-    CumulativePrice public storedUniswapPriceB;
+    CumulativePrice public uniswapStoredPriceA;
+    CumulativePrice public uniswapStoredPriceB;
 
     /**
      * Example pairs to pass in:
-     * ETH/USDT: 0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852, false, 18, 6 (WETH reserve is stored w/ 18 dec places, USDT w/ 18)
-     * USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, true, 6, 18 (USDC reserve is stored w/ 6 dec places, WETH w/ 18)
-     * DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, true, 18, 18 (DAI reserve is stored w/ 18 dec places, WETH w/ 18)
+     * ETH/USDT: 0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852, 18, 6 (WETH reserve is stored w/ 18 dec places, USDT w/ 18), false
+     * USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, 6, 18 (USDC reserve is stored w/ 6 dec places, WETH w/ 18), true
+     * DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, 18, 18 (DAI reserve is stored w/ 18 dec places, WETH w/ 18), true
      */
-    constructor(IUniswapV2Pair uniswapPair_, uint token0Decimals_, uint token1Decimals_, bool tokensInReverseOrder_) {
-        uniswapPair = uniswapPair_;
-        token0Decimals = token0Decimals_;
-        token1Decimals = token1Decimals_;
-        tokensInReverseOrder = tokensInReverseOrder_;
+    constructor(IUniswapV2Pair pair, uint token0Decimals, uint token1Decimals, bool tokensInReverseOrder) {
+        uniswapPair = pair;
+        uniswapToken0Decimals = token0Decimals;
+        uniswapToken1Decimals = token1Decimals;
+        uniswapTokensInReverseOrder = tokensInReverseOrder;
 
-        (uint aDecimals, uint bDecimals) = tokensInReverseOrder_ ?
-            (token1Decimals_, token0Decimals_) :
-            (token0Decimals_, token1Decimals_);
-        scaleFactor = 10 ** (aDecimals + 18 - bDecimals);
+        (uint aDecimals, uint bDecimals) = tokensInReverseOrder ?
+            (token1Decimals, token0Decimals) :
+            (token0Decimals, token1Decimals);
+        uniswapScaleFactor = 10 ** (aDecimals + 18 - bDecimals);
     }
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
@@ -126,16 +126,16 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function storedPriceToCompareVs(uint newCumPriceSecondsTime, CumulativePrice storage newerStoredPrice)
         internal view returns (CumulativePrice storage refPrice)
     {
-        bool aAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, storedUniswapPriceA);
-        bool bAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, storedUniswapPriceB);
+        bool aAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, uniswapStoredPriceA);
+        bool bAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, uniswapStoredPriceB);
         if (aAcceptable) {
             if (bAcceptable) {
                 refPrice = newerStoredPrice;        // Neither is *too* recent, so return the fresher of the two
             } else {
-                refPrice = storedUniswapPriceA;     // Only A is acceptable
+                refPrice = uniswapStoredPriceA;     // Only A is acceptable
             }
         } else if (bAcceptable) {
-            refPrice = storedUniswapPriceB;         // Only B is acceptable
+            refPrice = uniswapStoredPriceB;         // Only B is acceptable
         } else {
             revert("Both stored prices too recent");
         }
@@ -144,14 +144,14 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function orderedStoredPrices() internal view
         returns (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice)
     {
-        (olderStoredPrice, newerStoredPrice) = storedUniswapPriceB.timestamp > storedUniswapPriceA.timestamp ?
-            (storedUniswapPriceA, storedUniswapPriceB) : (storedUniswapPriceB, storedUniswapPriceA);
+        (olderStoredPrice, newerStoredPrice) = uniswapStoredPriceB.timestamp > uniswapStoredPriceA.timestamp ?
+            (uniswapStoredPriceA, uniswapStoredPriceB) : (uniswapStoredPriceB, uniswapStoredPriceA);
     }
 
     function areNewAndStoredPriceFarEnoughApart(uint newTimestamp, CumulativePrice storage storedPrice) internal view
         returns (bool farEnough)
     {
-        farEnough = newTimestamp >= storedPrice.timestamp + MIN_TWAP_PERIOD;    // No risk of overflow on a uint32
+        unchecked { farEnough = newTimestamp >= storedPrice.timestamp + UNISWAP_MIN_TWAP_PERIOD; } // uint32 + x can't overflow
     }
 
     /**
@@ -168,10 +168,11 @@ contract OurUniswapV2TWAPOracle is Oracle {
 
         // Retrieve the current Uniswap cumulative price.  Modeled off of Uniswap's own example:
         // https://github.com/Uniswap/uniswap-v2-periphery/blob/master/contracts/examples/ExampleOracleSimple.sol
-        uint uniswapCumPrice = tokensInReverseOrder ?
+        uint uniswapCumPrice = uniswapTokensInReverseOrder ?
             uniswapPair.price1CumulativeLast() :
             uniswapPair.price0CumulativeLast();
-        cumPriceSeconds = (uniswapCumPrice * scaleFactor) / UNISWAP_CUM_PRICE_SCALE_FACTOR;
+        cumPriceSeconds = uniswapCumPrice * uniswapScaleFactor;
+        unchecked { cumPriceSeconds /= UNISWAP_CUM_PRICE_SCALE_FACTOR; }
     }
 
     /**

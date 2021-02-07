@@ -9,13 +9,13 @@ import "./Oracle.sol";
  */
 contract ChainlinkOracle is Oracle {
 
-    uint private constant SCALE_FACTOR = 10 ** 10;  // Since Chainlink has 8 dec places, and latestPrice() needs 18
+    uint public constant CHAINLINK_SCALE_FACTOR = 10 ** 10; // Since Chainlink has 8 dec places, and latestPrice() needs 18
 
-    AggregatorV3Interface public aggregator;
+    AggregatorV3Interface public chainlinkAggregator;
 
     constructor(AggregatorV3Interface aggregator_)
     {
-        aggregator = aggregator_;
+        chainlinkAggregator = aggregator_;
     }
 
     /**
@@ -28,7 +28,7 @@ contract ChainlinkOracle is Oracle {
 
     function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
         int rawPrice;
-        (, rawPrice,, updateTime,) = aggregator.latestRoundData();
-        price = uint(rawPrice) * SCALE_FACTOR; // TODO: Cast safely
+        (, rawPrice,, updateTime,) = chainlinkAggregator.latestRoundData();
+        price = uint(rawPrice) * CHAINLINK_SCALE_FACTOR; // TODO: Cast safely
     }
 }
