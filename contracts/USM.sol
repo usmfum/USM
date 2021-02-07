@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
-import "./ERC20WithOptOut.sol";
+import "./WithOptOut.sol";
 import "./oracles/Oracle.sol";
 import "./Address.sol";
 import "./Delegable.sol";
@@ -25,11 +25,11 @@ import "./MinOut.sol";
  * calls *internal* rather than calls to a separate oracle contract (or multiple contracts) - which leads to a significant
  * saving in gas.
  */
-contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
+contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     using Address for address payable;
     using WadMath for uint;
 
-    event UnderwaterStatusChanged(bool previous, bool latest);
+    event TimeSystemWentUnderwaterChanged(uint previous, uint latest);
     event BuySellAdjustmentChanged(uint previous, uint latest);
     event PriceChanged(uint previous, uint latest);
 
@@ -68,7 +68,8 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
     });
 
     constructor(Oracle oracle_, address[] memory optedOut_)
-        ERC20WithOptOut("Minimalist USD v1.0", "USM", optedOut_)
+        ERC20Permit("Minimalist USD v1.0", "USM")
+        WithOptOut(optedOut_)
     {
         oracle = oracle_;
         fum = new FUM(this, optedOut_);
@@ -344,24 +345,30 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
      */
     function _storeState(LoadedState memory ls) internal {
         uint previousTimeUnderwater = storedState.timeSystemWentUnderwater;
-        require(ls.timeSystemWentUnderwater <= type(uint32).max, "timeSystemWentUnderwater overflow");
-        emit PriceChanged(previousTimeUnderwater, ls.timeSystemWentUnderwater);
+        if (ls.timeSystemWentUnderwater != previousTimeUnderwater) {
+            require(ls.timeSystemWentUnderwater <= type(uint32).max, "timeSystemWentUnderwater overflow");
+            emit TimeSystemWentUnderwaterChanged(previousTimeUnderwater, ls.timeSystemWentUnderwater);
+        }
 
         require(ls.ethUsdPriceTimestamp <= type(uint32).max, "ethUsdPriceTimestamp overflow");
 
-        uint previousPrice = storedState.ethUsdPrice * BILLION;
         uint priceToStore = ls.ethUsdPrice + HALF_BILLION;
         unchecked { priceToStore /= BILLION; }
-        require(priceToStore <= type(uint80).max, "ethUsdPrice overflow");
-        emit PriceChanged(previousPrice, ls.ethUsdPrice);
+        uint previousStoredPrice = storedState.ethUsdPrice;
+        if (priceToStore != previousStoredPrice) {
+            require(priceToStore <= type(uint80).max, "ethUsdPrice overflow");
+            unchecked { emit PriceChanged(previousStoredPrice * BILLION, priceToStore * BILLION); }
+        }
 
         require(ls.buySellAdjustmentTimestamp <= type(uint32).max, "buySellAdjustmentTimestamp overflow");
 
-        uint previousAdjustment = storedState.buySellAdjustment * BILLION;
         uint adjustmentToStore = ls.buySellAdjustment + HALF_BILLION;
         unchecked { adjustmentToStore /= BILLION; }
-        require(adjustmentToStore <= type(uint80).max, "buySellAdjustment overflow");
-        emit BuySellAdjustmentChanged(previousAdjustment, ls.buySellAdjustment);
+        uint previousStoredAdjustment = storedState.buySellAdjustment;
+        if (adjustmentToStore != previousStoredAdjustment) {
+            require(adjustmentToStore <= type(uint80).max, "buySellAdjustment overflow");
+            unchecked { emit BuySellAdjustmentChanged(previousStoredAdjustment * BILLION, adjustmentToStore * BILLION); }
+        }
 
         (storedState.timeSystemWentUnderwater,
          storedState.ethUsdPriceTimestamp, storedState.ethUsdPrice,
