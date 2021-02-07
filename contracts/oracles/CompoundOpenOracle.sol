@@ -19,7 +19,7 @@ contract CompoundOpenOracle is Oracle {
         uint224 price;
     }
 
-    UniswapAnchoredView public compoundUniswapAnchoredView;
+    UniswapAnchoredView public immutable compoundUniswapAnchoredView;
     TimedPrice public compoundStoredPrice;
 
     constructor(UniswapAnchoredView anchoredView)
