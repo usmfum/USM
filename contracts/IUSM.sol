@@ -20,7 +20,6 @@ abstract contract IUSM {
     function usmTotalSupply() public virtual view returns (uint supply);    // Is there a way to scrap this and just use ERC20(Permit)'s totalSupply()?
     function fumTotalSupply() public virtual view returns (uint supply);
     function buySellAdjustment() public virtual view returns (uint adjustment);
-    function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater) public virtual view returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys);
     function timeSystemWentUnderwater() public virtual view returns (uint timestamp);
 
     function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, WadMath.Round upOrDown) public virtual pure returns (int buffer);
@@ -29,4 +28,5 @@ abstract contract IUSM {
     function usmToEth(uint ethUsdPrice, uint usmAmount, WadMath.Round upOrDown) public virtual pure returns (uint ethOut);
     function usmPrice(Side side, uint ethUsdPrice, uint debtRatio_) public virtual pure returns (uint price);
     function fumPrice(Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply, uint adjustment) public virtual pure returns (uint price);
+    function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime) public virtual pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys);
 }

@@ -74,7 +74,7 @@ contract USMView {
         uint usmSupply = usm.usmTotalSupply();
         uint oldTimeUnderwater = usm.timeSystemWentUnderwater();
         if (side == IUSM.Side.Buy) {
-            (, usmSupply) = usm.checkIfUnderwater(usmSupply, ethPool_, ethUsdPrice, oldTimeUnderwater);
+            (, usmSupply) = usm.checkIfUnderwater(usmSupply, ethPool_, ethUsdPrice, oldTimeUnderwater, block.timestamp);
         }
         price = usm.fumPrice(side, ethUsdPrice, ethPool_, usmSupply, usm.fumTotalSupply(), usm.buySellAdjustment());
     }

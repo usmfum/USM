@@ -246,7 +246,7 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         // 3. Refresh timeSystemWentUnderwater:
         uint usmSupplyForFumBuy;
         (ls.timeSystemWentUnderwater, usmSupplyForFumBuy) =
-            checkIfUnderwater(ls.usmTotalSupply, ls.ethPool, ls.ethUsdPrice, ls.timeSystemWentUnderwater);
+            checkIfUnderwater(ls.usmTotalSupply, ls.ethPool, ls.ethUsdPrice, ls.timeSystemWentUnderwater, block.timestamp);
 
         // 4. Calculate fumOut:
         uint fumSupply = fum.totalSupply();
@@ -410,46 +410,6 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
         adjustment = loadState().buySellAdjustment;
     }
 
-    /**
-     * @return timeSystemWentUnderwater_ 0 the time at which we first detected the system was underwater (debt ratio >
-     * MAX_DEBT_RATIO), based on the current oracle price and pool ETH and USM; or 0 if we're not currently underwater.
-     * @return usmSupplyForFumBuys The current supply of USM *for purposes of calculating the FUM buy price,* and therefore
-     * for `fumFromFund()`.  The "supply for FUM buys" is the *lesser* of the actual current USM supply, and the USM amount
-     * that would make debt ratio = MAX_DEBT_RATIO.  Example:
-     *
-     * 1. Suppose the system currently contains 50 ETH at price $1,000 (total pool value: $50,000), with an actual USM supply
-     *    of 30,000 USM.  Then debt ratio = 30,000 / $50,000 = 60%: < MAX 80%, so `usmSupplyForFumBuys` = 30,000.
-     * 2. Now suppose ETH/USD halves to $500.  Then pool value halves to $25,000, and debt ratio doubles to 120%.  Now
-     *    `usmSupplyForFumBuys` instead = 20,000: the USM quantity at which debt ratio would equal 80% (20,000 / $25,000).
-     *    (Call this the "80% supply".)
-     * 3. ...Except, we also gradually increase the supply over time while we remain underwater.  This has the effect of
-     *    *reducing* the FUM buy price inferred from that supply (higher JacobUSM supply -> smaller buffer -> lower FUM price).
-     *    The math we use gradually increases the supply from its initial "80% supply" value, where debt ratio = MAX_DEBT_RATIO
-     *    (20,000 above), to a theoretical maximum "100% supply" value, where debt ratio = 100% (in the $500 example above,
-     *    this would be 25,000).  (Or the actual supply, whichever is lower: we never increase `usmSupplyForFumBuys` above
-     *    `usmActualSupply`.)  The climb from the initial 80% supply (20,000) to the 100% supply (25,000) is at a rate that
-     *    brings it "halfway closer per MIN_FUM_BUY_PRICE_HALF_LIFE (eg, 1 day)": so three days after going underwater, the
-     *    supply returned will be 25,000 - 0.5**3 * (25,000 - 20,000) = 24,375.
-     */
-    function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater)
-        public override view returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys)
-    {
-        uint debtRatio_ = debtRatio(ethUsdPrice, ethPool_, usmActualSupply);
-        if (debtRatio_ <= MAX_DEBT_RATIO) {            // We're not underwater, so leave timeSystemWentUnderwater_ as 0
-            usmSupplyForFumBuys = usmActualSupply;     // When not underwater, USM supply for FUM buys is just actual supply
-        } else {                                       // We're underwater
-            // Set timeSystemWentUnderwater_ to block.timestamp, if it wasn't already set:
-            timeSystemWentUnderwater_ = (oldTimeUnderwater != 0 ? oldTimeUnderwater : block.timestamp);
-
-            // Calculate usmSupplyForFumBuys:
-            uint maxEffectiveDebtRatio = debtRatio_.wadMin(WAD);    // min(actual debt ratio, 100%)
-            uint numHalvings = (block.timestamp - timeSystemWentUnderwater_).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
-            uint decayFactor = numHalvings.wadHalfExp();
-            uint effectiveDebtRatio = maxEffectiveDebtRatio - decayFactor.wadMulUp(maxEffectiveDebtRatio - MAX_DEBT_RATIO);
-            usmSupplyForFumBuys = effectiveDebtRatio.wadMulDown(ethPool_.wadMulDown(ethUsdPrice));
-        }
-    }
-
     function timeSystemWentUnderwater() public override view returns (uint timestamp) {
         timestamp = storedState.timeSystemWentUnderwater;
     }
@@ -550,6 +510,46 @@ contract USM is IUSM, Oracle, ERC20WithOptOut, Delegable {
             }
         } else if (adjustment < WAD) {
             price = price.wadMulDown(adjustment);
+        }
+    }
+
+    /**
+     * @return timeSystemWentUnderwater_ 0 the time at which we first detected the system was underwater (debt ratio >
+     * MAX_DEBT_RATIO), based on the current oracle price and pool ETH and USM; or 0 if we're not currently underwater.
+     * @return usmSupplyForFumBuys The current supply of USM *for purposes of calculating the FUM buy price,* and therefore
+     * for `fumFromFund()`.  The "supply for FUM buys" is the *lesser* of the actual current USM supply, and the USM amount
+     * that would make debt ratio = MAX_DEBT_RATIO.  Example:
+     *
+     * 1. Suppose the system currently contains 50 ETH at price $1,000 (total pool value: $50,000), with an actual USM supply
+     *    of 30,000 USM.  Then debt ratio = 30,000 / $50,000 = 60%: < MAX 80%, so `usmSupplyForFumBuys` = 30,000.
+     * 2. Now suppose ETH/USD halves to $500.  Then pool value halves to $25,000, and debt ratio doubles to 120%.  Now
+     *    `usmSupplyForFumBuys` instead = 20,000: the USM quantity at which debt ratio would equal 80% (20,000 / $25,000).
+     *    (Call this the "80% supply".)
+     * 3. ...Except, we also gradually increase the supply over time while we remain underwater.  This has the effect of
+     *    *reducing* the FUM buy price inferred from that supply (higher JacobUSM supply -> smaller buffer -> lower FUM price).
+     *    The math we use gradually increases the supply from its initial "80% supply" value, where debt ratio = MAX_DEBT_RATIO
+     *    (20,000 above), to a theoretical maximum "100% supply" value, where debt ratio = 100% (in the $500 example above,
+     *    this would be 25,000).  (Or the actual supply, whichever is lower: we never increase `usmSupplyForFumBuys` above
+     *    `usmActualSupply`.)  The climb from the initial 80% supply (20,000) to the 100% supply (25,000) is at a rate that
+     *    brings it "halfway closer per MIN_FUM_BUY_PRICE_HALF_LIFE (eg, 1 day)": so three days after going underwater, the
+     *    supply returned will be 25,000 - 0.5**3 * (25,000 - 20,000) = 24,375.
+     */
+    function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime)
+        public override pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys)
+    {
+        uint debtRatio_ = debtRatio(ethUsdPrice, ethPool_, usmActualSupply);
+        if (debtRatio_ <= MAX_DEBT_RATIO) {            // We're not underwater, so leave timeSystemWentUnderwater_ as 0
+            usmSupplyForFumBuys = usmActualSupply;     // When not underwater, USM supply for FUM buys is just actual supply
+        } else {                                       // We're underwater
+            // Set timeSystemWentUnderwater_ to currentTime, if it wasn't already set:
+            timeSystemWentUnderwater_ = (oldTimeUnderwater != 0 ? oldTimeUnderwater : currentTime);
+
+            // Calculate usmSupplyForFumBuys:
+            uint maxEffectiveDebtRatio = debtRatio_.wadMin(WAD);    // min(actual debt ratio, 100%)
+            uint numHalvings = (currentTime - timeSystemWentUnderwater_).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
+            uint decayFactor = numHalvings.wadHalfExp();
+            uint effectiveDebtRatio = maxEffectiveDebtRatio - decayFactor.wadMulUp(maxEffectiveDebtRatio - MAX_DEBT_RATIO);
+            usmSupplyForFumBuys = effectiveDebtRatio.wadMulDown(ethPool_.wadMulDown(ethUsdPrice));
         }
     }
 
