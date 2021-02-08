@@ -23,7 +23,7 @@ contract USMView {
      */
     function ethBuffer(WadMath.Round upOrDown) external view returns (int buffer) {
         (uint price, ) = usm.latestPrice();
-        buffer = usm.ethBuffer(price, usm.ethPool(), usm.usmTotalSupply(), upOrDown);
+        buffer = usm.ethBuffer(price, usm.ethPool(), usm.totalSupply(), upOrDown);
     }
 
     /**
@@ -52,7 +52,7 @@ contract USMView {
      */
     function debtRatio() external view returns (uint ratio) {
         (uint price, ) = usm.latestPrice();
-        ratio = usm.debtRatio(price, usm.ethPool(), usm.usmTotalSupply());
+        ratio = usm.debtRatio(price, usm.ethPool(), usm.totalSupply());
     }
 
     /**
@@ -70,12 +70,12 @@ contract USMView {
      */
     function fumPrice(IUSM.Side side) external view returns (uint price) {
         (uint ethUsdPrice, ) = usm.latestPrice();
-        uint ethPool_ = usm.ethPool();
-        uint usmSupply = usm.usmTotalSupply();
+        uint ethPool = usm.ethPool();
+        uint usmSupply = usm.totalSupply();
         uint oldTimeUnderwater = usm.timeSystemWentUnderwater();
         if (side == IUSM.Side.Buy) {
-            (, usmSupply) = usm.checkIfUnderwater(usmSupply, ethPool_, ethUsdPrice, oldTimeUnderwater);
+            (, usmSupply) = usm.checkIfUnderwater(usmSupply, ethPool, ethUsdPrice, oldTimeUnderwater, block.timestamp);
         }
-        price = usm.fumPrice(side, ethUsdPrice, ethPool_, usmSupply, usm.fumTotalSupply(), usm.buySellAdjustment());
+        price = usm.fumPrice(side, ethUsdPrice, ethPool, usmSupply, usm.fumTotalSupply(), usm.buySellAdjustment());
     }
 }
