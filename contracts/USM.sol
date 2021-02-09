@@ -72,10 +72,20 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         WithOptOut(optedOut_)
     {
         oracle = oracle_;
-        fum = new FUM(this, optedOut_);
+        FUM fum_ = fum = new FUM(this, optedOut_);
+        addDelegate(address(fum_));
     }
 
     // ____________________ External transactional functions ____________________
+
+    /// @dev Sometimes we want to give FUM privileged access
+    modifier onlyHolderOrDelegateOrFUM(address owner, string memory errorMessage) {
+        require(
+            msg.sender == owner || delegated[owner][msg.sender] || msg.sender == address(fum),
+            errorMessage
+        );
+        _;
+    }
 
     /**
      * @notice Mint new USM, sending it to the given address, and only if the amount minted >= minUsmOut.  The amount of ETH is
@@ -121,25 +131,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      */
     function defund(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
-        onlyHolderOrDelegate(from, "Only holder or delegate")
+        onlyHolderOrDelegateOrFUM(from, "Only holder or delegate")
         returns (uint ethOut)
     {
-        ethOut = _defundFum(from, to, fumToBurn, minEthOut);
-    }
-
-    /**
-     * @notice Defunds the pool by redeeming FUM from an arbitrary address in exchange for equivalent ETH from the pool.
-     * Called only by the FUM contract, when FUM is sent to it.
-     * @param from address to deduct the FUM from.
-     * @param to address to send the ETH to.
-     * @param fumToBurn Amount of FUM to burn.
-     * @param minEthOut Minimum accepted ETH for a successful defund.
-     */
-    function defundFromFUM(address from, address payable to, uint fumToBurn, uint minEthOut)
-        external override
-        returns (uint ethOut)
-    {
-        require(msg.sender == address(fum), "Restricted to FUM");
         ethOut = _defundFum(from, to, fumToBurn, minEthOut);
     }
 
