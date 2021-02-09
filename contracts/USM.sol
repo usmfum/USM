@@ -407,7 +407,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * @return adjustment The sliding-price buy/sell adjustment
      */
     function buySellAdjustment() public override view returns (uint adjustment) {
-        adjustment = loadState().buySellAdjustment;
+        adjustment = loadState().buySellAdjustment;     // Not just from storedState, b/c need to update it - see loadState()
     }
 
     function timeSystemWentUnderwater() public override view returns (uint timestamp) {
@@ -420,10 +420,13 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         ls.timeSystemWentUnderwater = storedState.timeSystemWentUnderwater;
         ls.ethUsdPriceTimestamp = storedState.ethUsdPriceTimestamp;
         ls.ethUsdPrice = storedState.ethUsdPrice * BILLION;     // Converting stored BILLION (10**9) format to WAD (10**18)
-        ls.buySellAdjustmentTimestamp = block.timestamp;   // Bring buySellAdjustment from its stored time to the present: it gravitates -> 1 over time
+
+        // Bring buySellAdjustment up to the present - it gravitates towards 1 over time, so the stored value is obsolete:
+        ls.buySellAdjustmentTimestamp = block.timestamp;
         ls.buySellAdjustment = buySellAdjustment(storedState.buySellAdjustmentTimestamp,
                                                  storedState.buySellAdjustment * BILLION,
                                                  block.timestamp);
+
         ls.ethPool = ethPool();
         ls.usmTotalSupply = totalSupply();
     }
@@ -444,9 +447,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice Calculate debt ratio for a given eth to USM price: ratio of the outstanding USM (amount of USM in total supply), to
-     * the current ETH pool value in USD (ETH qty * ETH/USD price).
-     * @return ratio Debt ratio
+     * @notice Calculate debt ratio for a given eth to USM price: ratio of the outstanding USM (amount of USM in total supply),
+     * to the current ETH pool value in USD (ETH qty * ETH/USD price).
+     * @return ratio Debt ratio (or 0 if there's currently 0 ETH in the pool/price = 0: these should never happen after launch)
      */
     function debtRatio(uint ethUsdPrice, uint ethInPool, uint usmSupply) public override pure returns (uint ratio) {
         uint ethPoolValueInUsd = ethInPool.wadMulDown(ethUsdPrice);
