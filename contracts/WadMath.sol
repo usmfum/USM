@@ -11,158 +11,214 @@ library WadMath {
 
     uint public constant WAD = 10 ** 18;
     uint public constant WAD_MINUS_1 = WAD - 1;
-    uint public constant WAD_SQUARED = WAD * WAD;
-    uint public constant WAD_SQUARED_MINUS_1 = WAD_SQUARED - 1;
     uint public constant WAD_OVER_10 = WAD / 10;
     uint public constant WAD_OVER_20 = WAD / 20;
     uint public constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
-    uint public constant TWO_WAD = 2 * WAD;
     uint public constant LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;   // log_2(10**18) * 2**121
-    uint public constant LOG_2_E_SCALED = 3835341275459348169893510517860103418;       // log_2(e) * 2**121
     uint public constant LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;                // log_2(e) * 2**121 / 10**18
 
-    function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint) {
-        return upOrDown == Round.Down ? wadMulDown(x, y) : wadMulUp(x, y);
+    function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint z) {
+        z = (upOrDown == Round.Down ? wadMulDown(x, y) : wadMulUp(x, y));
     }
 
-    function wadMulDown(uint x, uint y) internal pure returns (uint) {
-        return x * y / WAD;
+    function wadMulDown(uint x, uint y) internal pure returns (uint z) {
+        z = x * y;                  // Rounds down, truncating the last 18 digits.  So (imagining 2 dec places rather than 18):
+        unchecked { z /= WAD; }     // 369 (3.69) * 271 (2.71) -> 99999 (9.9999) -> 999 (9.99).
     }
 
-    function wadMulUp(uint x, uint y) internal pure returns (uint) {
-        return (x * y + WAD_MINUS_1) / WAD;
+    function wadMulUp(uint x, uint y) internal pure returns (uint z) {
+        z = x * y + WAD_MINUS_1;    // Rounds up.  So (again imagining 2 decimal places):
+        unchecked { z /= WAD; }     // 383 (3.83) * 235 (2.35) -> 90005 (9.0005), + 99 (0.0099) -> 90104, / 100 -> 901 (9.01).
     }
 
-    function wadDiv(uint x, uint y, Round upOrDown) internal pure returns (uint) {
-        return upOrDown == Round.Down ? wadDivDown(x, y) : wadDivUp(x, y);
+    function wadDiv(uint x, uint y, Round upOrDown) internal pure returns (uint z) {
+        z = (upOrDown == Round.Down ? wadDivDown(x, y) : wadDivUp(x, y));
     }
 
-    function wadDivDown(uint x, uint y) internal pure returns (uint) {
-        return (x * WAD) / y;
+    function wadDivDown(uint x, uint y) internal pure returns (uint z) {
+        z = (x * WAD) / y;          // Rounds down: 199 (1.99) / 1000 (10) -> (199 * 100) / 1000 -> 19 (0.19: 0.199 truncated).
     }
 
-    function wadDivUp(uint x, uint y) internal pure returns (uint) {
-        return (x * WAD + y - 1) / y;    // Can use "-" instead of sub() since div(y) will catch y = 0 case anyway
+    function wadDivUp(uint x, uint y) internal pure returns (uint z) {
+        z = x * WAD + y;            // 101 (1.01) / 1000 (10) -> (101 * 100 + 1000 - 1) / 1000 -> 11 (0.11 = 0.101 rounded up).
+        unchecked { z -= 1; }       // Can do unchecked subtraction since division in next line will catch y = 0 case anyway
+        z /= y;
     }
 
-    function wadMax(uint x, uint y) internal pure returns (uint) {
-        return (x > y ? x : y);
+    function wadMax(uint x, uint y) internal pure returns (uint z) {
+        z = (x > y ? x : y);
     }
 
-    function wadMin(uint x, uint y) internal pure returns (uint) {
-        return (x < y ? x : y);
+    function wadMin(uint x, uint y) internal pure returns (uint z) {
+        z = (x < y ? x : y);
     }
 
-    function wadHalfExp(uint power) internal pure returns (uint) {
-        return wadHalfExp(power, type(uint).max);
+    /**
+     * @return exp Just returns `wadHalfExp(power, MAX_VALUE)`, ie, an approximation of 0.5**`power`, with `power` uncapped.
+     */
+    function wadHalfExp(uint power) internal pure returns (uint exp) {
+        exp = wadHalfExp(power, type(uint).max);
     }
 
-    // Returns a loose but "gas-efficient" approximation of 0.5**power, where power is rounded to the nearest 0.1, and is
-    // capped at maxPower.  Note power is WAD-scaled (eg, 2.7364 * WAD), but maxPower is just a plain unscaled uint (eg, 10).
-    // Negative powers are not handled (as implied by power being a uint).
-    function wadHalfExp(uint power, uint maxPower) internal pure returns (uint) {
-        uint powerInTenthsUnscaled = (power + WAD_OVER_20) / WAD_OVER_10;
-        if (powerInTenthsUnscaled / 10 > maxPower) {
-            return 0;
-        }
-        return wadPow(HALF_TO_THE_ONE_TENTH, powerInTenthsUnscaled);
-    }
-
-    // Adapted from rpow() in https://github.com/dapphub/ds-math/blob/master/src/math.sol - thank you!
-    //
-    // This famous algorithm is called "exponentiation by squaring"
-    // and calculates x^n with x as fixed-point and n as regular unsigned.
-    //
-    // It's O(log n), instead of O(n) for naive repeated multiplication.
-    //
-    // These facts are why it works:
-    //
-    //  If n is even, then x^n = (x^2)^(n/2).
-    //  If n is odd,  then x^n = x * x^(n-1),
-    //   and applying the equation for even x gives
-    //    x^n = x * (x^2)^((n-1) / 2).
-    //
-    //  Also, EVM division is flooring and
-    //    floor[(n-1) / 2] = floor[n / 2].
-    //
-    function wadPow(uint x, uint n) internal pure returns (uint z) {
-        z = n % 2 != 0 ? x : WAD;
-
-        for (n /= 2; n != 0; n /= 2) {
-            x = (x * x) / WAD;
-
-            if (n % 2 != 0) {
-                z = wadMulDown(z, x);
-            }
+    /**
+     * @return exp a loose but "gas-efficient" approximation of 0.5**power, where power is rounded to the nearest 0.1, and is
+     * capped at maxPower.  Note power is WAD-scaled (eg, 2.7364 * WAD), but maxPower is just a plain unscaled uint (eg, 10).
+     * Negative powers are not handled (as implied by power being a uint).
+     */
+    function wadHalfExp(uint power, uint maxPower) internal pure returns (uint exp) {
+        uint powerInTenthsUnscaled = power + WAD_OVER_20;       // Rounds 2.7499 -> 2.7, 2.7500 -> 2.8
+        unchecked { powerInTenthsUnscaled /= WAD_OVER_10; }
+        uint powerUnscaled;
+        unchecked { powerUnscaled = powerInTenthsUnscaled / 10; }
+        if (powerUnscaled <= maxPower) {    // If not, then 0.5**power is (more or less) tiny, so we just return exp = 0
+            exp = wadPow(HALF_TO_THE_ONE_TENTH, powerInTenthsUnscaled);
         }
     }
 
     /**
-     * Returns the (approximate!) natural logarithm of x, where both x and the return value are in WAD fixed-point form.
+     * @notice Adapted from rpow() in https://github.com/dapphub/ds-math/blob/master/src/math.sol - thank you!
+     *
+     * This famous algorithm is called "exponentiation by squaring" and calculates x^n with x as fixed-point and n as regular
+     * unsigned.
+     *
+     * It's O(log n), instead of O(n) for naive repeated multiplication.
+     *
+     * These facts are why it works:
+     *
+     * - If n is even, then x^n = (x^2)^(n/2).
+     * - If n is odd,  then x^n = x * x^(n-1),
+     *   and applying the equation for even x gives
+     *   x^n = x * (x^2)^((n-1) / 2).
+     *
+     * Also, EVM division is flooring and floor[(n-1) / 2] = floor[n / 2].
+     */
+    function wadPow(uint x, uint n) internal pure returns (uint z) {
+        unchecked { z = n % 2 != 0 ? x : WAD; }
+
+        unchecked { n /= 2; }
+        bool divide;
+        while (n != 0) {
+            x = wadMulDown(x, x);
+
+            unchecked { divide = n % 2 != 0; }
+            if (divide) {
+                z = wadMulDown(z, x);
+            }
+            unchecked { n /= 2; }
+        }
+    }
+
+    /**
+     * @return z The (approximate!) natural logarithm of x, where both x and the return value are in WAD fixed-point form.
+     * @dev We're given X = x * 10**18 (WAD-formatted); we want to return Z = z * 10**18, where z =~ ln(x); and we have
+     * `log_2(x)` below, which returns Y = y * 2**121, where y =~ log2(x).  So the math we use is:
+     *
+     *     K1 = log2(10**18) * 2**121
+     *     K2 = log2(e) * 2**121 / 10**18
+     *     Z = (`log_2(X)` - K1) / K2
+     *       = (`log_2(x * 10**18)` - log2(10**18) * 2**121) / (log2(e) * 2**121 / 10**18)
+     *       = (log2(x * 10**18) * 2**121 - log2(10**18) * 2**121) / (log2(e) * 2**121 / 10**18)
+     *       = (log2(x * 10**18) - log2(10**18)) / (log2(e) / 10**18)
+     *       = (log2(x) / log2(e)) * 10**18
+     *       = ln(x) * 10**18
      */
     function wadLog(uint x) internal pure returns (int z) {
         require(x <= type(uint128).max, "x overflow");
-        z = (int(log_2(uint128(x))) - int(LOG_2_WAD_SCALED)) / int(LOG_2_E_SCALED_OVER_WAD);
+        z = int(log_2(uint128(x)));
+        unchecked { z = (z - int(LOG_2_WAD_SCALED)) / int(LOG_2_E_SCALED_OVER_WAD); }
     }
 
     /**
-     * Raise e to the given power y (approximately!), specified in WAD 18-digit fixed-point form, and return the result in,
-     * again, WAD form.
-     *
-     * This library works only on positive uint inputs.  If you have a negative exponent (y < 0), you can calculate it using
-     * this identity:
+     * @return z e raised to the given power `y` (approximately!), specified in WAD 18-digit fixed-point form, and in, again,
+     * WAD form.
+     * @notice This library works only on positive uint inputs.  If you have a negative exponent (y < 0), you can calculate it
+     * using this identity:
      *
      *     wadExp(y < 0) = 1 / wadExp(-y > 0) = WAD.div(wadExp(-y > 0))
+     *
+     * @dev We're given Y = y * 10**18 (WAD-formatted); we want to return Z = z * 10**18, where z =~ e**y; and we have
+     * `pow_2(X = x * 2**121)` below, which returns y =~ 2**x = 2**(X / 2**121).  So the math we use is:
+     *
+     *     K1 = log2(10**18) * 2**121
+     *     K2 = log2(e) * 2**121 / 10**18
+     *     Z = `pow_2(K1 + K2 * Y)`
+     *       = 2**((K1 + K2 * Y) / 2**121)
+     *       = 2**((log2(10**18) * 2**121 + (log2(e) * 2**121 / 10**18) * (y * 10**18)) / 2**121)
+     *       = 2**(log2(10**18) + log2(e) * y)
+     *       = 2**(log2(10**18)) * 2**(log2(e) * y)
+     *       = 10**18 * (2**log2(e))**y
+     *       = e**y * 10**18
      */
     function wadExp(uint y) internal pure returns (uint z) {
-        uint exponent = LOG_2_WAD_SCALED + wadMulDown(y, LOG_2_E_SCALED);
+        uint exponent = LOG_2_WAD_SCALED + LOG_2_E_SCALED_OVER_WAD * y;
         require(exponent <= type(uint128).max, "exponent overflow");
         z = pow_2(uint128(exponent));
     }
 
     /**
-     * Raise given number x to power y (approximately!), both in WAD 18-digit fixed-point form, and return the result in,
-     * again, WAD form.
-     *
-     * This library works only on positive uint inputs.  If you have a negative base (x < 0) or a negative exponent (y < 0),
-     * you can calculate them using these identities:
+     * @return z The given number `x` raised to power `y` (approximately!), with all of `x`, `y` and `z` in WAD 18-digit
+     * fixed-point form.
+     * @notice This library works only on positive uint inputs.  If you have a negative base (x < 0) or a negative exponent
+     * (y < 0), you can calculate them using these identities:
      *
      *     wadExp(x < 0, y) = -wadExp(-x > 0, y)
      *     wadExp(x, y < 0) = 1 / wadExp(x, -y > 0) = WAD.div(wadExp(x, -y > 0))
+     *
+     * @dev We're given X = x * 10**18, and Y = y * 10**18 (both WAD-formatted); we want Z = z * 10**18, where z =~ x**y; and
+     * we have `log_2(x)`, which returns log2(x) * 2**121, and `pow_2(X = x * 2**121)`, which returns 2**x = 2**(X / 2**121).
+     * The math we use is (essentially):
+     *
+     *     K = log2(10**18) * 2**121
+     *     Z = `pow_2(K + (log_2(X) - K) * Y / 10**18)`
+     *       = 2**((K + (log2(X) * 2**121 - K) * Y / 10**18) / 2**121)
+     *       = 2**((log2(10**18) * 2**121 + (log2(x * 10**18) * 2**121 - log2(10**18) * 2**121) * (y * 10**18) / 10**18) / 2**121)
+     *       = 2**(log2(10**18) + (log2(x * 10**18) - log2(10**18)) * y)
+     *       = 2**(log2(10**18) + log2(x) * y)
+     *       = 2**(log2(10**18)) * 2**(log2(x) * y)
+     *       = 10**18 * (2**log2(x))**y
+     *       = x**y * 10**18
+     *
+     * Except, because we're working with unsigned numbers, we need to be careful to handle two cases separately:
+     * log_2(X) >= K, and log_2(X) < K.
      */
     function wadExp(uint x, uint y) internal pure returns (uint z) {
         require(x <= type(uint128).max, "x overflow");
         uint logX = log_2(uint128(x));
         uint exponent;
         if (logX >= LOG_2_WAD_SCALED) {
-            exponent = LOG_2_WAD_SCALED + wadMulDown(y, logX - LOG_2_WAD_SCALED);
+            // Case 1: Z = pow_2(LOG_2_WAD_SCALED + (log_2(X) - LOG_2_WAD_SCALED) * Y / WAD):
+            unchecked { exponent = logX - LOG_2_WAD_SCALED; }
+            exponent = LOG_2_WAD_SCALED + wadMulDown(exponent, y);
             require(exponent <= type(uint128).max, "exponent overflow");
             z = pow_2(uint128(exponent));
         } else {
-            uint exponentSubtrahend = wadMulDown(y, LOG_2_WAD_SCALED - logX);
+            // Case 2: Z = pow_2(LOG_2_WAD_SCALED - (LOG_2_WAD_SCALED - log_2(X)) * Y / WAD):
+            uint exponentSubtrahend;
+            unchecked { exponentSubtrahend = LOG_2_WAD_SCALED - logX; }
+            exponentSubtrahend = wadMulDown(exponentSubtrahend, y);
             if (exponentSubtrahend <= LOG_2_WAD_SCALED) {
-                exponent = LOG_2_WAD_SCALED - exponentSubtrahend;    // Guaranteed to be <= LOG_2_WAD_SCALED < type(uint128).max
-                z = pow_2(uint128(exponent));
+                unchecked { exponent = LOG_2_WAD_SCALED - exponentSubtrahend; }
+                z = pow_2(uint128(exponent));   // Needn't check for overflow since exp <= LOG_2_WAD_SCALED < type(uint128).max
             } else {
-                z = 0;  // exponent would be < 0, so pow_2(exponent) is vanishingly small (as a WAD-formatted num) - call it 0
+                // z = 0: exponent would be < 0, so pow_2(exponent) is vanishingly small (as a WAD-formatted num) - call it 0
             }
         }
     }
 
     /* ____________________ Exponential/logarithm fns borrowed from Yield Protocol ____________________
      *
-     * See https://github.com/yieldprotocol/fyDai/blob/master/contracts/pool/YieldMath.sol for Yield's original code.
+     * See https://github.com/yieldprotocol/yieldspace-v1/blob/master/contracts/YieldMath.sol for Yield's code, originally
+     * developed by the math gurus at https://www.abdk.consulting/.
      */
 
     /**
-     * Calculate base 2 logarithm of an unsigned 128-bit integer number.  Revert
-     * in case x is zero.
+     * Calculate base 2 logarithm of an unsigned 128-bit integer number.  Revert in case x is zero.
      *
      * @param x number to calculate base 2 logarithm of
-     * @return base 2 logarithm of x, multiplied by 2^121
+     * @return z base 2 logarithm of x, multiplied by 2^121
      */
     function log_2(uint128 x)
-        internal pure returns (uint128)
+        internal pure returns (uint128 z)
     {
         unchecked {
             require (x != 0, "x = 0");
@@ -303,7 +359,7 @@ library WadMath {
             b = b * b >> 127; if (b >= 0x100000000000000000000000000000000) l |= 0x1;
             */
 
-            return uint128(l);
+            z = uint128(l);
         }
     }
 
@@ -311,10 +367,10 @@ library WadMath {
      * Calculate 2 raised into given power.
      *
      * @param x power to raise 2 into, multiplied by 2^121
-     * @return 2 raised into given power
+     * @return z 2 raised into given power
      */
     function pow_2(uint128 x)
-        internal pure returns (uint128)
+        internal pure returns (uint128 z)
     {
         unchecked {
             uint r = 0x80000000000000000000000000000000;
@@ -444,7 +500,7 @@ library WadMath {
 
             r >>= 127 - (x >> 121);
 
-            return uint128(r);
+            z = uint128(r);
         }
     }
 }
