@@ -341,11 +341,10 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * The oracle price being "refreshed" is itself a subtle idea: see the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
      */
     function _storeState(LoadedState memory ls) internal {
-        uint previousTimeUnderwater = storedState.timeSystemWentUnderwater;
-        if (ls.timeSystemWentUnderwater != previousTimeUnderwater) {
+        if (ls.timeSystemWentUnderwater != storedState.timeSystemWentUnderwater) {
             require(ls.timeSystemWentUnderwater <= type(uint32).max, "timeSystemWentUnderwater overflow");
             bool isUnderwater = (ls.timeSystemWentUnderwater != 0);
-            bool wasUnderwater = (previousTimeUnderwater != 0);
+            bool wasUnderwater = (storedState.timeSystemWentUnderwater != 0);
             // timeSystemWentUnderwater should only change between 0 and non-0, never from one non-0 to another:
             require(isUnderwater != wasUnderwater, "Unexpected timeSystemWentUnderwater change");
             emit UnderwaterStatusChanged(isUnderwater);
@@ -355,8 +354,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
         uint priceToStore = ls.ethUsdPrice + HALF_BILLION;
         unchecked { priceToStore /= BILLION; }
-        uint previousStoredPrice = storedState.ethUsdPrice;
-        if (priceToStore != previousStoredPrice) {
+        if (priceToStore != storedState.ethUsdPrice) {
             require(priceToStore <= type(uint80).max, "ethUsdPrice overflow");
             unchecked { emit PriceChanged(ls.ethUsdPriceTimestamp, priceToStore * BILLION); }
         }
@@ -365,8 +363,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
         uint adjustmentToStore = ls.buySellAdjustment + HALF_BILLION;
         unchecked { adjustmentToStore /= BILLION; }
-        uint previousStoredAdjustment = storedState.buySellAdjustment;
-        if (adjustmentToStore != previousStoredAdjustment) {
+        if (adjustmentToStore != storedState.buySellAdjustment) {
             require(adjustmentToStore <= type(uint80).max, "buySellAdjustment overflow");
             unchecked { emit BuySellAdjustmentChanged(adjustmentToStore * BILLION); }
         }
