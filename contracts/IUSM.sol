@@ -11,7 +11,6 @@ abstract contract IUSM is IERC20 {
     function burn(address from, address payable to, uint usmToBurn, uint minEthOut) external virtual returns (uint);
     function fund(address to, uint minFumOut) external virtual payable returns (uint);
     function defund(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint);
-    function defundFromFUM(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint);
 
     function refreshPrice() public virtual returns (uint price, uint updateTime);
 
