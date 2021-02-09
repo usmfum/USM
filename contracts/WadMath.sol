@@ -15,7 +15,6 @@ library WadMath {
     uint public constant WAD_OVER_20 = WAD / 20;
     uint public constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
     uint public constant LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;   // log_2(10**18) * 2**121
-    uint public constant LOG_2_E_SCALED = 3835341275459348169893510517860103418;       // log_2(e) * 2**121
     uint public constant LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;                // log_2(e) * 2**121 / 10**18
 
     function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint z) {
@@ -141,17 +140,17 @@ library WadMath {
      * `pow_2(X = x * 2**121)` below, which returns y =~ 2**x = 2**(X / 2**121).  So the math we use is:
      *
      *     K1 = log2(10**18) * 2**121
-     *     K2 = log2(e) * 2**121
-     *     Z = `pow_2(K1 + K2 * Y / 10**18)`
-     *       = 2**((K1 + K2 * Y / 10**18) / 2**121)
-     *       = 2**((log2(10**18) * 2**121 + (log2(e) * 2**121) * (y * 10**18) / 10**18) / 2**121)
+     *     K2 = log2(e) * 2**121 / 10**18
+     *     Z = `pow_2(K1 + K2 * Y)`
+     *       = 2**((K1 + K2 * Y) / 2**121)
+     *       = 2**((log2(10**18) * 2**121 + (log2(e) * 2**121 / 10**18) * (y * 10**18)) / 2**121)
      *       = 2**(log2(10**18) + log2(e) * y)
      *       = 2**(log2(10**18)) * 2**(log2(e) * y)
      *       = 10**18 * (2**log2(e))**y
      *       = e**y * 10**18
      */
     function wadExp(uint y) internal pure returns (uint z) {
-        uint exponent = LOG_2_WAD_SCALED + wadMulDown(LOG_2_E_SCALED, y);
+        uint exponent = LOG_2_WAD_SCALED + LOG_2_E_SCALED_OVER_WAD * y;
         require(exponent <= type(uint128).max, "exponent overflow");
         z = pow_2(uint128(exponent));
     }
