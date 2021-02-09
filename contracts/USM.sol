@@ -72,13 +72,14 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         WithOptOut(optedOut_)
     {
         oracle = oracle_;
-        FUM fum_ = fum = new FUM(this, optedOut_);
-        addDelegate(address(fum_));
+        fum = new FUM(this, optedOut_);
     }
 
-    // ____________________ External transactional functions ____________________
+    // ____________________ Modifiers ____________________
 
-    /// @dev Sometimes we want to give FUM privileged access
+    /**
+     * @dev Sometimes we want to give FUM privileged access
+     */
     modifier onlyHolderOrDelegateOrFUM(address owner, string memory errorMessage) {
         require(
             msg.sender == owner || delegated[owner][msg.sender] || msg.sender == address(fum),
@@ -86,6 +87,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         );
         _;
     }
+
+    // ____________________ External transactional functions ____________________
 
     /**
      * @notice Mint new USM, sending it to the given address, and only if the amount minted >= minUsmOut.  The amount of ETH is
@@ -131,7 +134,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      */
     function defund(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
-        onlyHolderOrDelegateOrFUM(from, "Only holder or delegate")
+        onlyHolderOrDelegateOrFUM(from, "Only holder or delegate or FUM")
         returns (uint ethOut)
     {
         ethOut = _defundFum(from, to, fumToBurn, minEthOut);
