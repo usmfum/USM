@@ -476,14 +476,17 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice Calculate the *marginal* price of USM (in ETH terms) - that is, of the next unit, before the price start sliding.
+     * @notice Calculate the *marginal* price of USM (in ETH terms): that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
     function usmPrice(IUSM.Side side, uint ethUsdPrice, uint adjustment) public override pure returns (uint price) {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
         price = usmToEth(ethUsdPrice, WAD, upOrDown);
 
-        if ((side == IUSM.Side.Buy && adjustment < WAD) || (side == IUSM.Side.Sell && adjustment > WAD)) {
+        // Apply the adjustment if (side == Buy and adj < 1), or (side == Sell and adj > 1).  You may be thinking "Wait!  I
+        // thought the way the adjustment worked was, an adj > 1 was applied when we're *buying,* not selling."  And your
+        // understanding was correct: the catch is that here we're "buying" USM, which is economically like *selling* ETH.
+        if (side == IUSM.Side.Buy ? (adjustment < WAD) : (adjustment > WAD)) {
             price = price.wadDiv(adjustment, upOrDown);
         }
     }
@@ -500,20 +503,17 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
         if (fumSupply == 0) {
-            return usmToEth(ethUsdPrice, WAD, upOrDown);    // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
-        }
+            price = usmToEth(ethUsdPrice, WAD, upOrDown);   // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
+        } else {
+            // Using usmEffectiveSupply here, rather than just the raw actual supply, has the effect of bumping the FUM price
+            // up to the minFumBuyPrice when needed (ie, when debt ratio > MAX_DEBT_RATIO):
+            int buffer = ethBuffer(ethUsdPrice, ethInPool, usmEffectiveSupply, upOrDown);
+            price = (buffer <= 0 ? 0 : uint(buffer).wadDiv(fumSupply, upOrDown));
 
-        // Using usmEffectiveSupply here, rather than just the raw actual supply, has the effect of bumping the FUM price up to
-        // the minFumBuyPrice when needed (ie, debt ratio > MAX_DEBT_RATIO):
-        int buffer = ethBuffer(ethUsdPrice, ethInPool, usmEffectiveSupply, upOrDown);
-        price = (buffer <= 0 ? 0 : uint(buffer).wadDiv(fumSupply, upOrDown));
-
-        if (side == IUSM.Side.Buy) {
-            if (adjustment > WAD) {
-                price = price.wadMulUp(adjustment);
+            // Unlike the counterintuitive case in usmPrice() above, here "Buy" = buying FUM = economically buying ETH:
+            if (side == IUSM.Side.Buy ? (adjustment > WAD) : (adjustment < WAD)) {
+                price = price.wadMul(adjustment, upOrDown);
             }
-        } else if (adjustment < WAD) {
-            price = price.wadMulDown(adjustment);
         }
     }
 
