@@ -518,7 +518,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @return timeSystemWentUnderwater_ 0 the time at which we first detected the system was underwater (debt ratio >
+     * @return timeSystemWentUnderwater_ The time at which we first detected the system was underwater (debt ratio >
      * MAX_DEBT_RATIO), based on the current oracle price and pool ETH and USM; or 0 if we're not currently underwater.
      * @return usmSupplyForFumBuys The current supply of USM *for purposes of calculating the FUM buy price,* and therefore
      * for `fumFromFund()`.  The "supply for FUM buys" is the *lesser* of the actual current USM supply, and the USM amount
