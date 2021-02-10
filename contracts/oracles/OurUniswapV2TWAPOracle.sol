@@ -94,7 +94,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * - `updateTime` = the timestamp of refPrice, the *stored cumulative price-seconds record we calculate TWAP from.*  This
      *   is a value we only store periodically: if this function is called often, it will usually stay unchanged between calls.
      *
-     * That is, calcuating TWAP requires two cumPriceSeconds values to average between, and these are their timestamps.
+     * That is, calculating TWAP requires two cumPriceSeconds values to average between, and these are their timestamps.
      *
      * The most important - potentially confusing - part of this distinction is this: even though the *price* returned will
      * (typically) change every time this function is called, the *`updateTime`* will only change every few minutes, when we

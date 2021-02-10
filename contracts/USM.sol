@@ -188,7 +188,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // 2. Check that fund() has been called first - no minting before funding:
         require(ls.ethPool > 0, "Fund before minting");
 
-        // 3. Refresh the oracle price:
+        // 3. Refresh the oracle price (if available - see _refreshPrice() below):
         (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.buySellAdjustment, ) = _refreshPrice(ls);
 
         // 4. Calculate usmOut:
@@ -241,15 +241,14 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // 2. Refresh the oracle price:
         (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.buySellAdjustment, ) = _refreshPrice(ls);
 
-        // 3. Refresh timeSystemWentUnderwater:
-        uint usmSupplyForFumBuy;
-        (ls.timeSystemWentUnderwater, usmSupplyForFumBuy) =
+        // 3. Refresh timeSystemWentUnderwater, and replace ls.usmTotalSupply with the *effective* USM supply for FUM buys:
+        (ls.timeSystemWentUnderwater, ls.usmTotalSupply) =
             checkIfUnderwater(ls.usmTotalSupply, ls.ethPool, ls.ethUsdPrice, ls.timeSystemWentUnderwater, block.timestamp);
 
         // 4. Calculate fumOut:
         uint fumSupply = fum.totalSupply();
         uint adjGrowthFactor;
-        (fumOut, adjGrowthFactor) = fumFromFund(ls, usmSupplyForFumBuy, fumSupply, msg.value);
+        (fumOut, adjGrowthFactor) = fumFromFund(ls, fumSupply, msg.value);
         require(fumOut >= minFumOut, "Limit not reached");
 
         // 5. Update the in-memory LoadedState's buySellAdjustment and price:
@@ -289,6 +288,16 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         to.sendValue(ethOut);
     }
 
+    /**
+     * @notice Checks the external oracle for a fresh ETH/USD price.  If it has one, we take it as the new USM system price
+     * (and update buySellAdjustment as described below); if no fresh oracle price is available, we stick with our existing
+     * system price, `ls.ethUsdPrice`, which may have been nudged around by mint/burn operations since the last oracle update.
+     *
+     * Note that our definition of whether an oracle price is "fresh" (`priceChanged == true`) isn't quite as trivial as
+     * "whether it's changed since our last call."  Eg, we only consider a Uniswap TWAP price "fresh" when the *older* of the
+     * two TWAP records it's based on changes (every few minutes), not when the *newer* TWAP record changes (typically every
+     * time we call `latestPrice()`).  See the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
+     */
     function _refreshPrice(LoadedState memory ls)
         internal returns (uint price, uint updateTime, uint adjustment, bool priceChanged)
     {
@@ -609,28 +618,32 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice How much FUM a funder currently gets back for ethIn ETH, accounting for adjustment and sliding prices.
+     * @notice How much FUM a funder currently gets back for ethIn ETH, accounting for adjustment and sliding prices.  Note
+     * that we expect `ls.usmTotalSupply` of the LoadedState passed in to not necessarily be the actual current total USM
+     * supply, but the *effective* USM supply for purposes of this operation - which can be a lower number, artificially
+     * increasing the FUM price.  This is our "minFumBuyPrice" logic, used to prevent FUM buyers from paying tiny or negative
+     * prices when the system is underwater or near it.
      * @param ethIn The amount of ETH passed to fund()
      * @return fumOut The amount of FUM to receive in exchange
      */
-    function fumFromFund(LoadedState memory ls, uint usmEffectiveSupply, uint fumSupply, uint ethIn)
+    function fumFromFund(LoadedState memory ls, uint fumSupply, uint ethIn)
         public pure returns (uint fumOut, uint adjGrowthFactor)
     {
         if (ls.ethPool == 0) {
             // No ETH in the system yet, which breaks our adjGrowthFactor calculation below - skip sliding-prices this time:
             adjGrowthFactor = WAD;
-            uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.ethPool, usmEffectiveSupply, fumSupply,
+            uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply, fumSupply,
                                          ls.buySellAdjustment);
             fumOut = ethIn.wadDivDown(fumBuyPrice0);
         } else {
             // Create FUM at a sliding-up FUM price:
             uint ethPool1 = ls.ethPool + ethIn;
-            uint effectiveDebtRatio = debtRatio(ls.ethUsdPrice, ls.ethPool, usmEffectiveSupply);
+            uint effectiveDebtRatio = debtRatio(ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply);
             uint effectiveFumDelta = WAD.wadDivUp(WAD - effectiveDebtRatio);
             adjGrowthFactor = ethPool1.wadDivUp(ls.ethPool).wadExp(effectiveFumDelta / 2);
             uint ethUsdPrice1 = ls.ethUsdPrice.wadMulUp(adjGrowthFactor);
             uint avgFumBuyPrice = ls.buySellAdjustment.wadMulUp(
-                (ls.ethPool - usmEffectiveSupply.wadDivDown(ethUsdPrice1)).wadDivUp(fumSupply));
+                (ls.ethPool - ls.usmTotalSupply.wadDivDown(ethUsdPrice1)).wadDivUp(fumSupply));
             fumOut = ethIn.wadDivDown(avgFumBuyPrice);
         }
     }
