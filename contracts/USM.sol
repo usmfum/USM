@@ -588,11 +588,20 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     function usmFromMint(LoadedState memory ls, uint ethIn)
         public pure returns (uint usmOut, uint adjShrinkFactor)
     {
-        // Create USM at a sliding-up USM price (ie, a sliding-down ETH price):
+        // The USM buy price we pay, in ETH terms, "slides up" as we buy, proportional to the ETH in the pool: if the pool
+        // starts with 100 ETH, and ethIn = 5, so we're increasing it to 105, then our USM buy price increases smoothly by 5%
+        // during the mint operation.  (Buying USM with ETH is economically equivalent to selling ETH for USD: so this is
+        // equivalent to saying that the ETH price used to price our USM *decreases* smoothly by 5% during the operation.)  Of
+        // that 5%, "half" (in log space) is the ETH *mid* price dropping, and the other half is the buySellAdjustment (ETH
+        // sell price discount) dropping.  Calculating the total amount of USM minted then involves summing an integral over
+        // 1 / usmBuyPrice, which gives the simple logarithm below.
         uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.buySellAdjustment);
         uint ethPool1 = ls.ethPool + ethIn;
-        //adjShrinkFactor = ls.ethPool.wadDivDown(ethPool1).wadSqrt();      // Another possible function we could use (same result)
+
+        //adjShrinkFactor = ls.ethPool.wadDivDown(ethPool1).wadSqrt();      // Another possible fn we could use (same result)
         adjShrinkFactor = ls.ethPool.wadDivDown(ethPool1).wadExp(HALF_WAD);
+
+        // The integral part - calculating the amount of USM minted at our sliding-up USM price:
         int log = ethPool1.wadDivDown(ls.ethPool).wadLog();
         require(log >= 0, "log underflow");
         usmOut = ls.ethPool.wadDivDown(usmBuyPrice0).wadMulDown(uint(log));
@@ -606,14 +615,17 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     function ethFromBurn(LoadedState memory ls, uint usmIn)
         public pure returns (uint ethOut, uint adjGrowthFactor)
     {
-        // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price):
+        // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price).  This is just the mirror image of the math in
+        // usmFromMint() above, but because we're calculating output ETH from input USM rather than the other way around, we
+        // end up with an exponent (exponent.wadExp() below, aka e**exponent) rather than a logarithm.
         uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.buySellAdjustment);
 
-        // Math: this is an integral - sum of all USM burned at a sliding price.
+        // The integral - calculating the amount of ETH yielded by burning the USM at our sliding-down USM price:
         uint exponent = usmIn.wadMulUp(usmSellPrice0).wadDivUp(ls.ethPool);
-        require(exponent <= uint(type(int).max), "exponent overflow");
         uint ethPool1 = ls.ethPool.wadDivUp(exponent.wadExp());
         ethOut = ls.ethPool - ethPool1;
+
+        // In this case we back out the adjGrowthFactor (change in mid price and buySellAdj) from the change in the ETH pool:
         adjGrowthFactor = ls.ethPool.wadDivUp(ethPool1).wadExp(HALF_WAD);
     }
 
@@ -636,11 +648,36 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
                                          ls.buySellAdjustment);
             fumOut = ethIn.wadDivDown(fumBuyPrice0);
         } else {
-            // Create FUM at a sliding-up FUM price:
+            // Create FUM at a sliding-up FUM price.  We follow the same broad strategy as in usmFromMint(): the effective ETH
+            // price increases smoothly during the fund() operation, proportionally to the fraction by which the ETH pool
+            // grows.  But there are a couple of extra nuances in the FUM case:
+            //
+            // 1. FUM is "leveraged"/"higher-delta" ETH, so minting 1 ETH worth of FUM should move the price by more than
+            //    minting 1 ETH worth of USM does.  (More by a "FUM delta" factor.)
+            // 2. The theoretical FUM price is based on the ETH buffer (excess ETH beyond what's needed to cover the oustanding
+            //    USM), which is itself affected by/during this fund operation...
+            //
+            // The code below uses a "reasonable approximation" to deal with those complications.  See also the discussion in:
+            // https://jacob-eliosoff.medium.com/usm-minimalist-decentralized-stablecoin-part-4-fee-math-decisions-a5be6ecfdd6f
             uint ethPool1 = ls.ethPool + ethIn;
+
+            // 1. Start by calculating the "FUM delta" described above - the factor by which this operation will move the ETH
+            // price more than a simple mint() operation.  Calculating the pure theoretical delta is a mess: we calculate the
+            // initial delta and pretend it stays fixed thereafter.
             uint effectiveDebtRatio = debtRatio(ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply);
             uint effectiveFumDelta = WAD.wadDivUp(WAD - effectiveDebtRatio);
+
+            // 2. Given the delta, we can calculate the adjGrowthFactor (price impact): for mint() (delta 1), the factor was
+            // poolChangeFactor**(1 / 2); now instead we use poolChangeFactor**(fumDelta / 2).
             adjGrowthFactor = ethPool1.wadDivUp(ls.ethPool).wadExp(effectiveFumDelta / 2);
+
+            // 3. Here we use a simplifying trick: we pretend our entire FUM purchase is done at a single fixed price.  For
+            // that FUM price, we use the price we would get if we combined 1. the *initial* buySellAdjustment (ie, before it's
+            // increased by this fund operation), with the *ending* mid FUM price (ie, the mid FUM price implied by our
+            // post-adjGrowthFactor ETH mid price).  This composite FUM price is guaranteed to be bounded below by our starting
+            // FUM buy price calculated above, and bounded above by the FUM buy price we would start at if we immediately did
+            // another fund operation, which are the key bounds we need to satisfy to avoid weird stuff like "The ETH price
+            // increased but my FUM buy got cheaper."
             uint ethUsdPrice1 = ls.ethUsdPrice.wadMulUp(adjGrowthFactor);
             uint avgFumBuyPrice = ls.buySellAdjustment.wadMulUp(
                 (ls.ethPool - ls.usmTotalSupply.wadDivDown(ethUsdPrice1)).wadDivUp(fumSupply));
@@ -656,30 +693,42 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     function ethFromDefund(LoadedState memory ls, uint fumSupply, uint fumIn)
         public pure returns (uint ethOut, uint adjShrinkFactor)
     {
-        // Burn FUM at a sliding-down FUM price:
+        // Burn FUM at a sliding-down FUM price.  Our approximation technique here resembles the one in fumFromFund() above,
+        // but we need to be even more clever this time...
+
+        // 1. Calculating the initial FUM sell price we start from is no problem:
+        uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply, fumSupply,
+                                      ls.buySellAdjustment);
+
+        // 2. Once again calculate the initial fumDelta, which we'll then keep fixed as a calculation convenience:
         //uint debtRatio0 = debtRatio(ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply);
         //uint fumDelta = WAD.wadDivUp(WAD - debtRatio0);
         uint fumDelta = WAD.wadDivUp(WAD - debtRatio(ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply));
 
-        uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply, fumSupply,
-                                      ls.buySellAdjustment);
+        // 3. Now we want a "pessimistic" lower bound on the ending ETH pool qty.  We can get this by supposing the entire burn
+        // happened at our initial fumSellPrice0: this is "optimistic" in terms of how much ETH we'd get back, but
+        // "pessimistic" in the sense we want - how much ETH would be left in the pool:
+        //uint lowerBoundEthQty1 = ls.ethPool - fumIn.wadMulUp(fumSellPrice0);  // Optimized away due to "stack too deep"...
 
-        // First obtain a pessimistic upper bound on how large the adjShrinkFactor could be - pessimistic since the more the
-        // adjustment shrinks, the more our sell price slides (down) away from us.  The more the ETH pool decreases, the more
-        // the adjShrinkFactor drops.  And the amount by which the ETH pool would drop if our entire defund was at the starting
-        // fumSellPrice0, is an upper bound on how much the pool could shrink.  Therefore, the adjShrinkFactor implied by that
-        // maximum ETH pool reduction, is an upper bound on the actual adjShrinkFactor of this defund() call:
-        //uint lowerBoundEthQty1 = ls.ethPool - fumIn.wadMulUp(fumSellPrice0);
+        // 4. From this "pessimistic" lower bound on the ending ETH qty, we can calculate a "pessimistic" lower bound on our
+        // ending adjShrinkFactor, ie, overstating how large an impact our burn could have on the ETH mid price:
         //uint lowerBoundAdjShrinkFactor = lowerBoundEthQty1.wadDivDown(ls.ethPool).wadExp(fumDelta / 2);
         uint lowerBoundAdjShrinkFactor = (ls.ethPool - fumIn.wadMulUp(fumSellPrice0)).wadDivDown(ls.ethPool).wadExp(
             fumDelta / 2);
+
+        // 5. From the "pessimistic" lowerBoundAdjShrinkFactor, we can easily infer a lower bound on what the ETH mid price
+        // can end up at:
         uint lowerBoundEthUsdPrice1 = ls.ethUsdPrice.wadMulDown(lowerBoundAdjShrinkFactor);
 
-        // Using this ending ETH mid price lowerBoundEthUsdPrice1, we can calc the actual average FUM sell price of the defund:
+        // 6. This ending ETH mid price lowerBoundEthUsdPrice1 implies a FUM price (initial ETH buffer value based on that
+        // price, divided by initial FUM qty).  So we just use this FUM price as our average FUM sell price for the entire
+        // burn, and use that to calculate ethOut by a simple multiplication.  For small trades this will still equate to a
+        // 0-fee op: for larger trades the pessimism has a larger impact (lower proportional ethOut, higher implicit fee).
         uint avgFumSellPrice = fumPrice(IUSM.Side.Sell, lowerBoundEthUsdPrice1, ls.ethPool, ls.usmTotalSupply, fumSupply,
                                         ls.buySellAdjustment);
-
         ethOut = fumIn.wadMulDown(avgFumSellPrice);
+
+        // 7. And now that we know the ending amount of ETH in the pool, we can back out the adjShrinkFactor:
         uint ethPool1 = ls.ethPool - ethOut;
         adjShrinkFactor = ethPool1.wadDivUp(ls.ethPool).wadExp(fumDelta / 2);
     }
