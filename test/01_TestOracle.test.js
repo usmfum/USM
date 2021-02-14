@@ -18,6 +18,8 @@ const GasMeasuredOracleWrapper = artifacts.require('GasMeasuredOracleWrapper')
 require('chai').use(require('chai-as-promised')).should()
 
 contract('Oracle pricing', (accounts) => {
+  const [TEN, WAD] = [10, '1000000000000000000'].map(function (n) { return new BN(n) })
+
   const testPriceWAD = '250000000000000000000'              // TestOracle just uses WAD (18-dec-place) pricing
 
   const chainlinkPrice = '38598000000'                      // Chainlink aggregator (AggregatorV3Interface) stores 8 dec places
@@ -26,38 +28,31 @@ contract('Oracle pricing', (accounts) => {
   const compoundPrice = '414174999'                         // Compound view (UniswapAnchoredView) stores 6 dec places
   const compoundPriceWAD = new BN(compoundPrice + '000000000000') // We want 18 dec places, so add 12 0s
 
-  const ethDecimals = new BN(18)                            // See OurUniswapV2TWAPOracle
-  const usdtDecimals = new BN(6)
-  const usdcDecimals = new BN(6)
-  const daiDecimals = new BN(18)
-  const uniswapCumPriceScalingFactor = (new BN(2)).pow(new BN(112))
+  const uniswapCumPriceScaleFactor = (new BN(2)).pow(new BN(112))
 
+  const ethUsdtTokenToUse = new BN(0)
   const ethUsdtCumPrice0_0 = new BN('30197009659458262808281833965635') // From the ETH/USDT pair.  See OurUniswapV2TWAPOracle
-  const ethUsdtCumPrice1_0 = new BN('276776388531768266239160661937116320880685460468473')
   const ethUsdtTimestamp_0 = new BN('1606780564')
   const ethUsdtCumPrice0_1 = new BN('30198349396553956234684790868151')
-  const ethUsdtCumPrice1_1 = new BN('276779938284455484990752289414970402581013223198265')
   const ethUsdtTimestamp_1 = new BN('1606781184')
-  const ethUsdtTokensInReverseOrder = false
-  const ethUsdtScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(usdtDecimals))
+  const ethUsdtEthDecimals = new BN(-12)
+  const ethUsdtScaleFactor = uniswapCumPriceScaleFactor.div(TEN.pow(ethUsdtEthDecimals.neg()))
 
-  const usdcEthCumPrice0_0 = new BN('307631784275278277546624451305316303382174855535226') // From the USDC/ETH pair
-  const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103')
+  const usdcEthTokenToUse = new BN(1)
+  const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103') // From the USDC/ETH pair
   const usdcEthTimestamp_0 = new BN('1606780664')
-  const usdcEthCumPrice0_1 = new BN('307634635050611880719301156089846577363471806696356')
   const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')
   const usdcEthTimestamp_1 = new BN('1606782003')
-  const usdcEthTokensInReverseOrder = true
-  const usdcEthScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(usdcDecimals))
+  const usdcEthEthDecimals = new BN(-12)
+  const usdcEthScaleFactor = uniswapCumPriceScaleFactor.div(TEN.pow(usdcEthEthDecimals.neg()))
 
-  const daiEthCumPrice0_0 = new BN('291033362911607134656453476145906896216') // From the DAI/ETH pair
-  const daiEthCumPrice1_0 = new BN('30339833685805974401597062880404438583745289')
+  const daiEthTokenToUse = new BN(1)
+  const daiEthCumPrice1_0 = new BN('30339833685805974401597062880404438583745289') // From the DAI/ETH pair
   const daiEthTimestamp_0 = new BN('1606780728')
-  const daiEthCumPrice0_1 = new BN('291036072023637413832938851532265880018')
   const daiEthCumPrice1_1 = new BN('30340852730044753766501469633003499944051151')
   const daiEthTimestamp_1 = new BN('1606781448')
-  const daiEthTokensInReverseOrder = true
-  const daiEthScaleFactor = (new BN(10)).pow(ethDecimals.add(new BN(18)).sub(daiDecimals))
+  const daiEthEthDecimals = new BN(0)
+  const daiEthScaleFactor = uniswapCumPriceScaleFactor.div(TEN.pow(daiEthEthDecimals.neg()))
 
   function median(a, b, c) {
     const ab = a > b
@@ -146,25 +141,24 @@ contract('Oracle pricing', (accounts) => {
     beforeEach(async () => {
       pair = await UniswapV2Pair.new({ from: deployer })
       await pair.setReserves(0, 0, ethUsdtTimestamp_0)
-      await pair.setCumulativePrices(ethUsdtCumPrice0_0, ethUsdtCumPrice1_0)
+      await pair.setCumulativePrices(ethUsdtCumPrice0_0, 0)
 
-      oracle = await UniswapTWAPOracle.new(pair.address, ethDecimals, usdtDecimals, ethUsdtTokensInReverseOrder,
-                                           { from: deployer })
+      oracle = await UniswapTWAPOracle.new(pair.address, ethUsdtTokenToUse, ethUsdtEthDecimals, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(oracle.address, "uniswapTWAP", { from: deployer })
       await oracle.refreshPrice()
 
       await pair.setReserves(0, 0, ethUsdtTimestamp_1)
-      await pair.setCumulativePrices(ethUsdtCumPrice0_1, ethUsdtCumPrice1_1)
+      await pair.setCumulativePrices(ethUsdtCumPrice0_1, 0)
       //await oracle.refreshPrice() // Not actually needed, unless we do further testing moving timestamps further forward
     })
 
     it('returns the correct price', async () => {
       const oraclePrice1 = (await oracle.latestPrice())[0]
 
-      const targetOraclePriceNum = (ethUsdtCumPrice0_1.sub(ethUsdtCumPrice0_0)).mul(ethUsdtScaleFactor)
-      const targetOraclePriceDenom = (ethUsdtTimestamp_1.sub(ethUsdtTimestamp_0)).mul(uniswapCumPriceScalingFactor)
+      const targetOraclePriceNum = (ethUsdtCumPrice0_1.sub(ethUsdtCumPrice0_0)).mul(WAD)
+      const targetOraclePriceDenom = (ethUsdtTimestamp_1.sub(ethUsdtTimestamp_0)).mul(ethUsdtScaleFactor)
       const targetOraclePrice1 = targetOraclePriceNum.div(targetOraclePriceDenom)
-      oraclePrice1.toString().should.equal(targetOraclePrice1.toString())
+      shouldEqualApprox(oraclePrice1, targetOraclePrice1)
     })
 
     it('returns the price in a transaction', async () => {
@@ -186,15 +180,15 @@ contract('Oracle pricing', (accounts) => {
 
       usdcEthPair = await UniswapV2Pair.new({ from: deployer })
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_0)
-      await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_0, usdcEthCumPrice1_0)
+      await usdcEthPair.setCumulativePrices(0, usdcEthCumPrice1_0)
 
       rawOracle = await MedianOracle.new(chainlinkAggregator.address, compoundView.address,
-        usdcEthPair.address, usdcDecimals, ethDecimals, usdcEthTokensInReverseOrder, { from: deployer })
+        usdcEthPair.address, usdcEthTokenToUse, usdcEthEthDecimals, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(rawOracle.address, "median", { from: deployer })
       await oracle.refreshPrice()
 
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
-      await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
+      await usdcEthPair.setCumulativePrices(0, usdcEthCumPrice1_1)
       //await oracle.refreshPrice() // Not actually needed, unless we do further testing moving timestamps further forward
     })
 

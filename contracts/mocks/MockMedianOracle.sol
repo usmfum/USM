@@ -13,10 +13,10 @@ contract MockMedianOracle is MedianOracle, SettableOracle {
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         UniswapAnchoredView compoundView,
-        IUniswapV2Pair uniswapPair, uint uniswapToken0Decimals, uint uniswapToken1Decimals, bool uniswapTokensInReverseOrder
+        IUniswapV2Pair uniswapPair, uint uniswapTokenToUse, int uniswapTokenDecimals
     )
         MedianOracle(chainlinkAggregator, compoundView,
-            uniswapPair, uniswapToken0Decimals, uniswapToken1Decimals, uniswapTokensInReverseOrder) {}
+            uniswapPair, uniswapTokenToUse, uniswapTokenDecimals) {}
 
     function refreshPrice() public override(MedianOracle, Oracle) returns (uint price, uint updateTime) {
         (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.refreshPrice();

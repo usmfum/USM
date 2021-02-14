@@ -6,15 +6,13 @@ const addresses = {
     'daiEth': '0xa478c2975ab1ea89e8196811f51a7b7ade33eb11',
 }
   
-const usdcDecimals = 6                                      // See UniswapMedianOracle
-const ethDecimals = 18                                      // See UniswapMedianOracle
-const uniswapTokensInReverseOrder = true                    // See UniswapMedianOracle
+const usdcEthTokenToUse = 1
+const usdcEthEthDecimals = -12
 
 module.exports = [
     addresses['chainlink'],
     addresses['compound'],
     addresses['usdcEth'],
-    usdcDecimals,
-    ethDecimals,
-    uniswapTokensInReverseOrder,
+    usdcEthTokenToUse,
+    usdcEthEthDecimals,
 ];

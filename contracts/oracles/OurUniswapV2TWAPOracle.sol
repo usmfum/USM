@@ -5,7 +5,6 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./Oracle.sol";
 
 contract OurUniswapV2TWAPOracle is Oracle {
-
     /**
      * UNISWAP_MIN_TWAP_PERIOD plays two roles:
      *
@@ -22,18 +21,36 @@ contract OurUniswapV2TWAPOracle is Oracle {
      */
     uint public constant UNISWAP_MIN_TWAP_PERIOD = 10 minutes;
 
+    uint public constant WAD = 10 ** 18;
     // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
     uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
 
     IUniswapV2Pair public immutable uniswapPair;
-    uint public immutable uniswapToken0Decimals;
-    uint public immutable uniswapToken1Decimals;
-    bool public immutable uniswapTokensInReverseOrder;
+    uint public immutable uniswapTokenToUse;        // 0 -> calc TWAP from stored token0, 1 -> token1.  We only use one of them
+    /**
+     * Uniswap pairs store cumPriceSeconds: let's suppose the intended cumulative price-seconds stored is 12.345.  Converting
+     * from the stored format to our standard WAD format (18 decimal places, eg 12.345 * 10**18) involves several steps:
+     *
+     * 1. Uniswap stores the values in 112-bit fixed-point format.  So instead of 12.345, the pair stores 12.345 * 2**112 =
+     *    6.41 * 10**34.
+     * 2. ...Except, Uniswap's values are additional shifted by a certain number of decimal places.  Eg, USDC/ETH stores
+     *    token1, the cumulative ETH price in USDC terms, shifted down (divided) by 12 decimal places: so 12.345 is stored as
+     *    12.345 * 2**112 / 10**12 = 6.41 * 10**22.  (See the constructor's tokenDecimals argument below.)
+     * 3. To get our desired 10**18 scaling, we need to divide that stored number, 12.345 * 2**112 / 10**12, by
+     *    2**112 / 10**30 = 5,129.2969.
+     * 4. However, because we're storing uniswapScaleFactor as a uint, we need to scale it up: 5129 alone would lose too much
+     *    precision (and if Uniswap's value is shifted by >12 decimal places, uniswapScaleFactor can even end up < 1).  So we
+     *    WAD-scale uniswapScaleFactor, setting it in the example to not 2**112 / 10**30, but (2**112 / 10**30) * 10**18 =
+     *    5192296858534827628530.
+     *
+     * So when we get a raw value from Uniswap like 12.345 * 2**112 / 10**12 = 6.41 * 10**22, we multiply it by WAD (getting
+     * 6.41 * 10**40), and divide by uniswapScaleFactor = 5192296858534827628530, yielding the desired 12.345 * 10**18.
+     */
     uint public immutable uniswapScaleFactor;
 
     struct CumulativePrice {
         uint32 timestamp;
-        uint224 cumPriceSeconds;    // See cumulativePrice() below for an explanation of "cumPriceSeconds"
+        uint224 cumPriceSeconds;    // See cumulativePriceFromPair() below for an explanation of "cumPriceSeconds"
     }
 
     event TWAPPriceStored(uint32 timestamp, uint224 priceSeconds);
@@ -47,20 +64,17 @@ contract OurUniswapV2TWAPOracle is Oracle {
 
     /**
      * Example pairs to pass in:
-     * ETH/USDT: 0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852, 18, 6 (WETH reserve is stored w/ 18 dec places, USDT w/ 18), false
-     * USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, 6, 18 (USDC reserve is stored w/ 6 dec places, WETH w/ 18), true
-     * DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, 18, 18 (DAI reserve is stored w/ 18 dec places, WETH w/ 18), true
+     * ETH/USDT: 0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852, 0, -12
+     * USDC/ETH: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc, 1, -12
+     * DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, 1, 0
      */
-    constructor(IUniswapV2Pair pair, uint token0Decimals, uint token1Decimals, bool tokensInReverseOrder) {
+    constructor(IUniswapV2Pair pair, uint tokenToUse, int tokenDecimals) {
         uniswapPair = pair;
-        uniswapToken0Decimals = token0Decimals;
-        uniswapToken1Decimals = token1Decimals;
-        uniswapTokensInReverseOrder = tokensInReverseOrder;
-
-        (uint aDecimals, uint bDecimals) = tokensInReverseOrder ?
-            (token1Decimals, token0Decimals) :
-            (token0Decimals, token1Decimals);
-        uniswapScaleFactor = 10 ** (aDecimals + 18 - bDecimals);
+        require(tokenToUse == 0 || tokenToUse == 1, "tokenToUse not 0 or 1");
+        uniswapTokenToUse = tokenToUse;
+        uniswapScaleFactor = tokenDecimals >= 0 ?
+            UNISWAP_CUM_PRICE_SCALE_FACTOR * 10 ** uint(tokenDecimals) :    // See comment for uniswapScaleFactor above
+            UNISWAP_CUM_PRICE_SCALE_FACTOR / 10 ** uint(-tokenDecimals);
     }
 
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
@@ -91,7 +105,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
      *
      * - `newCumPriceSecondsTime` = the timestamp of the *latest cumulative price-seconds* available from Uniswap.  This is a
      *   real-time value that will (typically) change every time this function is called.
-     * - `updateTime` = the timestamp of refPrice, the *stored cumulative price-seconds record we calculate TWAP from.*  This
+     * - `updateTime` = timestamp of refStoredPrice, the *stored cumulative price-seconds record we calculate TWAP from.*  This
      *   is a value we only store periodically: if this function is called often, it will usually stay unchanged between calls.
      *
      * That is, calculating TWAP requires two cumPriceSeconds values to average between, and these are their timestamps.
@@ -105,37 +119,38 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function _latestPrice(CumulativePrice storage newerStoredPrice)
         internal view returns (uint price, uint updateTime, uint newCumPriceSecondsTime, uint newCumPriceSeconds)
     {
-        (newCumPriceSecondsTime, newCumPriceSeconds) = cumulativePrice();
+        (newCumPriceSecondsTime, newCumPriceSeconds) = cumulativePriceFromPair();
 
         // Now that we have the current cum price, subtract-&-divide the stored one, to get the TWAP price:
-        CumulativePrice storage refPrice = storedPriceToCompareVs(newCumPriceSecondsTime, newerStoredPrice);
-        updateTime = uint(refPrice.timestamp);
-        price = calculateTWAP(newCumPriceSecondsTime, newCumPriceSeconds, updateTime, uint(refPrice.cumPriceSeconds));
+        CumulativePrice storage refStoredPrice = storedPriceToCompareVs(newCumPriceSecondsTime, newerStoredPrice);
+        updateTime = refStoredPrice.timestamp;
+        price = calculateTWAP(newCumPriceSecondsTime, newCumPriceSeconds, updateTime, uint(refStoredPrice.cumPriceSeconds));
     }
 
     function storeCumulativePrice(uint timestamp, uint cumPriceSeconds, CumulativePrice storage olderStoredPrice) internal
     {
         require(timestamp <= type(uint32).max, "timestamp overflow");
+
         require(cumPriceSeconds <= type(uint224).max, "cumPriceSeconds overflow");
         // (Note: this assignment only stores because olderStoredPrice has modifier "storage" - ie, store by reference!)
         (olderStoredPrice.timestamp, olderStoredPrice.cumPriceSeconds) = (uint32(timestamp), uint224(cumPriceSeconds));
 
-        emit TWAPPriceStored(uint32(timestamp), uint224(cumPriceSeconds)); // 4k gas, is it worth it?
+        emit TWAPPriceStored(uint32(timestamp), uint224(cumPriceSeconds));  // 4k gas, is it worth it?
     }
 
     function storedPriceToCompareVs(uint newCumPriceSecondsTime, CumulativePrice storage newerStoredPrice)
-        internal view returns (CumulativePrice storage refPrice)
+        internal view returns (CumulativePrice storage refStoredPrice)
     {
         bool aAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, uniswapStoredPriceA);
         bool bAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, uniswapStoredPriceB);
         if (aAcceptable) {
             if (bAcceptable) {
-                refPrice = newerStoredPrice;        // Neither is *too* recent, so return the fresher of the two
+                refStoredPrice = newerStoredPrice;          // Neither is *too* recent, so return the fresher of the two
             } else {
-                refPrice = uniswapStoredPriceA;     // Only A is acceptable
+                refStoredPrice = uniswapStoredPriceA;       // Only A is acceptable
             }
         } else if (bAcceptable) {
-            refPrice = uniswapStoredPriceB;         // Only B is acceptable
+            refStoredPrice = uniswapStoredPriceB;           // Only B is acceptable
         } else {
             revert("Both stored prices too recent");
         }
@@ -161,18 +176,18 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * seconds between t0 and t1 = t0 + 30, the price is $45.67, then at time t1, cumPriceSeconds = 10,000,000 + 30 * 45.67 =
      * 10,001,370.1 (stored as 10,001,370.1 * 10**18).
      */
-    function cumulativePrice()
+    function cumulativePriceFromPair()
         public view returns (uint timestamp, uint cumPriceSeconds)
     {
-        (, , timestamp) = uniswapPair.getReserves();
+        (,, timestamp) = uniswapPair.getReserves();
 
         // Retrieve the current Uniswap cumulative price.  Modeled off of Uniswap's own example:
         // https://github.com/Uniswap/uniswap-v2-periphery/blob/master/contracts/examples/ExampleOracleSimple.sol
-        uint uniswapCumPrice = uniswapTokensInReverseOrder ?
+        uint uniswapCumPrice = uniswapTokenToUse == 1 ?
             uniswapPair.price1CumulativeLast() :
             uniswapPair.price0CumulativeLast();
-        cumPriceSeconds = uniswapCumPrice * uniswapScaleFactor;
-        unchecked { cumPriceSeconds /= UNISWAP_CUM_PRICE_SCALE_FACTOR; }
+        cumPriceSeconds = uniswapCumPrice * WAD;
+        unchecked { cumPriceSeconds /= uniswapScaleFactor; }
     }
 
     /**
