@@ -22,6 +22,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
     uint public constant UNISWAP_MIN_TWAP_PERIOD = 10 minutes;
 
     uint public constant WAD = 10 ** 18;
+    uint public constant BILLION = 10 ** 9;
+    uint public constant HALF_BILLION = BILLION / 2;
     // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
     uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
 
@@ -49,11 +51,13 @@ contract OurUniswapV2TWAPOracle is Oracle {
     uint public immutable uniswapScaleFactor;
 
     struct CumulativePrice {
-        uint32 timestamp;
-        uint224 cumPriceSeconds;    // See cumulativePriceFromPair() below for an explanation of "cumPriceSeconds"
+        uint32 cumPriceSecondsTime;
+        uint144 cumPriceSeconds;    // In billionths.  See cumulativePriceFromPair() below for explanation of "cumPriceSeconds"
+        uint80 price;               // In billionths.  Just the latest output TWAP price recorded
     }
 
-    event TWAPPriceStored(uint32 timestamp, uint224 priceSeconds);
+    event TWAPPriceSecondsStored(uint cumPriceSecondsTime, uint cumPriceSeconds, uint price);
+    event TWAPPriceUpdated(uint price);
 
     /**
      * We store two CumulativePrices, A and B, without specifying which is more recent.  This is so that we only need to do one
@@ -77,27 +81,15 @@ contract OurUniswapV2TWAPOracle is Oracle {
             UNISWAP_CUM_PRICE_SCALE_FACTOR / 10 ** uint(-tokenDecimals);
     }
 
-    function refreshPrice() public virtual override returns (uint price, uint updateTime) {
-        (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice) = orderedStoredPrices();
-
-        uint newCumPriceSecondsTime;
-        uint newCumPriceSeconds;
-        // "updateTime" aka "refCumPriceSecondsTime" - timestamp of the stored cumPriceSeconds value we're calculating TWAP vs:
-        (price, updateTime, newCumPriceSecondsTime, newCumPriceSeconds) = _latestPrice(newerStoredPrice);
-
-        // Store the latest cumulative price, if it's been long enough since the latest stored price:
-        if (areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, newerStoredPrice)) {
-            storeCumulativePrice(newCumPriceSecondsTime, newCumPriceSeconds, olderStoredPrice);
-        }
-    }
-
     function latestPrice() public virtual override view returns (uint price, uint updateTime) {
         (price, updateTime) = latestUniswapTWAPPrice();
     }
 
     function latestUniswapTWAPPrice() public view returns (uint price, uint updateTime) {
-        (, CumulativePrice storage newerStoredPrice) = orderedStoredPrices();
-        (price, updateTime,,) = _latestPrice(newerStoredPrice);
+        (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice) = orderedStoredPrices();
+        // Here we rely on the invariant that after every call to refreshPrice(), the freshest price is stored on the *newer*
+        // of the two storedPrices, but is calculated relative to the timestamp (& cumPriceSeconds) of the *older* storedPrice:
+        (price, updateTime) = (newerStoredPrice.price * BILLION, olderStoredPrice.cumPriceSecondsTime);
     }
 
     /**
@@ -116,36 +108,82 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * *older* of the two cumPriceSeconds that go into it": if we're calculating a TWAP between one record 5 seconds old and
      * another a day old, it's more accurate to think of that TWAP as "a day old" than "5 seconds fresh".
      */
-    function _latestPrice(CumulativePrice storage newerStoredPrice)
-        internal view returns (uint price, uint updateTime, uint newCumPriceSecondsTime, uint newCumPriceSeconds)
-    {
-        (newCumPriceSecondsTime, newCumPriceSeconds) = cumulativePriceFromPair();
+    function refreshPrice() public virtual override returns (uint price, uint updateTime) {
+        // "updateTime" aka "refCumPriceSecondsTime" - timestamp of the stored cumPriceSeconds value we're calculating TWAP vs:
+        (uint newCumPriceSecondsTime, uint newCumPriceSeconds) = cumulativePriceFromPair();
+
+        (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice) = orderedStoredPrices();
 
         // Now that we have the current cum price, subtract-&-divide the stored one, to get the TWAP price:
-        CumulativePrice storage refStoredPrice = storedPriceToCompareVs(newCumPriceSecondsTime, newerStoredPrice);
-        updateTime = refStoredPrice.timestamp;
-        price = calculateTWAP(newCumPriceSecondsTime, newCumPriceSeconds, updateTime, uint(refStoredPrice.cumPriceSeconds));
+        (CumulativePrice storage refStoredPrice, bool refStoredPriceIsNewerStoredPrice) =
+            storedPriceToCompareVs(newCumPriceSecondsTime, newerStoredPrice);
+        uint refCumPriceSecondsTime = refStoredPrice.cumPriceSecondsTime;
+        price = calculateTWAP(newCumPriceSecondsTime, newCumPriceSeconds, refCumPriceSecondsTime,
+                              refStoredPrice.cumPriceSeconds * BILLION);    // Converting stored billionths to WAD format
+        updateTime = refCumPriceSecondsTime;
+
+        if (refStoredPriceIsNewerStoredPrice) {
+            // Enough time has passed since our newer storedPrice that we're using it as our reference stored price (the one we
+            // calculate the TWAP with reference to).  This means we're no longer using the older storedPrice at all, so it's
+            // time to replace it:
+            storePriceAndCumulativePrice(newCumPriceSecondsTime, newCumPriceSeconds, price, olderStoredPrice);
+        } else {
+            // We're still using the older storedPrice as our reference price, so we can't replace it yet.  Just update the
+            // price (not cumPriceSeconds or cumPriceSecondsTime) of the newer storedPrice:
+            storePrice(price, newerStoredPrice);
+        }
     }
 
-    function storeCumulativePrice(uint timestamp, uint cumPriceSeconds, CumulativePrice storage olderStoredPrice) internal
+    /**
+     * @notice Store the latest cumPriceSeconds and cumPriceSecondsTime, and the fresh price we calculated with reference to
+     * them.
+     */
+    function storePriceAndCumulativePrice(uint cumPriceSecondsTime, uint cumPriceSeconds, uint price,
+                                          CumulativePrice storage storedPriceToReplace)
+        internal
     {
-        require(timestamp <= type(uint32).max, "timestamp overflow");
+        require(cumPriceSecondsTime <= type(uint32).max, "cumPriceSecondsTime overflow");
 
-        require(cumPriceSeconds <= type(uint224).max, "cumPriceSeconds overflow");
-        // (Note: this assignment only stores because olderStoredPrice has modifier "storage" - ie, store by reference!)
-        (olderStoredPrice.timestamp, olderStoredPrice.cumPriceSeconds) = (uint32(timestamp), uint224(cumPriceSeconds));
+        uint cumPriceSecondsToStore = cumPriceSeconds + HALF_BILLION;   // cumPriceSeconds is in WAD (10**18), we want 10**9
+        unchecked { cumPriceSecondsToStore /= BILLION; }
+        require(cumPriceSecondsToStore <= type(uint144).max, "cumPriceSecondsToStore overflow");
 
-        emit TWAPPriceStored(uint32(timestamp), uint224(cumPriceSeconds));  // 4k gas, is it worth it?
+        uint priceToStore = price + HALF_BILLION;                       // Again, price is in WAD, divide to get BILLIONs
+        unchecked { priceToStore /= BILLION; }
+        require(priceToStore <= type(uint80).max, "priceToStore overflow");
+
+        // (Note: this assignment only stores because storedPriceToReplace has modifier "storage" - ie, store by reference!)
+        (storedPriceToReplace.cumPriceSecondsTime, storedPriceToReplace.cumPriceSeconds, storedPriceToReplace.price) =
+            (uint32(cumPriceSecondsTime), uint144(cumPriceSecondsToStore), uint80(priceToStore));
+
+        emit TWAPPriceSecondsStored(cumPriceSecondsTime, cumPriceSeconds, price);
+    }
+
+    /**
+     * @notice Store the calculated price (if it's changed).
+     */
+    function storePrice(uint price, CumulativePrice storage storedPriceToUpdate)
+        internal
+    {
+        uint priceToStore = price + HALF_BILLION;                       // See analogous comment above
+        unchecked { priceToStore /= BILLION; }
+        require(priceToStore <= type(uint80).max, "priceToStore overflow");
+
+        if (priceToStore != storedPriceToUpdate.price) {
+            storedPriceToUpdate.price = uint80(priceToStore);
+            emit TWAPPriceUpdated(price);
+        }
     }
 
     function storedPriceToCompareVs(uint newCumPriceSecondsTime, CumulativePrice storage newerStoredPrice)
-        internal view returns (CumulativePrice storage refStoredPrice)
+        internal view returns (CumulativePrice storage refStoredPrice, bool refStoredPriceIsNewerStoredPrice)
     {
         bool aAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, uniswapStoredPriceA);
         bool bAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, uniswapStoredPriceB);
         if (aAcceptable) {
             if (bAcceptable) {
                 refStoredPrice = newerStoredPrice;          // Neither is *too* recent, so return the fresher of the two
+                refStoredPriceIsNewerStoredPrice = true;    // This is the only case where refStoredPrice is the *newer* one
             } else {
                 refStoredPrice = uniswapStoredPriceA;       // Only A is acceptable
             }
@@ -159,14 +197,16 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function orderedStoredPrices() internal view
         returns (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice)
     {
-        (olderStoredPrice, newerStoredPrice) = uniswapStoredPriceB.timestamp > uniswapStoredPriceA.timestamp ?
+        (olderStoredPrice, newerStoredPrice) =
+            uniswapStoredPriceB.cumPriceSecondsTime > uniswapStoredPriceA.cumPriceSecondsTime ?
             (uniswapStoredPriceA, uniswapStoredPriceB) : (uniswapStoredPriceB, uniswapStoredPriceA);
     }
 
-    function areNewAndStoredPriceFarEnoughApart(uint newTimestamp, CumulativePrice storage storedPrice) internal view
-        returns (bool farEnough)
+    function areNewAndStoredPriceFarEnoughApart(uint newCumPriceSecondsTime, CumulativePrice storage storedPrice)
+        internal view returns (bool farEnough)
     {
-        unchecked { farEnough = newTimestamp >= storedPrice.timestamp + UNISWAP_MIN_TWAP_PERIOD; } // uint32 + x can't overflow
+        // uint32 + x can't overflow:
+        unchecked { farEnough = newCumPriceSecondsTime >= storedPrice.cumPriceSecondsTime + UNISWAP_MIN_TWAP_PERIOD; }
     }
 
     /**
