@@ -34,6 +34,7 @@ contract('USM', (accounts) => {
 
   let aggregator
   const chainlinkPrice = '38598000000'                      // 8 dec places: see ChainlinkOracle
+  const chainlinkTime = '1613550219'                        // Timestamp ("updatedAt") of the Chainlink price
 
   let anchoredView
   const compoundPrice = '414174999'                         // 6 dec places: see CompoundOpenOracle
@@ -100,7 +101,7 @@ contract('USM', (accounts) => {
       // Oracle params
 
       aggregator = await Aggregator.new({ from: deployer })
-      await aggregator.set(chainlinkPrice)
+      await aggregator.set(chainlinkPrice, chainlinkTime)
 
       anchoredView = await UniswapAnchoredView.new({ from: deployer })
       await anchoredView.set(compoundPrice)
