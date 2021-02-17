@@ -150,7 +150,7 @@ contract('Oracle pricing', (accounts) => {
 
       await pair.setReserves(0, 0, ethUsdtTimestamp_1)
       await pair.setCumulativePrices(ethUsdtCumPrice0_1, 0)
-      //await oracle.refreshPrice() // Not actually needed, unless we do further testing moving timestamps further forward
+      await oracle.refreshPrice()
     })
 
     it('returns the correct price', async () => {
@@ -190,7 +190,7 @@ contract('Oracle pricing', (accounts) => {
 
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
       await usdcEthPair.setCumulativePrices(0, usdcEthCumPrice1_1)
-      //await oracle.refreshPrice() // Not actually needed, unless we do further testing moving timestamps further forward
+      await oracle.refreshPrice()
     })
 
     it('returns the correct price', async () => {
