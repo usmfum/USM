@@ -29,6 +29,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
 
   if (chainId === '31337') { // buidlerevm's chainId
     const chainlinkPrice = '38598000000' // 8 dec places: see ChainlinkOracle
+    const chainlinkTime = '1613550219' // Timestamp ("updatedAt") of the Chainlink price
     const compoundPrice = '414174999' // 6 dec places: see CompoundOpenOracle
     const usdcEthCumPrice0 = 0 // We don't use token0 (for USDC/ETH) so whatever
     const usdcEthCumPrice1 = '31377639132666967530700283664103'
@@ -37,7 +38,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
       from: deployer,
       deterministicDeployment: true,
     });
-    await execute('MockChainlinkAggregatorV3', { from: deployer }, 'set', chainlinkPrice)
+    await execute('MockChainlinkAggregatorV3', { from: deployer }, 'set', chainlinkPrice, chainlinkTime)
     console.log(`Deployed MockChainlinkAggregatorV3 to ${aggregator.address}`);
     aggregatorAddress = aggregator.address
 
