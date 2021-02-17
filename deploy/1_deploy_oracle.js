@@ -21,12 +21,8 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId()
 
-  //const uniswapTokens0Decimals = [18, 6, 18]                // ETH/USDT, USDC/ETH, DAI/ETH.  See OurUniswapV2TWAPOracle
-  //const uniswapTokens1Decimals = [6, 18, 18]                // See UniswapMedianOracle
-  //const uniswapTokensInReverseOrder = [false, true, true]   // See UniswapMedianOracle
-  const usdcDecimals = 6                                      // See UniswapMedianOracle
-  const ethDecimals = 18                                      // See UniswapMedianOracle
-  const uniswapTokensInReverseOrder = true                    // See UniswapMedianOracle
+  const usdcEthTokenToUse = 1
+  const usdcEthEthDecimals = -12
 
   let aggregator, anchoredView, usdcEthPair
   let aggregatorAddress, anchoredViewAddress, usdcEthPairAddress
@@ -35,7 +31,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     const chainlinkPrice = '38598000000' // 8 dec places: see ChainlinkOracle
     const chainlinkTime = '1613550219' // Timestamp ("updatedAt") of the Chainlink price
     const compoundPrice = '414174999' // 6 dec places: see CompoundOpenOracle
-    const usdcEthCumPrice0 = '307631784275278277546624451305316303382174855535226'
+    const usdcEthCumPrice0 = 0 // We don't use token0 (for USDC/ETH) so whatever
     const usdcEthCumPrice1 = '31377639132666967530700283664103'
 
     aggregator = await deploy('MockChainlinkAggregatorV3', {
@@ -69,9 +65,8 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
         aggregatorAddress,
         anchoredViewAddress,
         usdcEthPairAddress,
-        usdcDecimals,
-        ethDecimals,
-        uniswapTokensInReverseOrder,
+        usdcEthTokenToUse,
+        usdcEthEthDecimals,
       ],
     })
     console.log(`Deployed MedianOracle to ${oracle.address}`);

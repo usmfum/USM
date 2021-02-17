@@ -40,16 +40,12 @@ contract('USM', (accounts) => {
   const compoundPrice = '414174999'                         // 6 dec places: see CompoundOpenOracle
 
   let usdcEthPair
-  const usdcDecimals = SIX                                  // See UniswapMedianTWAPOracle
-  const ethDecimals = EIGHTEEN                              // See UniswapMedianTWAPOracle
-  const uniswapTokensInReverseOrder = true                  // See UniswapMedianTWAPOracle
-
-  const usdcEthCumPrice0_0 = new BN('307631784275278277546624451305316303382174855535226')  // From the USDC/ETH pair
-  const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103')
+  const usdcEthTokenToUse = new BN(1)                       // See OurUniswapV2TWAPOracle for explanations of these
+  const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103')     // From the USDC/ETH pair
   const usdcEthTimestamp_0 = new BN('1606780664')
-  const usdcEthCumPrice0_1 = new BN('307634635050611880719301156089846577363471806696356')
   const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')
   const usdcEthTimestamp_1 = new BN('1606782003')
+  const usdcEthEthDecimals = new BN(-12)
 
   function wadMul(x, y, upOrDown) {
     return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
@@ -108,11 +104,11 @@ contract('USM', (accounts) => {
 
       usdcEthPair = await UniswapV2Pair.new({ from: deployer })
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_0)
-      await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_0, usdcEthCumPrice1_0)
+      await usdcEthPair.setCumulativePrices(0, usdcEthCumPrice1_0)
 
       // USM
       oracle = await MedianOracle.new(aggregator.address, anchoredView.address,
-                                      usdcEthPair.address, usdcDecimals, ethDecimals, uniswapTokensInReverseOrder,
+                                      usdcEthPair.address, usdcEthTokenToUse, usdcEthEthDecimals,
                                       { from: deployer })
       usm = await USM.new(oracle.address, [optOut1, optOut2], { from: deployer })
       await usm.refreshPrice()  // This call stores the Uniswap cumPriceSeconds record for time usdcEthTimestamp_0
@@ -120,7 +116,7 @@ contract('USM', (accounts) => {
       usmView = await USMView.new(usm.address, { from: deployer })
 
       await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
-      await usdcEthPair.setCumulativePrices(usdcEthCumPrice0_1, usdcEthCumPrice1_1)
+      await usdcEthPair.setCumulativePrices(0, usdcEthCumPrice1_1)
       await usm.refreshPrice()  // ...And this stores the cumPriceSeconds for usdcEthTimestamp_1 - so we have a valid TWAP now
 
       priceWAD = (await usm.latestPrice())[0]
