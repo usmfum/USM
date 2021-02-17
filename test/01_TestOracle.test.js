@@ -24,6 +24,7 @@ contract('Oracle pricing', (accounts) => {
 
   const chainlinkPrice = '38598000000'                      // Chainlink aggregator (AggregatorV3Interface) stores 8 dec places
   const chainlinkPriceWAD = new BN(chainlinkPrice + '0000000000') // We want 18 dec places, so add 10 0s
+  const chainlinkTime = '1613550219'                        // Timestamp ("updatedAt") of the Chainlink price
 
   const compoundPrice = '414174999'                         // Compound view (UniswapAnchoredView) stores 6 dec places
   const compoundPriceWAD = new BN(compoundPrice + '000000000000') // We want 18 dec places, so add 12 0s
@@ -93,7 +94,7 @@ contract('Oracle pricing', (accounts) => {
 
     beforeEach(async () => {
       aggregator = await Aggregator.new({ from: deployer })
-      await aggregator.set(chainlinkPrice)
+      await aggregator.set(chainlinkPrice, chainlinkTime)
 
       oracle = await ChainlinkOracle.new(aggregator.address, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(oracle.address, "chainlink", { from: deployer })
@@ -173,7 +174,7 @@ contract('Oracle pricing', (accounts) => {
 
     beforeEach(async () => {
       chainlinkAggregator = await Aggregator.new({ from: deployer })
-      await chainlinkAggregator.set(chainlinkPrice)
+      await chainlinkAggregator.set(chainlinkPrice, chainlinkTime)
 
       compoundView = await UniswapAnchoredView.new({ from: deployer })
       await compoundView.set(compoundPrice)
