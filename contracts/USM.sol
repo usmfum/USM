@@ -485,19 +485,25 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
+     * @return price The ETH/USD price, adjusted by the bidAskAdjustment (if applicable) for the given buy/sell side.
+     */
+    function adjustedEthUsdPrice(IUSM.Side side, uint ethUsdPrice, uint adjustment) public override pure returns (uint price) {
+        price = ethUsdPrice;
+
+        // Apply the adjustment if (side == Buy and adj > 1), or (side == Sell and adj < 1):
+        if (side == IUSM.Side.Buy ? (adjustment > WAD) : (adjustment < WAD)) {
+            WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
+            price = price.wadMul(adjustment, upOrDown);
+        }
+    }
+
+    /**
      * @notice Calculate the *marginal* price of USM (in ETH terms): that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
-    function usmPrice(IUSM.Side side, uint ethUsdPrice, uint adjustment) public override pure returns (uint price) {
+    function usmPrice(IUSM.Side side, uint adjustedEthUsdPrice_) public override pure returns (uint price) {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
-        price = usmToEth(ethUsdPrice, WAD, upOrDown);
-
-        // Apply the adjustment if (side == Buy and adj < 1), or (side == Sell and adj > 1).  You may be thinking "Wait!  I
-        // thought the way the adjustment worked was, an adj > 1 was applied when we're *buying,* not selling."  And your
-        // understanding was correct: the catch is that here we're "buying" USM, which is economically like *selling* ETH.
-        if (side == IUSM.Side.Buy ? (adjustment < WAD) : (adjustment > WAD)) {
-            price = price.wadDiv(adjustment, upOrDown);
-        }
+        price = usmToEth(adjustedEthUsdPrice_, WAD, upOrDown);
     }
 
     /**
@@ -506,23 +512,17 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * `usmSupplyForFumBuys` return value from `checkIfUnderwater()`.
      * @return price FUM price in ETH terms
      */
-    function fumPrice(IUSM.Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply,
-                      uint adjustment)
+    function fumPrice(IUSM.Side side, uint adjustedEthUsdPrice_, uint ethInPool, uint usmEffectiveSupply, uint fumSupply)
         public override pure returns (uint price)
     {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
         if (fumSupply == 0) {
-            price = usmToEth(ethUsdPrice, WAD, upOrDown);   // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
+            price = usmToEth(adjustedEthUsdPrice_, WAD, upOrDown);  // if no FUM issued yet, fumPrice = 1 USD (in ETH terms)
         } else {
             // Using usmEffectiveSupply here, rather than just the raw actual supply, has the effect of bumping the FUM price
             // up to the minFumBuyPrice when needed (ie, when debt ratio > MAX_DEBT_RATIO):
-            int buffer = ethBuffer(ethUsdPrice, ethInPool, usmEffectiveSupply, upOrDown);
+            int buffer = ethBuffer(adjustedEthUsdPrice_, ethInPool, usmEffectiveSupply, upOrDown);
             price = (buffer <= 0 ? 0 : uint(buffer).wadDiv(fumSupply, upOrDown));
-
-            // Unlike the counterintuitive case in usmPrice() above, here "Buy" = buying FUM = economically buying ETH:
-            if (side == IUSM.Side.Buy ? (adjustment > WAD) : (adjustment < WAD)) {
-                price = price.wadMul(adjustment, upOrDown);
-            }
         }
     }
 
@@ -594,7 +594,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // that 5%, "half" (in log space) is the ETH *mid* price dropping, and the other half is the bidAskAdjustment (ETH sell
         // price discount) dropping.  Calculating the total amount of USM minted then involves summing an integral over
         // 1 / usmBuyPrice, which gives the simple logarithm below.
-        uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.bidAskAdjustment);
+        uint adjustedPrice = adjustedEthUsdPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.bidAskAdjustment);
+        uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, adjustedPrice);     // Minting USM = buying USM = selling ETH
         uint ethPool1 = ls.ethPool + ethIn;
 
         //adjShrinkFactor = ls.ethPool.wadDivDown(ethPool1).wadSqrt();      // Another possible fn we could use (same result)
@@ -617,7 +618,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price).  This is just the mirror image of the math in
         // usmFromMint() above, but because we're calculating output ETH from input USM rather than the other way around, we
         // end up with an exponent (exponent.wadExp() below, aka e**exponent) rather than a logarithm.
-        uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.bidAskAdjustment);
+        uint adjustedPrice = adjustedEthUsdPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.bidAskAdjustment);
+        uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, adjustedPrice);   // Burning USM = selling USM = buying ETH
 
         // The integral - calculating the amount of ETH yielded by burning the USM at our sliding-down USM price:
         uint exponent = usmIn.wadMulDown(usmSellPrice0).wadDivDown(ls.ethPool);
@@ -643,8 +645,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         if (ls.ethPool == 0) {
             // No ETH in the system yet, which breaks our adjGrowthFactor calculation below - skip sliding-prices this time:
             adjGrowthFactor = WAD;
-            uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply, fumSupply,
-                                         ls.bidAskAdjustment);
+            uint adjustedPrice = adjustedEthUsdPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.bidAskAdjustment);
+            uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, adjustedPrice, ls.ethPool, ls.usmTotalSupply, fumSupply);
             fumOut = ethIn.wadDivDown(fumBuyPrice0);
         } else {
             // Create FUM at a sliding-up FUM price.  We follow the same broad strategy as in usmFromMint(): the effective ETH
@@ -696,8 +698,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // but we need to be even more clever this time...
 
         // 1. Calculating the initial FUM sell price we start from is no problem:
-        uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply, fumSupply,
-                                      ls.bidAskAdjustment);
+        uint adjustedPrice = adjustedEthUsdPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.bidAskAdjustment);
+        uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, adjustedPrice, ls.ethPool, ls.usmTotalSupply, fumSupply);
 
         // 2. Once again calculate the initial fumDelta, which we'll then keep fixed as a calculation convenience:
         //uint debtRatio0 = debtRatio(ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply);
@@ -723,8 +725,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // price, divided by initial FUM qty).  So we just use this FUM price as our average FUM sell price for the entire
         // burn, and use that to calculate ethOut by a simple multiplication.  For small trades this will still equate to a
         // 0-fee op: for larger trades the pessimism has a larger impact (lower proportional ethOut, higher implicit fee).
-        uint avgFumSellPrice = fumPrice(IUSM.Side.Sell, lowerBoundEthUsdPrice1, ls.ethPool, ls.usmTotalSupply, fumSupply,
-                                        ls.bidAskAdjustment);
+        uint avgFumSellPrice = fumPrice(IUSM.Side.Sell, lowerBoundEthUsdPrice1, ls.ethPool, ls.usmTotalSupply, fumSupply);
         ethOut = fumIn.wadMulDown(avgFumSellPrice);
 
         // 7. And now that we know the ending amount of ETH in the pool, we can back out the adjShrinkFactor:
