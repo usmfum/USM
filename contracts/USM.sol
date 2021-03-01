@@ -30,7 +30,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     using WadMath for uint;
 
     event UnderwaterStatusChanged(bool underwater);
-    event BuySellAdjustmentChanged(uint adjustment);
+    event BidAskAdjustmentChanged(uint adjustment);
     event PriceChanged(uint timestamp, uint price);
 
     uint public constant WAD = 10 ** 18;
@@ -39,7 +39,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     uint public constant HALF_BILLION = BILLION / 2;
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                 // 80%
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
-    uint public constant BUY_SELL_ADJUSTMENT_HALF_LIFE = 1 minutes;     // Solidity for 1 * 60
+    uint public constant BID_ASK_ADJUSTMENT_HALF_LIFE = 1 minutes;      // Solidity for 1 * 60
 
     FUM public immutable fum;
     Oracle public immutable oracle;
@@ -48,23 +48,23 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         uint32 timeSystemWentUnderwater;    // Time at which (we noticed) debt ratio went > MAX, or 0 if it's currently < MAX
         uint32 ethUsdPriceTimestamp;
         uint80 ethUsdPrice;                 // Stored in billionths, not WADs: so 123.456 is stored as 123,456,000,000
-        uint32 buySellAdjustmentTimestamp;
-        uint80 buySellAdjustment;           // Stored in billionths, not WADs
+        uint32 bidAskAdjustmentTimestamp;
+        uint80 bidAskAdjustment;            // Stored in billionths, not WADs
     }
 
     struct LoadedState {
         uint timeSystemWentUnderwater;
         uint ethUsdPriceTimestamp;
         uint ethUsdPrice;                   // This one is in WADs, not billionths
-        uint buySellAdjustmentTimestamp;
-        uint buySellAdjustment;             // WADs, not billionths
+        uint bidAskAdjustmentTimestamp;
+        uint bidAskAdjustment;              // WADs, not billionths
         uint ethPool;
         uint usmTotalSupply;
     }
 
     StoredState public storedState = StoredState({
         timeSystemWentUnderwater: 0, ethUsdPriceTimestamp: 0, ethUsdPrice: 0,
-        buySellAdjustmentTimestamp: 0, buySellAdjustment: uint80(BILLION)       // initialize adjustment to 1.0 (scaled by 1b)
+        bidAskAdjustmentTimestamp: 0, bidAskAdjustment: uint80(BILLION)         // Initialize adjustment to 1.0 (scaled by 1b)
     });
 
     constructor(Oracle oracle_, address[] memory optedOut_)
@@ -154,7 +154,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     function refreshPrice() public virtual override(IUSM, Oracle) returns (uint price, uint updateTime) {
         LoadedState memory ls = loadState();
         bool priceChanged;
-        (price, updateTime, ls.buySellAdjustment, priceChanged) = _refreshPrice(ls);
+        (price, updateTime, ls.bidAskAdjustment, priceChanged) = _refreshPrice(ls);
         if (priceChanged) {
             (ls.ethUsdPrice, ls.ethUsdPriceTimestamp) = (price, updateTime);
             _storeState(ls);
@@ -189,15 +189,15 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         require(ls.ethPool > 0, "Fund before minting");
 
         // 3. Refresh the oracle price (if available - see _refreshPrice() below):
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.buySellAdjustment, ) = _refreshPrice(ls);
+        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment, ) = _refreshPrice(ls);
 
         // 4. Calculate usmOut:
         uint adjShrinkFactor;
         (usmOut, adjShrinkFactor) = usmFromMint(ls, msg.value);
         require(usmOut >= minUsmOut, "Limit not reached");
 
-        // 5. Update the in-memory LoadedState's buySellAdjustment and price:
-        ls.buySellAdjustment = ls.buySellAdjustment.wadMulDown(adjShrinkFactor);
+        // 5. Update the in-memory LoadedState's bidAskAdjustment and price:
+        ls.bidAskAdjustment = ls.bidAskAdjustment.wadMulDown(adjShrinkFactor);
         ls.ethUsdPrice = ls.ethUsdPrice.wadMulDown(adjShrinkFactor);
 
         // 6. Store the updated state and mint the user's new USM:
@@ -211,15 +211,15 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.buySellAdjustment, ) = _refreshPrice(ls);
+        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment, ) = _refreshPrice(ls);
 
         // 3. Calculate ethOut:
         uint adjGrowthFactor;
         (ethOut, adjGrowthFactor) = ethFromBurn(ls, usmToBurn);
         require(ethOut >= minEthOut, "Limit not reached");
 
-        // 4. Update the in-memory LoadedState's buySellAdjustment and price:
-        ls.buySellAdjustment = ls.buySellAdjustment.wadMulUp(adjGrowthFactor);
+        // 4. Update the in-memory LoadedState's bidAskAdjustment and price:
+        ls.bidAskAdjustment = ls.bidAskAdjustment.wadMulUp(adjGrowthFactor);
         ls.ethUsdPrice = ls.ethUsdPrice.wadMulUp(adjGrowthFactor);
 
         // 5. Check that the burn didn't leave debt ratio > 100%:
@@ -239,7 +239,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         ls.ethPool -= msg.value;    // Backing out the ETH just received, which our calculations should ignore
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.buySellAdjustment, ) = _refreshPrice(ls);
+        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment, ) = _refreshPrice(ls);
 
         // 3. Refresh timeSystemWentUnderwater, and replace ls.usmTotalSupply with the *effective* USM supply for FUM buys:
         (ls.timeSystemWentUnderwater, ls.usmTotalSupply) =
@@ -251,8 +251,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         (fumOut, adjGrowthFactor) = fumFromFund(ls, fumSupply, msg.value);
         require(fumOut >= minFumOut, "Limit not reached");
 
-        // 5. Update the in-memory LoadedState's buySellAdjustment and price:
-        ls.buySellAdjustment = ls.buySellAdjustment.wadMulUp(adjGrowthFactor);
+        // 5. Update the in-memory LoadedState's bidAskAdjustment and price:
+        ls.bidAskAdjustment = ls.bidAskAdjustment.wadMulUp(adjGrowthFactor);
         ls.ethUsdPrice = ls.ethUsdPrice.wadMulUp(adjGrowthFactor);
 
         // 6. Update the stored state and mint the user's new FUM:
@@ -266,7 +266,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.buySellAdjustment, ) = _refreshPrice(ls);
+        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment, ) = _refreshPrice(ls);
 
         // 3. Calculate ethOut:
         uint fumSupply = fum.totalSupply();
@@ -274,8 +274,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         (ethOut, adjShrinkFactor) = ethFromDefund(ls, fumSupply, fumToBurn);
         require(ethOut >= minEthOut, "Limit not reached");
 
-        // 4. Update the in-memory LoadedState's buySellAdjustment and price:
-        ls.buySellAdjustment = ls.buySellAdjustment.wadMulDown(adjShrinkFactor);
+        // 4. Update the in-memory LoadedState's bidAskAdjustment and price:
+        ls.bidAskAdjustment = ls.bidAskAdjustment.wadMulDown(adjShrinkFactor);
         ls.ethUsdPrice = ls.ethUsdPrice.wadMulDown(adjShrinkFactor);
 
         // 5. Check that the defund didn't leave debt ratio > MAX_DEBT_RATIO:
@@ -290,7 +290,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
     /**
      * @notice Checks the external oracle for a fresh ETH/USD price.  If it has one, we take it as the new USM system price
-     * (and update buySellAdjustment as described below); if no fresh oracle price is available, we stick with our existing
+     * (and update bidAskAdjustment as described below); if no fresh oracle price is available, we stick with our existing
      * system price, `ls.ethUsdPrice`, which may have been nudged around by mint/burn operations since the last oracle update.
      *
      * Note that our definition of whether an oracle price is "fresh" (`priceChanged == true`) isn't quite as trivial as
@@ -304,33 +304,33 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         (price, updateTime) = oracle.refreshPrice();
 
         // The rest of this fn should be non-transactional: only the oracle.refreshPrice() call above may affect storage.
-        adjustment = ls.buySellAdjustment;
+        adjustment = ls.bidAskAdjustment;
         priceChanged = updateTime > ls.ethUsdPriceTimestamp;
 
         if (!priceChanged) {                // If the price isn't fresher than our old one, scrap it and stick to the old one
             (price, updateTime) = (ls.ethUsdPrice, ls.ethUsdPriceTimestamp);
-        } else if (ls.ethUsdPrice != 0) {   // If the old price is 0, don't try to use it to adjust the buySellAdjustment...
+        } else if (ls.ethUsdPrice != 0) {   // If the old price is 0, don't try to use it to adjust the bidAskAdjustment...
             /**
              * This is a bit subtle.  We want to update the mid stored price to the oracle's fresh value, while updating
-             * buySellAdjustment in such a way that the currently adjusted (more expensive than mid) side gets no
-             * cheaper/more favorably priced for users.  Example:
+             * bidAskAdjustment in such a way that the currently adjusted (more expensive than mid) side gets no cheaper/more
+             * favorably priced for users.  Example:
              *
-             * 1. storedPrice = $1,000, and buySellAdjustment = 1.02.  So, our current ETH buy price is $1,020, and our current
+             * 1. storedPrice = $1,000, and bidAskAdjustment = 1.02.  So, our current ETH buy price is $1,020, and our current
              *    ETH sell price is $1,000 (mid).
              * 2. The oracle comes back with a fresh price (newer updateTime) of $990.
              * 3. The currently adjusted price is buy price (ie, adj > 1).  So, we want to:
              *    a) Update storedPrice (mid) to $990.
-             *    b) Update buySellAdj to ensure that buy price remains >= $1,020.
-             * 4. We do this by upping buySellAdj 1.02 -> 1.0303.  Then the new buy price will remain $990 * 1.0303 = $1,020.
+             *    b) Update bidAskAdj to ensure that buy price remains >= $1,020.
+             * 4. We do this by upping bidAskAdj 1.02 -> 1.0303.  Then the new buy price will remain $990 * 1.0303 = $1,020.
              *    The sell price will remain the unadjusted mid: formerly $1,000, now $990.
              *
-             * Because the buySellAdjustment reverts to 1 in a few minutes, the new 3.03% buy premium is temporary: buy price
+             * Because the bidAskAdjustment reverts to 1 in a few minutes, the new 3.03% buy premium is temporary: buy price
              * will revert to the $990 mid soon - unless the new mid is egregiously low, in which case buyers should push it
-             * back up.  Eg, suppose the oracle gives us a glitchy price of $99.  Then new mid = $99, buySellAdj = 10.303, buy
+             * back up.  Eg, suppose the oracle gives us a glitchy price of $99.  Then new mid = $99, bidAskAdj = 10.303, buy
              * price = $1,020, and the buy price will rapidly drop towards $99; but as it does so, users are incentivized to
              * step in and buy, eventually pushing mid back up to the real-world ETH market price (eg $990).
              *
-             * In cases like this, our buySellAdj update has protected the system, by preventing users from getting any chance
+             * In cases like this, our bidAskAdj update has protected the system, by preventing users from getting any chance
              * to buy at the bogus $99 price.
              */
             if (adjustment > WAD) {
@@ -344,10 +344,10 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice Stores the current price, `buySellAdjustment`, and `timeSystemWentUnderwater`.  Note that whereas most calls
-     * to this function store a fresh `buySellAdjustmentTimestamp`, most calls do *not* store a fresh `ethUsdPriceTimestamp`:
-     * the latter isn't updated every time this is called with a new price, but only when the *oracle's* price is refreshed.
-     * The oracle price being "refreshed" is itself a subtle idea: see the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
+     * @notice Stores the current price, `bidAskAdjustment`, and `timeSystemWentUnderwater`.  Note that whereas most calls to
+     * this function store a fresh `bidAskAdjustmentTimestamp`, most calls do *not* store a fresh `ethUsdPriceTimestamp`: the
+     * latter isn't updated every time this is called with a new price, but only when the *oracle's* price is refreshed.  The
+     * oracle price being "refreshed" is itself a subtle idea: see the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
      */
     function _storeState(LoadedState memory ls) internal {
         if (ls.timeSystemWentUnderwater != storedState.timeSystemWentUnderwater) {
@@ -368,21 +368,21 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
             unchecked { emit PriceChanged(ls.ethUsdPriceTimestamp, priceToStore * BILLION); }
         }
 
-        require(ls.buySellAdjustmentTimestamp <= type(uint32).max, "buySellAdjustmentTimestamp overflow");
+        require(ls.bidAskAdjustmentTimestamp <= type(uint32).max, "bidAskAdjustmentTimestamp overflow");
 
-        uint adjustmentToStore = ls.buySellAdjustment + HALF_BILLION;
+        uint adjustmentToStore = ls.bidAskAdjustment + HALF_BILLION;
         unchecked { adjustmentToStore /= BILLION; }
-        if (adjustmentToStore != storedState.buySellAdjustment) {
-            require(adjustmentToStore <= type(uint80).max, "buySellAdjustment overflow");
-            unchecked { emit BuySellAdjustmentChanged(adjustmentToStore * BILLION); }
+        if (adjustmentToStore != storedState.bidAskAdjustment) {
+            require(adjustmentToStore <= type(uint80).max, "bidAskAdjustment overflow");
+            unchecked { emit BidAskAdjustmentChanged(adjustmentToStore * BILLION); }
         }
 
         (storedState.timeSystemWentUnderwater,
          storedState.ethUsdPriceTimestamp, storedState.ethUsdPrice,
-         storedState.buySellAdjustmentTimestamp, storedState.buySellAdjustment) =
+         storedState.bidAskAdjustmentTimestamp, storedState.bidAskAdjustment) =
             (uint32(ls.timeSystemWentUnderwater),
              uint32(ls.ethUsdPriceTimestamp), uint80(priceToStore),
-             uint32(ls.buySellAdjustmentTimestamp), uint80(adjustmentToStore));
+             uint32(ls.bidAskAdjustmentTimestamp), uint80(adjustmentToStore));
     }
 
     // ____________________ Public Oracle view functions ____________________
@@ -410,14 +410,14 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice The current buy/sell adjustment, equal to the stored value decayed over time towards its stable value, 1.  This
+     * @notice The current bid/ask adjustment, equal to the stored value decayed over time towards its stable value, 1.  This
      * adjustment is intended as a measure of "how long-ETH recent user activity has been", so that we can slide price
      * accordingly: if recent activity was mostly long-ETH (fund() and burn()), raise FUM buy price/reduce USM sell price; if
      * recent activity was short-ETH (defund() and mint()), reduce FUM sell price/raise USM buy price.
-     * @return adjustment The sliding-price buy/sell adjustment
+     * @return adjustment The sliding-price bid/ask adjustment
      */
-    function buySellAdjustment() public override view returns (uint adjustment) {
-        adjustment = loadState().buySellAdjustment;     // Not just from storedState, b/c need to update it - see loadState()
+    function bidAskAdjustment() public override view returns (uint adjustment) {
+        adjustment = loadState().bidAskAdjustment;      // Not just from storedState, b/c need to update it - see loadState()
     }
 
     function timeSystemWentUnderwater() public override view returns (uint timestamp) {
@@ -431,11 +431,11 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         ls.ethUsdPriceTimestamp = storedState.ethUsdPriceTimestamp;
         ls.ethUsdPrice = storedState.ethUsdPrice * BILLION;     // Converting stored BILLION (10**9) format to WAD (10**18)
 
-        // Bring buySellAdjustment up to the present - it gravitates towards 1 over time, so the stored value is obsolete:
-        ls.buySellAdjustmentTimestamp = block.timestamp;
-        ls.buySellAdjustment = buySellAdjustment(storedState.buySellAdjustmentTimestamp,
-                                                 storedState.buySellAdjustment * BILLION,
-                                                 block.timestamp);
+        // Bring bidAskAdjustment up to the present - it gravitates towards 1 over time, so the stored value is obsolete:
+        ls.bidAskAdjustmentTimestamp = block.timestamp;
+        ls.bidAskAdjustment = bidAskAdjustment(storedState.bidAskAdjustmentTimestamp,
+                                               storedState.bidAskAdjustment * BILLION,
+                                               block.timestamp);
 
         ls.ethPool = ethPool();
         ls.usmTotalSupply = totalSupply();
@@ -567,11 +567,10 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice Returns the given stored buySellAdjustment value, updated (decayed towards 1) to the current time.
+     * @notice Returns the given stored bidAskAdjustment value, updated (decayed towards 1) to the current time.
      */
-    function buySellAdjustment(uint storedTime, uint storedAdjustment, uint currentTime) public pure returns (uint adjustment)
-    {
-        uint numHalvings = (currentTime - storedTime).wadDivDown(BUY_SELL_ADJUSTMENT_HALF_LIFE);
+    function bidAskAdjustment(uint storedTime, uint storedAdjustment, uint currentTime) public pure returns (uint adjustment) {
+        uint numHalvings = (currentTime - storedTime).wadDivDown(BID_ASK_ADJUSTMENT_HALF_LIFE);
         uint decayFactor = numHalvings.wadHalfExp(10);
         // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
         // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
@@ -592,10 +591,10 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // starts with 100 ETH, and ethIn = 5, so we're increasing it to 105, then our USM buy price increases smoothly by 5%
         // during the mint operation.  (Buying USM with ETH is economically equivalent to selling ETH for USD: so this is
         // equivalent to saying that the ETH price used to price our USM *decreases* smoothly by 5% during the operation.)  Of
-        // that 5%, "half" (in log space) is the ETH *mid* price dropping, and the other half is the buySellAdjustment (ETH
-        // sell price discount) dropping.  Calculating the total amount of USM minted then involves summing an integral over
+        // that 5%, "half" (in log space) is the ETH *mid* price dropping, and the other half is the bidAskAdjustment (ETH sell
+        // price discount) dropping.  Calculating the total amount of USM minted then involves summing an integral over
         // 1 / usmBuyPrice, which gives the simple logarithm below.
-        uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.buySellAdjustment);
+        uint usmBuyPrice0 = usmPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.bidAskAdjustment);
         uint ethPool1 = ls.ethPool + ethIn;
 
         //adjShrinkFactor = ls.ethPool.wadDivDown(ethPool1).wadSqrt();      // Another possible fn we could use (same result)
@@ -618,14 +617,14 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price).  This is just the mirror image of the math in
         // usmFromMint() above, but because we're calculating output ETH from input USM rather than the other way around, we
         // end up with an exponent (exponent.wadExp() below, aka e**exponent) rather than a logarithm.
-        uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.buySellAdjustment);
+        uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.bidAskAdjustment);
 
         // The integral - calculating the amount of ETH yielded by burning the USM at our sliding-down USM price:
         uint exponent = usmIn.wadMulDown(usmSellPrice0).wadDivDown(ls.ethPool);
         uint ethPool1 = ls.ethPool.wadDivUp(exponent.wadExp());
         ethOut = ls.ethPool - ethPool1;
 
-        // In this case we back out the adjGrowthFactor (change in mid price and buySellAdj) from the change in the ETH pool:
+        // In this case we back out the adjGrowthFactor (change in mid price and bidAskAdj) from the change in the ETH pool:
         adjGrowthFactor = ls.ethPool.wadDivUp(ethPool1).wadExp(HALF_WAD);
     }
 
@@ -645,7 +644,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
             // No ETH in the system yet, which breaks our adjGrowthFactor calculation below - skip sliding-prices this time:
             adjGrowthFactor = WAD;
             uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply, fumSupply,
-                                         ls.buySellAdjustment);
+                                         ls.bidAskAdjustment);
             fumOut = ethIn.wadDivDown(fumBuyPrice0);
         } else {
             // Create FUM at a sliding-up FUM price.  We follow the same broad strategy as in usmFromMint(): the effective ETH
@@ -672,14 +671,14 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
             adjGrowthFactor = ethPool1.wadDivUp(ls.ethPool).wadExp(effectiveFumDelta / 2);
 
             // 3. Here we use a simplifying trick: we pretend our entire FUM purchase is done at a single fixed price.  For
-            // that FUM price, we use the price we would get if we combined 1. the *initial* buySellAdjustment (ie, before it's
+            // that FUM price, we use the price we would get if we combined 1. the *initial* bidAskAdjustment (ie, before it's
             // increased by this fund operation), with the *ending* mid FUM price (ie, the mid FUM price implied by our
             // post-adjGrowthFactor ETH mid price).  This composite FUM price is guaranteed to be bounded below by our starting
             // FUM buy price calculated above, and bounded above by the FUM buy price we would start at if we immediately did
             // another fund operation, which are the key bounds we need to satisfy to avoid weird stuff like "The ETH price
             // increased but my FUM buy got cheaper."
             uint ethUsdPrice1 = ls.ethUsdPrice.wadMulUp(adjGrowthFactor);
-            uint avgFumBuyPrice = ls.buySellAdjustment.wadMulUp(
+            uint avgFumBuyPrice = ls.bidAskAdjustment.wadMulUp(
                 (ls.ethPool - ls.usmTotalSupply.wadDivDown(ethUsdPrice1)).wadDivUp(fumSupply));
             fumOut = ethIn.wadDivDown(avgFumBuyPrice);
         }
@@ -698,7 +697,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
         // 1. Calculating the initial FUM sell price we start from is no problem:
         uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply, fumSupply,
-                                      ls.buySellAdjustment);
+                                      ls.bidAskAdjustment);
 
         // 2. Once again calculate the initial fumDelta, which we'll then keep fixed as a calculation convenience:
         //uint debtRatio0 = debtRatio(ls.ethUsdPrice, ls.ethPool, ls.usmTotalSupply);
@@ -725,7 +724,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // burn, and use that to calculate ethOut by a simple multiplication.  For small trades this will still equate to a
         // 0-fee op: for larger trades the pessimism has a larger impact (lower proportional ethOut, higher implicit fee).
         uint avgFumSellPrice = fumPrice(IUSM.Side.Sell, lowerBoundEthUsdPrice1, ls.ethPool, ls.usmTotalSupply, fumSupply,
-                                        ls.buySellAdjustment);
+                                        ls.bidAskAdjustment);
         ethOut = fumIn.wadMulDown(avgFumSellPrice);
 
         // 7. And now that we know the ending amount of ETH in the pool, we can back out the adjShrinkFactor:

@@ -18,7 +18,7 @@ abstract contract IUSM is IERC20 {
     function latestOraclePrice() public virtual view returns (uint price, uint updateTime);
     function ethPool() public virtual view returns (uint pool);
     function fumTotalSupply() public virtual view returns (uint supply);
-    function buySellAdjustment() public virtual view returns (uint adjustment);
+    function bidAskAdjustment() public virtual view returns (uint adjustment);
     function timeSystemWentUnderwater() public virtual view returns (uint timestamp);
 
     function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, WadMath.Round upOrDown) public virtual pure returns (int buffer);
