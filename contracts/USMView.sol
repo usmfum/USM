@@ -61,7 +61,7 @@ contract USMView {
      */
     function usmPrice(IUSM.Side side) external view returns (uint price) {
         (uint ethUsdPrice, ) = usm.latestPrice();
-        price = usm.usmPrice(side, ethUsdPrice, usm.buySellAdjustment());
+        price = usm.usmPrice(side, ethUsdPrice, usm.bidAskAdjustment());
     }
 
     /**
@@ -76,6 +76,6 @@ contract USMView {
         if (side == IUSM.Side.Buy) {
             (, usmSupply) = usm.checkIfUnderwater(usmSupply, ethPool, ethUsdPrice, oldTimeUnderwater, block.timestamp);
         }
-        price = usm.fumPrice(side, ethUsdPrice, ethPool, usmSupply, usm.fumTotalSupply(), usm.buySellAdjustment());
+        price = usm.fumPrice(side, ethUsdPrice, ethPool, usmSupply, usm.fumTotalSupply(), usm.bidAskAdjustment());
     }
 }
