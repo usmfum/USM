@@ -621,7 +621,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.buySellAdjustment);
 
         // The integral - calculating the amount of ETH yielded by burning the USM at our sliding-down USM price:
-        uint exponent = usmIn.wadMulUp(usmSellPrice0).wadDivUp(ls.ethPool);
+        uint exponent = usmIn.wadMulDown(usmSellPrice0).wadDivDown(ls.ethPool);
         uint ethPool1 = ls.ethPool.wadDivUp(exponent.wadExp());
         ethOut = ls.ethPool - ethPool1;
 
@@ -730,6 +730,6 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
         // 7. And now that we know the ending amount of ETH in the pool, we can back out the adjShrinkFactor:
         uint ethPool1 = ls.ethPool - ethOut;
-        adjShrinkFactor = ethPool1.wadDivUp(ls.ethPool).wadExp(fumDelta / 2);
+        adjShrinkFactor = ethPool1.wadDivDown(ls.ethPool).wadExp(fumDelta / 2);
     }
 }
