@@ -61,7 +61,8 @@ contract USMView {
      */
     function usmPrice(IUSM.Side side) external view returns (uint price) {
         (uint ethUsdPrice, ) = usm.latestPrice();
-        uint adjustedPrice = usm.adjustedEthUsdPrice(side, ethUsdPrice, usm.bidAskAdjustment());
+        IUSM.Side ethSide = (side == IUSM.Side.Buy ? IUSM.Side.Sell : IUSM.Side.Buy);   // Buying USM = selling ETH
+        uint adjustedPrice = usm.adjustedEthUsdPrice(ethSide, ethUsdPrice, usm.bidAskAdjustment());
         price = usm.usmPrice(side, adjustedPrice);
     }
 
