@@ -11,6 +11,7 @@ library WadMath {
 
     uint public constant WAD = 10 ** 18;
     uint public constant WAD_MINUS_1 = WAD - 1;
+    uint public constant HALF_WAD = WAD / 2;
     uint public constant WAD_OVER_10 = WAD / 10;
     uint public constant WAD_OVER_20 = WAD / 20;
     uint public constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
@@ -29,6 +30,16 @@ library WadMath {
     function wadMulUp(uint x, uint y) internal pure returns (uint z) {
         z = x * y + WAD_MINUS_1;    // Rounds up.  So (again imagining 2 decimal places):
         unchecked { z /= WAD; }     // 383 (3.83) * 235 (2.35) -> 90005 (9.0005), + 99 (0.0099) -> 90104, / 100 -> 901 (9.01).
+    }
+
+    function wadSquaredDown(uint x) internal pure returns (uint z) {
+        z = x * x;
+        unchecked { z /= WAD; }
+    }
+
+    function wadSquaredUp(uint x) internal pure returns (uint z) {
+        z = (x * x) + WAD_MINUS_1;
+        unchecked { z /= WAD; }
     }
 
     function wadDiv(uint x, uint y, Round upOrDown) internal pure returns (uint z) {
@@ -106,6 +117,47 @@ library WadMath {
             }
             unchecked { n /= 2; }
         }
+    }
+
+    /**
+     * @notice Babylonian method, from Uniswap:
+     * https://github.com/Uniswap/uniswap-v2-core/blob/v1.0.1/contracts/libraries/Math.sol (via
+     * https://ethereum.stackexchange.com/a/87713/64318).
+     */
+    function wadSqrtDown(uint y) internal pure returns (uint root) {
+        y *= WAD;
+        unchecked {
+            if (y > 3) {
+                root = y;
+                uint x = y / 2 + 1;
+                while (x < root) {
+                    root = x;
+                    x = (y / x + x) / 2;
+                }
+            } else if (y != 0) {
+                root = 1;
+            }
+        }
+    }
+
+    function wadSqrtUp(uint y) internal pure returns (uint root) {
+        root = wadSqrtDown(y);
+        // The only case where wadSqrtUp(y) *isn't* equal to wadSqrtDown(y) + 1 is when y is a perfect square; so check for that.
+        // These "*"s are safe because: 1. root**2 <= y * WAD, and 2. y * WAD is calculated (safely) above.
+        unchecked {
+            if (root * root != y * WAD ) {
+                ++root;
+            }
+        }
+        //require((root - 1)**2 < y * WAD && y * WAD <= root**2);
+    }
+
+    function wadSqrtApproxDown(uint y) internal pure returns (uint root) {
+        root = wadExp(y, HALF_WAD);
+    }
+
+    function wadSqrtApproxUp(uint y) internal pure returns (uint root) {
+        root = wadExp(y, HALF_WAD);
     }
 
     /**

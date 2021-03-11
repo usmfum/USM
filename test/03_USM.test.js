@@ -51,8 +51,36 @@ contract('USM', (accounts) => {
     return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
   }
 
+  function wadSquared(x) {
+    return wadMul(x, x)
+  }
+
   function wadDiv(x, y, upOrDown) {
     return ((x.mul(WAD)).add(y.sub(ONE))).div(y)
+  }
+
+  function wadSqrtDown(y) {
+    y = y.mul(WAD)
+    if (y.gt(THREE)) {
+      let z = y
+      let x = y.div(TWO).add(ONE)
+      while (x.lt(z)) {
+        z = x
+        x = y.div(x).add(x).div(TWO)
+      }
+      return z
+    } else if (y.ne(ZERO)) {
+      return ONE
+    }
+    return ZERO
+  }
+
+  function wadSqrtUp(y) {
+    if (y.eq(ZERO)) {
+      return ZERO
+    } else {
+      return wadSqrtDown(y.sub(ONE)).add(ONE)
+    }
   }
 
   function wadDecay(adjustment, decayFactor) {
@@ -280,6 +308,28 @@ contract('USM', (accounts) => {
               const effectiveDebtRatio = effectiveUsmQty0 / (fl(ethPool0) * fl(price0))
               const effectiveFumDelta = 1 / (1 - effectiveDebtRatio)
               adjGrowthFactorF = (ethPoolF / ethPool0)**(effectiveFumDelta / 2)
+            })
+
+            it("calculates sqrt correctly", async () => {
+              const roots = [1, 2, 3, 7, 10, 99, 1001, 10000, 99999, 1000001]
+              const w = await WadMath.new()
+              let i, r, square, sqrt
+              for (i = 0; i < roots.length; ++i) {
+                r = (new BN(roots[i])).mul(WAD)
+                square = wadSquared(r)
+                sqrt = await w.wadSqrtDown(square)
+                shouldEqual(sqrt, r)            // wadSqrtDown(49000000000000000000) should return 7000000000000000000
+                sqrt = await w.wadSqrtUp(square)
+                shouldEqual(sqrt, r)            // wadSqrtUp(49000000000000000000) should return 7000000000000000000
+                sqrt = await w.wadSqrtDown(square.add(ONE))
+                shouldEqual(sqrt, r)            // wadSqrtDown(49000000000000000001) should return 7000000000000000000 too
+                sqrt = await w.wadSqrtUp(square.add(ONE))
+                shouldEqual(sqrt, r.add(ONE))   // wadSqrtUp(49000000000000000001) should return 7000000000000000001 (ie, round up)
+                sqrt = await w.wadSqrtDown(square.sub(ONE))
+                shouldEqual(sqrt, r.sub(ONE))   // wadSqrtDown(48999999999999999999) should return 6999999999999999999 (ie, round down)
+                sqrt = await w.wadSqrtUp(square.sub(ONE))
+                shouldEqual(sqrt, r)            // wadSqrtUp(48999999999999999999) should return 7000000000000000000 (ie, round up)
+              }
             })
 
             it("increases ETH pool correctly when minting FUM", async () => {
