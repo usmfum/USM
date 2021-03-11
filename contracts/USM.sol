@@ -603,15 +603,15 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
         // In theory, calculating the total amount of USM minted involves summing an integral over 1 / usmBuyPrice, which gives
         // the following simple logarithm:
-        int log = ethPool1.wadDivDown(ls.ethPool).wadLog();                     // 2a) Most exact: ~4k more gas
-        require(log >= 0, "log underflow");
-        //usmOut = ls.ethPool.wadDivDown(usmBuyPrice0).wadMulDown(uint(log));
-        usmOut = ls.ethPool * uint(log) / usmBuyPrice0;
+        //int log = ethPool1.wadDivDown(ls.ethPool).wadLog();                   // 2a) Most exact: ~4k more gas
+        //require(log >= 0, "log underflow");
+        ////usmOut = ls.ethPool.wadDivDown(usmBuyPrice0).wadMulDown(uint(log));
+        //usmOut = ls.ethPool * uint(log) / usmBuyPrice0;
 
         // But in practice, we can save some gas by approximating the log integral above as follows: take the geometric average
         // of the starting and ending usmBuyPrices, and just appply that average price to the entier ethIn passes in.
-        //uint usmBuyPriceAvg = usmBuyPrice0.wadDivUp(adjShrinkFactor);         // 2b) Approximate, but pretty close
-        //usmOut = ethIn.wadDivDown(usmBuyPriceAvg);
+        uint usmBuyPriceAvg = usmBuyPrice0.wadDivUp(adjShrinkFactor);           // 2b) Approximate, but pretty close
+        usmOut = ethIn.wadDivDown(usmBuyPriceAvg);
 
         //uint usmBuyPrice1 = usmBuyPrice0.wadDivUp(oneOverEthGrowthFactor);    // 2c) Even more approximate, & ~140 *more* gas
         //uint usmBuyPriceAvg = (usmBuyPrice0 + usmBuyPrice1) / 2;
