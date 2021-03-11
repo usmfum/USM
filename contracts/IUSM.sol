@@ -28,5 +28,5 @@ abstract contract IUSM is IERC20 {
     function adjustedEthUsdPrice(Side side, uint ethUsdPrice, uint debtRatio_) public virtual pure returns (uint price);
     function usmPrice(Side side, uint adjustedEthUsdPrice_) public virtual pure returns (uint price);
     function fumPrice(Side side, uint adjustedEthUsdPrice_, uint ethInPool, uint usmEffectiveSupply, uint fumSupply) public virtual pure returns (uint price);
-    function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime) public virtual pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys);
+    function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime) public virtual pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys, uint debtRatio_);
 }
