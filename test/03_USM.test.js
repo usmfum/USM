@@ -16,8 +16,8 @@ require('chai').use(require('chai-as-promised')).should()
 
 contract('USM', (accounts) => {
   const [deployer, user1, user2, user3, optOut1, optOut2] = accounts
-  const [ZERO, ONE, TWO, FOUR, SIX, EIGHT, EIGHTEEN, HUNDRED, THOUSAND, WAD] =
-        [0, 1, 2, 4, 6, 8, 18, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
+  const [ZERO, ONE, TWO, FOUR, SIX, EIGHT, TEN, EIGHTEEN, HUNDRED, THOUSAND, WAD] =
+        [0, 1, 2, 4, 6, 8, 10, 18, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
   const WAD_MINUS_1 = WAD.sub(ONE)
   const sides = { BUY: 0, SELL: 1 }
   const rounds = { DOWN: 0, UP: 1 }
@@ -46,6 +46,39 @@ contract('USM', (accounts) => {
   const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')
   const usdcEthTimestamp_1 = new BN('1606782003')
   const usdcEthEthDecimals = new BN(-12)
+
+  let MAX_DEBT_RATIO
+
+  function checkUsmBuyAndSellPrices(ethUsdMidPrice, bidAskAdj, usmBuyPrice, usmSellPrice) {
+    const ethUsdSellPrice = bidAskAdjustedEthUsdPrice(fl(ethUsdMidPrice), fl(bidAskAdj), sides.SELL)
+    const targetUsmBuyPrice = 1 / ethUsdSellPrice
+    shouldEqualApprox(usmBuyPrice, wad(targetUsmBuyPrice))
+
+    const ethUsdBuyPrice = bidAskAdjustedEthUsdPrice(fl(ethUsdMidPrice), fl(bidAskAdj), sides.BUY)
+    const targetUsmSellPrice = 1 / ethUsdBuyPrice
+    shouldEqualApprox(usmSellPrice, wad(targetUsmSellPrice))
+  }
+
+  function checkFumBuyAndSellPrices(ethUsdMidPrice, bidAskAdj, ethQty, usmQty, fumQty, debtRatio, fumBuyPrice, fumSellPrice) {
+    if (fl(debtRatio) <= fl(MAX_DEBT_RATIO)) {  // If dr > MAX, minFumBuyPrice kicks in so our simple math here doesn't apply
+      const ethUsdBuyPrice = bidAskAdjustedEthUsdPrice(fl(ethUsdMidPrice), fl(bidAskAdj), sides.BUY)
+      const targetFumBuyPrice = fumPrice(ethUsdBuyPrice, fl(ethQty), fl(usmQty), fl(fumQty))
+      shouldEqualApprox(fumBuyPrice, wad(targetFumBuyPrice))
+    }
+
+    const ethUsdSellPrice = bidAskAdjustedEthUsdPrice(fl(ethUsdMidPrice), fl(bidAskAdj), sides.SELL)
+    const targetFumSellPrice = fumPrice(ethUsdSellPrice, fl(ethQty), fl(usmQty), fl(fumQty))
+    shouldEqualApprox(fumSellPrice, wad(targetFumSellPrice))
+  }
+
+  function fumPrice(effectiveEthUsdPrice, ethQty, usmQty, fumQty) {
+    // Math.max(0, ...) because sometimes fumSellPrice is negative, in which case we floor it at 0:
+    return Math.max(0, (ethQty - usmQty / effectiveEthUsdPrice) / fumQty)
+  }
+
+  function bidAskAdjustedEthUsdPrice(ethUsdMidPrice, bidAskAdj, side) {
+    return ethUsdMidPrice * (side == sides.BUY ? Math.max(1, bidAskAdj) : Math.min(1, bidAskAdj))
+  }
 
   function wadMul(x, y, upOrDown) {
     return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
@@ -150,13 +183,12 @@ contract('USM', (accounts) => {
       priceWAD = (await usm.latestPrice())[0]
       oneDollarInEth = wadDiv(WAD, priceWAD, rounds.UP)
 
-      ethPerFund = oneEth.mul(TWO)                  // Can be any (?) number
-      ethPerMint = oneEth.mul(FOUR)                 // Can be any (?) number
+      ethPerFund = oneEth.mul(FOUR)     // Can be any (?) number
+      ethPerMint = oneEth.mul(TWO)      // Can be any (?) number (though < ethPerFund nice, so fumSellPrice isn't pushed to 0)
       bitOfEth = oneEth.div(THOUSAND)
 
       snapshot = await timeMachine.takeSnapshot()
       snapshotId = snapshot['result']
-
     })
 
     afterEach(async () => {
@@ -177,8 +209,6 @@ contract('USM', (accounts) => {
     // ____________________ Minting and burning ____________________
 
     describe("minting and burning", () => {
-      let MAX_DEBT_RATIO
-
       beforeEach(async () => {
         MAX_DEBT_RATIO = await usm.MAX_DEBT_RATIO()
       })
@@ -237,6 +267,15 @@ contract('USM', (accounts) => {
           beforeEach(async () => {
             await usm.mint(user1, 0, { from: user2, value: ethPerMint })
 
+            // Move forward a day, so our bidAskAdj reverts to 1 (ie no adjustment):
+            const block0 = await web3.eth.getBlockNumber()
+            const t0 = (await web3.eth.getBlock(block0)).timestamp
+            const timeDelay = 1 * DAY
+            await timeMachine.advanceTimeAndBlock(timeDelay)
+            const block1 = await web3.eth.getBlockNumber()
+            const t1 = (await web3.eth.getBlock(block1)).timestamp
+            shouldEqual(t1, t0 + timeDelay)
+
             ethPool0 = await usm.ethPool()                      // "0" suffix = initial values (after first fund() + mint())
             price0 = (await usm.latestPrice())[0]
             debtRatio0 = await usmView.debtRatio()
@@ -270,7 +309,6 @@ contract('USM', (accounts) => {
             shouldEqualApprox(expA, targetExpA)
             const expB = await w.wadExp(b)
             const targetExpB = wad(Math.exp(fl(b)))
-            //console.log("    expB: " + b + ", " + expB + ", " + targetExpB)
             shouldEqualApprox(expB, targetExpB)
 
             const expAB = await w.wadExp(a, b)
@@ -304,10 +342,9 @@ contract('USM', (accounts) => {
               usmSellPriceF = await usmView.usmPrice(sides.SELL)
 
               // See USMTemplate.fumFromFund() for the math we're mirroring here:
-              effectiveUsmQty0 = Math.min(fl(totalUsmSupply0), fl(ethPool0) * fl(price0) * fl(MAX_DEBT_RATIO))
-              const effectiveDebtRatio = effectiveUsmQty0 / (fl(ethPool0) * fl(price0))
-              const effectiveFumDelta = 1 / (1 - effectiveDebtRatio)
-              adjGrowthFactorF = (ethPoolF / ethPool0)**(effectiveFumDelta / 2)
+              const effectiveDebtRatio0 = Math.min(fl(debtRatio0), fl(MAX_DEBT_RATIO))
+              const netFumDelta = effectiveDebtRatio0 / (1 - effectiveDebtRatio0)
+              adjGrowthFactorF = (fl(ethPoolF) / fl(ethPool0))**(netFumDelta / 2)
             })
 
             it("calculates sqrt correctly", async () => {
@@ -349,12 +386,13 @@ contract('USM', (accounts) => {
             })
 
             it("increases FUM buy and sell prices correctly when minting FUM", async () => {
-              // Note - this doesn't account for the dr > max case, where minFumBuyPrice becomes active:
-              const fumMidPriceF = (fl(ethPoolF) - fl(totalUsmSupply0) / fl(priceF)) / fl(totalFumSupplyF)
-              const targetFumBuyPriceF = wad(Math.max(1, fl(bidAskAdjF)) * fumMidPriceF)
-              shouldEqualApprox(fumBuyPriceF, targetFumBuyPriceF)
-              const targetFumSellPriceF = wad(Math.max(0, Math.min(1, fl(bidAskAdjF)) * fumMidPriceF))
-              shouldEqualApprox(fumSellPriceF, targetFumSellPriceF)
+              // Minting FUM 1. pushes ETH mid price up 2. pushes bidAskAdj up and 3. collects fees for FUM holders.  All three
+              // of these are bad for FUM buyers/minters (fumBuyPrice up), and good for FUM sellers/burners (fumSellPrice up):
+              fumBuyPriceF.should.be.bignumber.gt(fumBuyPrice0)
+              fumSellPriceF.should.be.bignumber.gte(fumSellPrice0)  // gte b/c fumSellPrice is floored at 0, so both might be 0
+
+              checkFumBuyAndSellPrices(priceF, bidAskAdjF, ethPoolF, totalUsmSupply0, totalFumSupplyF, debtRatioF,
+                                       fumBuyPriceF, fumSellPriceF)
             })
 
             it("reduces USM buy and sell prices when minting FUM", async () => {
@@ -362,13 +400,18 @@ contract('USM', (accounts) => {
               // buyers/minters (usmBuyPrice down), and bad for USM sellers/burners (usmSellPrice down):
               usmBuyPriceF.should.be.bignumber.lt(usmBuyPrice0)
               usmSellPriceF.should.be.bignumber.lt(usmSellPrice0)
+
+              checkUsmBuyAndSellPrices(priceF, bidAskAdjF, usmBuyPriceF, usmSellPriceF)
             })
 
             it("increases FUM supply correctly when minting FUM", async () => {
               // Math from USMTemplate.fumFromFund():
-              const avgFumBuyPrice = fl(bidAskAdj0) * (fl(ethPool0) - effectiveUsmQty0 / fl(priceF)) / fl(totalFumSupply0)
-              const targetFumOut = wad(fl(ethPerFund) / avgFumBuyPrice)
-              const targetTotalFumSupplyF = totalFumSupply0.add(targetFumOut)
+              const adjustedEthUsdPrice0 = bidAskAdjustedEthUsdPrice(fl(price0), fl(bidAskAdj0), sides.BUY)
+              const adjustedEthUsdPrice1 = adjustedEthUsdPrice0 * adjGrowthFactorF**2
+              const fumBuyPrice1 = fumPrice(adjustedEthUsdPrice1, fl(ethPool0), fl(totalUsmSupply0), fl(totalFumSupply0))
+              const avgFumBuyPrice = (fl(fumBuyPrice0) * fumBuyPrice1)**0.5
+              const fumOut = fl(ethPerFund) / avgFumBuyPrice
+              const targetTotalFumSupplyF = wad(fl(totalFumSupply0) + fumOut)
               shouldEqualApprox(user2FumBalanceF, targetTotalFumSupplyF)
               shouldEqualApprox(totalFumSupplyF, targetTotalFumSupplyF)
             })
@@ -514,26 +557,28 @@ contract('USM', (accounts) => {
             })
 
             it("increases USM buy and sell prices correctly when minting USM", async () => {
-              const targetUsmBuyPriceM = wad(fl(usmBuyPrice0) / adjShrinkFactorM**2)
-              shouldEqualApprox(usmBuyPriceM, targetUsmBuyPriceM)
-              const targetUsmSellPriceM = wad(fl(usmSellPrice0) / adjShrinkFactorM)
-              shouldEqualApprox(usmSellPriceM, targetUsmSellPriceM)
+              // Minting USM 1. reduces ETH mid price and 2. reduces bidAskAdj - both bad for USM buyers, good for USM sellers:
+              usmBuyPriceM.should.be.bignumber.gt(usmBuyPrice0)
+              usmSellPriceM.should.be.bignumber.gt(usmSellPrice0)
+
+              checkUsmBuyAndSellPrices(priceM, bidAskAdjM, usmBuyPriceM, usmSellPriceM)
             })
 
             it("reduces FUM buy and sell prices when minting USM", async () => {
-              // Effect on fumBuyPrice/fumSellPrice is nontrivial: minting reduces ETH mid price, which reduces FUM mid price;
-              // but on the other hand, the fees from the mint increase FUM mid price.  So which factor dominates may depend on
-              // the amount of fees paid, ie, the size (ETH amount) of the mint() relative to the size of the pool.  But I
-              // suspect at least FUM sell price always does end up net decreasing?
-              //console.log(fl(fumBuyPrice0) + ", " + fl(fumBuyPriceM) + ", " + fl(fumSellPrice0) + ", " + fl(fumSellPriceM))
-              //fumBuyPriceM.should.be.bignumber.lt(fumBuyPrice0)
-              fumSellPriceM.should.be.bignumber.lt(fumSellPrice0)
+              // Minting USM 1. reduces ETH mid price 2. reduces bidAskAdj and 3. collects fees for FUM holders.  1 and 2
+              // reduce the FUM price, 3 increases it, so the net effect depends on how high the fees are (how big ethIn is
+              // relative to ethPool).  So there's no simple rule for whether fumBuy/SellPrice increase or decrease here.
+
+              checkFumBuyAndSellPrices(priceM, bidAskAdjM, ethPoolM, totalUsmSupplyM, totalFumSupply0, debtRatioM,
+                                       fumBuyPriceM, fumSellPriceM)
             })
 
             it("increases USM supply correctly when minting USM", async () => {
               // Math from USMTemplate.usmFromMint():
-              const targetUsmOut = wad((fl(ethPool0) / fl(usmBuyPrice0)) * 2 * -Math.log(adjShrinkFactorM))
+              const avgUsmMintPrice = fl(usmBuyPrice0) / adjShrinkFactorM
+              const targetUsmOut = wad(fl(ethPerMint) / avgUsmMintPrice)
               const targetTotalUsmSupplyM = totalUsmSupply0.add(targetUsmOut)
+
               shouldEqualApprox(user1UsmBalanceM, targetTotalUsmSupplyM)
               shouldEqualApprox(totalUsmSupplyM, targetTotalUsmSupplyM)
             })
@@ -584,7 +629,8 @@ contract('USM', (accounts) => {
             shouldEqualApprox(price, targetPrice)
 
             const user1UsmBalance = await usm.balanceOf(user1)
-            const targetUsmOut = wad((fl(ethPool0) / fl(usmBuyPrice0)) * Math.log(fl(ethPool) / fl(ethPool0)))
+            const avgUsmMintPrice = fl(usmBuyPrice0) / adjShrinkFactor
+            const targetUsmOut = wad(fl(ethPerMint) / avgUsmMintPrice)
             const targetTotalUsmSupply = totalUsmSupply0.add(targetUsmOut)
             shouldEqualApprox(user1UsmBalance, targetTotalUsmSupply)
             const totalUsmSupply = await usm.totalSupply()
@@ -594,7 +640,7 @@ contract('USM', (accounts) => {
           // ____________________ Burning FUM (aka defund()) ____________________
 
           it("allows burning FUM", async () => {
-            const fumToBurn = user2FumBalance0.div(TWO) // defund 50% of the user's FUM
+            const fumToBurn = user2FumBalance0.div(TEN) // defund 10% of the user's FUM
             await usm.defund(user2, user1, fumToBurn, 0, { from: user2 })
           })
 
@@ -603,7 +649,7 @@ contract('USM', (accounts) => {
                 fumSellPriceD, usmBuyPriceD, usmSellPriceD, targetEthPoolD, adjShrinkFactorD
 
             beforeEach(async () => {
-              fumToBurn = user2FumBalance0.div(TWO)
+              fumToBurn = user2FumBalance0.div(TEN)
               await usm.defund(user2, user1, fumToBurn, 0, { from: user2 })
 
               ethPoolD = await usm.ethPool()                    // "D" suffix = values after this defund() call
@@ -618,15 +664,15 @@ contract('USM', (accounts) => {
               usmSellPriceD = await usmView.usmPrice(sides.SELL)
 
               // See USMTemplate.fumFromFund() for the math we're mirroring here:
-              const fumDelta = 1 / (1 - fl(debtRatio0))
-              const lowerBoundEthPoolD = fl(ethPool0) - fl(fumToBurn) * fl(fumSellPrice0)
-              const lowerBoundAdjShrinkFactor = (lowerBoundEthPoolD / fl(ethPool0))**(fumDelta / 2)
-              const lowerBoundPriceF = fl(price0) * lowerBoundAdjShrinkFactor
-              const avgFumSellPrice = (fl(ethPool0) - fl(totalUsmSupply0) / lowerBoundPriceF) / fl(totalFumSupply0) *
-                Math.min(1, fl(bidAskAdj0))
-              const ethOut = fl(fumToBurn) * avgFumSellPrice
-              targetEthPoolD = wad(fl(ethPool0) - ethOut)
-              adjShrinkFactorD = (fl(targetEthPoolD) / fl(ethPool0))**(fumDelta / 2)
+
+              const adjustedEthUsdPrice0 = bidAskAdjustedEthUsdPrice(fl(price0), fl(bidAskAdj0), sides.SELL)
+              const lowerBoundEthQty1 = fl(ethPool0) - fl(fumToBurn) * fl(fumSellPrice0)
+              const lowerBoundEthShrinkFactor1 = lowerBoundEthQty1 / fl(ethPool0)
+              const adjustedEthUsdPrice1 = adjustedEthUsdPrice0 * lowerBoundEthShrinkFactor1**4
+              const debtRatio1 = fl(totalUsmSupply0) / (lowerBoundEthQty1 * adjustedEthUsdPrice1)
+              const debtRatio2 = Math.min(debtRatio1, fl(MAX_DEBT_RATIO))
+              const netFumDelta2 = 1 / (1 - debtRatio2) - 1
+              adjShrinkFactorD = lowerBoundEthShrinkFactor1**(netFumDelta2 / 2)
             })
 
             it("reduces FUM supply correctly when burning FUM", async () => {
@@ -647,23 +693,28 @@ contract('USM', (accounts) => {
             })
 
             it("reduces FUM buy and sell prices correctly when burning FUM", async () => {
-              // Note - this doesn't account for the dr > max case, where minFumBuyPrice becomes active:
-              const fumMidPriceD = (fl(ethPoolD) - fl(totalUsmSupply0) / fl(priceD)) / fl(totalFumSupplyD)
-              const targetFumBuyPriceD = wad(Math.max(1, fl(bidAskAdjD)) * fumMidPriceD)
-              shouldEqualApprox(fumBuyPriceD, targetFumBuyPriceD)
-              const targetFumSellPriceD = wad(Math.max(0, Math.min(1, fl(bidAskAdjD)) * fumMidPriceD))
-              shouldEqualApprox(fumSellPriceD, targetFumSellPriceD)
+              // As with minting USM (see check above), burning FUM has mixed effects on FUM price: no simple check to do here.
+
+              checkFumBuyAndSellPrices(priceD, bidAskAdjD, ethPoolD, totalUsmSupply0, totalFumSupplyD, debtRatioD,
+                                       fumBuyPriceD, fumSellPriceD)
             })
 
             it("increases USM buy and sell prices when burning FUM", async () => {
-              // Burning FUM both 1. pushes ETH mid price down and 2. pushes bidAskAdj down.  Both of these are bad for USM
-              // buyers/minters (usmBuyPrice up), and good for USM sellers/burners (usmSellPrice up):
+              // Burning FUM 1. reduces ETH mid price and 2. reduces bidAskAdj - both bad for USM buyers, good for USM sellers:
               usmBuyPriceD.should.be.bignumber.gt(usmBuyPrice0)
               usmSellPriceD.should.be.bignumber.gt(usmSellPrice0)
+
+              checkUsmBuyAndSellPrices(priceD, bidAskAdjD, usmBuyPriceD, usmSellPriceD)
             })
 
             it("reduces ETH pool correctly when burning FUM", async () => {
               // Math from USMTemplate.ethFromDefund():
+              const adjustedEthUsdPrice0 = bidAskAdjustedEthUsdPrice(fl(price0), fl(bidAskAdj0), sides.SELL)
+              const adjustedEthUsdPrice2 = adjustedEthUsdPrice0 * adjShrinkFactorD**2
+              const fumSellPrice2 = fumPrice(adjustedEthUsdPrice2, fl(ethPool0), fl(totalUsmSupply0), fl(totalFumSupply0))
+              const avgFumSellPrice = (fl(fumSellPrice0) + fumSellPrice2) / 2
+              const ethOut = fl(fumToBurn) * avgFumSellPrice
+              const targetEthPoolD = wad(fl(ethPool0) - ethOut)
               shouldEqualApprox(ethPoolD, targetEthPoolD)
             })
 
@@ -673,7 +724,7 @@ contract('USM', (accounts) => {
           })
 
           it("sending FUM to the FUM contract is a defund", async () => {
-            const fumToBurn = user2FumBalance0.div(TWO) // defund 50% of the user's FUM
+            const fumToBurn = user2FumBalance0.div(TEN) // defund 10% of the user's FUM
             await fum.transfer(fum.address, fumToBurn, { from: user2 })
 
             // These checks are crude simplifications of the "with FUM burned at sliding price" checks above:
@@ -693,7 +744,7 @@ contract('USM', (accounts) => {
           })
 
           it("sending FUM to the USM contract is a defund", async () => {
-            const fumToBurn = user2FumBalance0.div(TWO) // defund 50% of the user's FUM
+            const fumToBurn = user2FumBalance0.div(TEN) // defund 10% of the user's FUM
             await fum.transfer(usm.address, fumToBurn, { from: user2 })
 
             // These checks are crude simplifications of the "with FUM burned at sliding price" checks above:
@@ -762,7 +813,7 @@ contract('USM', (accounts) => {
           // ____________________ Burning USM (aka burn()) ____________________
 
           it("allows burning USM", async () => {
-            const usmToBurn = user1UsmBalance0.div(TWO) // defund 50% of the user's USM
+            const usmToBurn = user1UsmBalance0.div(TEN) // defund 10% of the user's USM
             await usm.burn(user1, user2, usmToBurn, 0, { from: user1 })
           })
 
@@ -771,7 +822,8 @@ contract('USM', (accounts) => {
                 fumSellPriceB, usmBuyPriceB, usmSellPriceB, adjGrowthFactorB
 
             beforeEach(async () => {
-              usmToBurn = user1UsmBalance0.div(TWO) // Burning 100% of USM is an esoteric case - instead burn 50%
+              usmToBurn = user1UsmBalance0.div(TEN) // Burning 100% of USM is an esoteric case - instead burn 10%
+              //usmToBurn = oneUsm // defund 1 USM - tiny, so that the burn itself moves price more than the collected fees do
               await usm.burn(user1, user2, usmToBurn, 0, { from: user1 })
 
               ethPoolB = await usm.ethPool()                    // "B" suffix = values after this burn() call
@@ -806,17 +858,21 @@ contract('USM', (accounts) => {
             })
 
             it("reduces USM buy and sell prices correctly when burning USM", async () => {
-              const targetUsmBuyPriceB = wad(fl(usmBuyPrice0) / adjGrowthFactorB**2)
-              shouldEqualApprox(usmBuyPriceB, targetUsmBuyPriceB)
-              const targetUsmSellPriceB = wad(fl(usmSellPrice0) / adjGrowthFactorB)
-              shouldEqualApprox(usmSellPriceB, targetUsmSellPriceB)
+              // Burning USM 1. increases ETH mid price and 2. increases bidAskAdj - good for USM buyers, bad for USM sellers:
+              usmBuyPriceB.should.be.bignumber.lt(usmBuyPrice0)
+              usmSellPriceB.should.be.bignumber.lt(usmSellPrice0)
+
+              checkUsmBuyAndSellPrices(priceB, bidAskAdjB, usmBuyPriceB, usmSellPriceB)
             })
 
             it("increases FUM buy and sell prices when burning USM", async () => {
-              // Effect on fumBuyPrice/fumSellPrice is nontrivial: see corresponding comment for minting USM above.  But I
-              // suspect at least fumBuyPrice always does increase?
+              // Burning USM 1. pushes ETH mid price up 2. pushes bidAskAdj up and 3. collects fees for FUM holders.  All three
+              // of these are bad for FUM buyers/minters (fumBuyPrice up), and good for FUM sellers/burners (fumSellPrice up):
               fumBuyPriceB.should.be.bignumber.gt(fumBuyPrice0)
-              //fumSellPriceB.should.be.bignumber.gt(fumSellPrice0)
+              fumSellPriceB.should.be.bignumber.gte(fumSellPrice0)  // gte b/c fumSellPrice is floored at 0, so both might be 0
+
+              checkFumBuyAndSellPrices(priceB, bidAskAdjB, ethPoolB, totalUsmSupplyB, totalFumSupply0, debtRatioB,
+                                       fumBuyPriceB, fumSellPriceB)
             })
 
             it("reduces ETH pool correctly when burning USM", async () => {
@@ -831,7 +887,7 @@ contract('USM', (accounts) => {
           })
 
           it("sending USM to the USM contract burns it", async () => {
-            const usmToBurn = user1UsmBalance0.div(TWO) // defund 50% of the user's USM
+            const usmToBurn = user1UsmBalance0.div(TEN) // defund 10% of the user's USM
             await usm.transfer(usm.address, usmToBurn, { from: user1 })
 
             // These checks are all cribbed from the "with USM burned at sliding price" checks above:
@@ -855,7 +911,7 @@ contract('USM', (accounts) => {
           })
 
           it("sending USM to the FUM contract burns it", async () => {
-            const usmToBurn = user1UsmBalance0.div(TWO) // defund 50% of the user's USM
+            const usmToBurn = user1UsmBalance0.div(TEN) // defund 10% of the user's USM
             await usm.transfer(fum.address, usmToBurn, { from: user1 })
 
             // These checks are all cribbed from the "with USM burned at sliding price" checks above:
