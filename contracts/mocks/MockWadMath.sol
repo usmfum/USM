@@ -19,10 +19,6 @@ contract MockWadMath {
         y = x.wadSqrtDown();
     }
 
-    function wadLog(uint x) public pure returns (int y) {
-        y = x.wadLog();
-    }
-
     function wadExpDown(uint y) public pure returns (uint z) {
         z = y.wadExpDown();
     }

@@ -297,13 +297,6 @@ contract('USM', (accounts) => {
             const a = new BN('987654321098765432')    //  0.987654321098765432
             const b = new BN('12345678901234567890')  // 12.345678901234567890
 
-            const logA = await w.wadLog(a)
-            const targetLogA = wad(Math.log(fl(a)))
-            shouldEqualApprox(logA, targetLogA)
-            const logB = await w.wadLog(b)
-            const targetLogB = wad(Math.log(fl(b)))
-            shouldEqualApprox(logB, targetLogB)
-
             const expDownA = await w.wadExpDown(a)
             const expUpA = await w.wadExpUp(a)
             const targetExpA = wad(Math.exp(fl(a)))

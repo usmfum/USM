@@ -592,8 +592,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         uint ethPool1 = ls.ethPool + ethIn;
 
         uint oneOverEthGrowthFactor = ls.ethPool.wadDivDown(ethPool1);
-        //adjShrinkFactor = oneOverEthGrowthFactor.wadSqrtDownOld();            // 1a) Simpler, but exact, so ~1k more gas
-        adjShrinkFactor = oneOverEthGrowthFactor.wadSqrtDown();                 // 1b) Uglier, but approximate and less gas
+        adjShrinkFactor = oneOverEthGrowthFactor.wadSqrtDown();
 
         // In theory, calculating the total amount of USM minted involves summing an integral over 1 / usmBuyPrice, which gives
         // the following simple logarithm:
@@ -604,12 +603,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
         // But in practice, we can save some gas by approximating the log integral above as follows: take the geometric average
         // of the starting and ending usmBuyPrices, and just appply that average price to the entier ethIn passes in.
-        uint usmBuyPriceAvg = usmBuyPrice0.wadDivUp(adjShrinkFactor);           // 2b) Approximate, but pretty close
+        uint usmBuyPriceAvg = usmBuyPrice0.wadDivUp(adjShrinkFactor);
         usmOut = ethIn.wadDivDown(usmBuyPriceAvg);
-
-        //uint usmBuyPrice1 = usmBuyPrice0.wadDivUp(oneOverEthGrowthFactor);    // 2c) Even more approximate, & ~140 *more* gas
-        //uint usmBuyPriceAvg = (usmBuyPrice0 + usmBuyPrice1) / 2;
-        //usmOut = ethIn.wadDivDown(usmBuyPriceAvg);
     }
 
     /**
@@ -632,16 +627,6 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         uint exponent = usmIn * usmSellPrice0 / ls.ethPool;
         uint ethPool1 = ls.ethPool.wadDivUp(exponent.wadExpDown());
         ethOut = ls.ethPool - ethPool1;
-
-        // Approximation, via solving for the geometric average price from usmFromMint(), using the quadratic formula.  This is
-        // a pretty good approximation, but because of all its operations including a sqrt(), it uses ~5k more gas than the
-        // exact formula above!
-        // ethOut = (usmIn * usp0)**2   *   ((1 / (2 * e0)**2 + 1 / (usmIn * usp0)**2)**0.5   -   1 / (2 * e0))
-        //uint usmInTimesUsp0 = usmIn.wadMulDown(usmSellPrice0);                  // b) Approx, pretty good but ~5k more gas!
-        //uint oneOver2E0 = WAD.wadDivDown(2 * ls.ethPool);
-        //ethOut = usmInTimesUsp0.wadSquaredDown().wadMulDown(
-        //    (oneOver2E0.wadSquaredDown() + WAD.wadDivDown(usmInTimesUsp0.wadSquaredUp())).wadSqrtDown() - oneOver2E0);
-        //uint ethPool1 = ls.ethPool - ethOut;
 
         // In this case we back out the adjGrowthFactor (change in mid price and bidAskAdj) from the change in the ETH pool:
         adjGrowthFactor = ls.ethPool.wadDivUp(ethPool1).wadSqrtUp();

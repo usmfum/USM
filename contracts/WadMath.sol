@@ -126,70 +126,12 @@ library WadMath {
         }
     }
 
-    /**
-     * @notice Babylonian method, from Uniswap:
-     * https://github.com/Uniswap/uniswap-v2-core/blob/v1.0.1/contracts/libraries/Math.sol (via
-     * https://ethereum.stackexchange.com/a/87713/64318).
-     */
-    function wadSqrtDownOld(uint y) internal pure returns (uint root) {
-        y *= WAD;
-        unchecked {
-            if (y > 3) {
-                root = y;
-                uint x = y / 2 + 1;
-                while (x < root) {
-                    root = x;
-                    x = (y / x + x) / 2;
-                }
-            } else if (y != 0) {
-                root = 1;
-            }
-        }
-    }
-
-    function wadSqrtUpOld(uint y) internal pure returns (uint root) {
-        root = wadSqrtDown(y);
-        // The only case where wadSqrtUp(y) *isn't* equal to wadSqrtDown(y) + 1 is when y is a perfect square; so check for that.
-        // These "*"s are safe because: 1. root**2 <= y * WAD, and 2. y * WAD is calculated (safely) above.
-        unchecked {
-            if (root * root != y * WAD ) {
-                ++root;
-            }
-        }
-        //require((root - 1)**2 < y * WAD && y * WAD <= root**2);
-    }
-
     function wadSqrtDown(uint y) internal pure returns (uint root) {
         root = wadPowDown(y, HALF_WAD);
     }
 
     function wadSqrtUp(uint y) internal pure returns (uint root) {
         root = wadPowUp(y, HALF_WAD);
-    }
-
-    /**
-     * @return z The (approximate!) natural logarithm of x, where both x and the return value are in WAD fixed-point form.
-     * @dev We're given X = x * 10**18 (WAD-formatted); we want to return Z = z * 10**18, where z =~ ln(x); and we have
-     * `log_2(x)` below, which returns Y = y * 2**121, where y =~ log2(x).  So the math we use is:
-     *
-     *     K1 = log2(10**18) * 2**121
-     *     K2 = log2(e) * 2**121 / 10**18
-     *     Z = (`log_2(X)` - K1) / K2
-     *       = (`log_2(x * 10**18)` - log2(10**18) * 2**121) / (log2(e) * 2**121 / 10**18)
-     *       = (log2(x * 10**18) * 2**121 - log2(10**18) * 2**121) / (log2(e) * 2**121 / 10**18)
-     *       = (log2(x * 10**18) - log2(10**18)) / (log2(e) / 10**18)
-     *       = (log2(x) / log2(e)) * 10**18
-     *       = ln(x) * 10**18
-     */
-    function wadLog(uint x) internal pure returns (int z) {
-        require(x <= type(uint128).max, "x overflow");
-        z = int(log_2(uint128(x)));
-        unchecked { z -= int(CEIL_LOG_2_WAD_SCALED); }
-        if (z >= 0) {   // Want to round z down, so if it's >= 0, divide by the const rounded up; if < 0, by const rounded down
-            unchecked { z /= int(CEIL_LOG_2_E_SCALED_OVER_WAD); }
-        } else {
-            unchecked { z /= int(FLOOR_LOG_2_E_SCALED_OVER_WAD); }
-        }
     }
 
     /**
