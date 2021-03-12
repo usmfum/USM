@@ -23,11 +23,19 @@ contract MockWadMath {
         y = x.wadLog();
     }
 
-    function wadExp(uint y) public pure returns (uint z) {
-        z = y.wadExp();
+    function wadExpDown(uint y) public pure returns (uint z) {
+        z = y.wadExpDown();
     }
 
-    function wadExp(uint x, uint y) public pure returns (uint z) {
-        z = x.wadExp(y);
+    function wadExpUp(uint y) public pure returns (uint z) {
+        z = y.wadExpUp();
+    }
+
+    function wadPowDown(uint x, uint y) public pure returns (uint z) {
+        z = x.wadPowDown(y);
+    }
+
+    function wadPowUp(uint x, uint y) public pure returns (uint z) {
+        z = x.wadPowUp(y);
     }
 }

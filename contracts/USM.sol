@@ -554,7 +554,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
             // Calculate usmSupplyForFumBuys:
             uint maxEffectiveDebtRatio = debtRatio_.wadMin(WAD);    // min(actual debt ratio, 100%)
             uint numHalvings = (currentTime - timeSystemWentUnderwater_).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
-            uint decayFactor = numHalvings.wadHalfExp();
+            uint decayFactor = numHalvings.wadHalfExpApprox();
             uint effectiveDebtRatio = maxEffectiveDebtRatio - decayFactor.wadMulUp(maxEffectiveDebtRatio - MAX_DEBT_RATIO);
             usmSupplyForFumBuys = effectiveDebtRatio.wadMulDown(ethPool_.wadMulDown(ethUsdPrice));
         }
@@ -565,7 +565,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      */
     function bidAskAdjustment(uint storedTime, uint storedAdjustment, uint currentTime) public pure returns (uint adjustment) {
         uint numHalvings = (currentTime - storedTime).wadDivDown(BID_ASK_ADJUSTMENT_HALF_LIFE);
-        uint decayFactor = numHalvings.wadHalfExp(10);
+        uint decayFactor = numHalvings.wadHalfExpApprox(10);
         // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
         // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
@@ -592,8 +592,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         uint ethPool1 = ls.ethPool + ethIn;
 
         uint oneOverEthGrowthFactor = ls.ethPool.wadDivDown(ethPool1);
-        //adjShrinkFactor = oneOverEthGrowthFactor.wadSqrtDown();               // 1a) Simpler, but exact, so ~1k more gas
-        adjShrinkFactor = oneOverEthGrowthFactor.wadSqrtApproxDown();           // 1b) Uglier, but approximate and less gas
+        //adjShrinkFactor = oneOverEthGrowthFactor.wadSqrtDownOld();            // 1a) Simpler, but exact, so ~1k more gas
+        adjShrinkFactor = oneOverEthGrowthFactor.wadSqrtDown();                 // 1b) Uglier, but approximate and less gas
 
         // In theory, calculating the total amount of USM minted involves summing an integral over 1 / usmBuyPrice, which gives
         // the following simple logarithm:
@@ -623,14 +623,14 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     {
         // Burn USM at a sliding-down USM price (ie, a sliding-up ETH price).  This is just the mirror image of the math in
         // usmFromMint() above, but because we're calculating output ETH from input USM rather than the other way around, we
-        // end up with an exponent (exponent.wadExp() below, aka e**exponent) rather than a logarithm.
+        // end up with an exponent (exponent.wadExpDown() below, aka e**exponent) rather than a logarithm.
         uint adjustedEthUsdPrice0 = adjustedEthUsdPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.bidAskAdjustment);
         uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, adjustedEthUsdPrice0);    // Burning USM = selling USM = buying ETH
 
         // The exact integral - calculating the amount of ETH yielded by burning the USM at our sliding-down USM price:
         //uint exponent = usmIn.wadMulDown(usmSellPrice0).wadDivDown(ls.ethPool);
         uint exponent = usmIn * usmSellPrice0 / ls.ethPool;
-        uint ethPool1 = ls.ethPool.wadDivUp(exponent.wadExp());
+        uint ethPool1 = ls.ethPool.wadDivUp(exponent.wadExpDown());
         ethOut = ls.ethPool - ethPool1;
 
         // Approximation, via solving for the geometric average price from usmFromMint(), using the quadratic formula.  This is
@@ -640,11 +640,11 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         //uint usmInTimesUsp0 = usmIn.wadMulDown(usmSellPrice0);                  // b) Approx, pretty good but ~5k more gas!
         //uint oneOver2E0 = WAD.wadDivDown(2 * ls.ethPool);
         //ethOut = usmInTimesUsp0.wadSquaredDown().wadMulDown(
-        //    (oneOver2E0.wadSquaredDown() + WAD.wadDivDown(usmInTimesUsp0.wadSquaredUp())).wadSqrtApproxDown() - oneOver2E0);
+        //    (oneOver2E0.wadSquaredDown() + WAD.wadDivDown(usmInTimesUsp0.wadSquaredUp())).wadSqrtDown() - oneOver2E0);
         //uint ethPool1 = ls.ethPool - ethOut;
 
         // In this case we back out the adjGrowthFactor (change in mid price and bidAskAdj) from the change in the ETH pool:
-        adjGrowthFactor = ls.ethPool.wadDivUp(ethPool1).wadSqrtApproxUp();
+        adjGrowthFactor = ls.ethPool.wadDivUp(ethPool1).wadSqrtUp();
     }
 
     /**
@@ -691,7 +691,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
                 // 2. Given the delta, we can calculate the adjGrowthFactor (price impact): for mint() (delta 1), the factor
                 // was poolChangeFactor**(1 / 2); now instead we use poolChangeFactor**(netFumDelta / 2).
                 uint ethPool1 = ls.ethPool + ethIn;
-                adjGrowthFactor = ethPool1.wadDivUp(ls.ethPool).wadExp(netFumDelta / 2);    // FIXME: should be wadExpUp()
+                adjGrowthFactor = ethPool1.wadDivUp(ls.ethPool).wadPowUp(netFumDelta / 2);
             }
 
             // 3. Here we use the same simplifying trick as usmFromMint() above: we pretend our entire FUM purchase is done at
@@ -704,7 +704,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
             // larger ("larger trades pay superlinearly larger fees").
             uint adjustedEthUsdPrice1 = adjustedEthUsdPrice0.wadMulUp(adjGrowthFactor.wadSquaredUp());
             uint fumBuyPrice1 = fumPrice(IUSM.Side.Buy, adjustedEthUsdPrice1, ls.ethPool, ls.usmTotalSupply, fumSupply);
-            uint avgFumBuyPrice = fumBuyPrice0.wadMulUp(fumBuyPrice1).wadSqrtApproxUp();    // Taking the geometric avg
+            uint avgFumBuyPrice = fumBuyPrice0.wadMulUp(fumBuyPrice1).wadSqrtUp();      // Taking the geometric avg
             fumOut = ethIn.wadDivDown(avgFumBuyPrice);
         }
     }
@@ -735,7 +735,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
             // (the netFumDelta when debt ratio is at the highest value it can end at here, MAX_DEBT_RATIO), we can calculate a
             // "pessimistic" lower bound on our ending adjustedEthUsdPrice, ie, overstating how large an impact our burn could
             // have on the ETH/USD price used to calculate our FUM sell price:
-            uint adjustedEthUsdPrice1 = adjustedEthUsdPrice0.wadMulDown(lowerBoundEthShrinkFactor1.wadExp(FOUR_WAD));
+            uint adjustedEthUsdPrice1 = adjustedEthUsdPrice0.wadMulDown(lowerBoundEthShrinkFactor1.wadPowDown(FOUR_WAD));
 
             // 4. From adjustedEthUsdPrice1, we can calculate a pessimistic (upper-bound) debtRatio2 we'll end up at after the
             // defund operation, and from debtRatio2, a pessimistic (upper-bound) netFumDelta2 we can hold fixed during the
@@ -746,7 +746,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
             // 5. Combining lowerBoundEthShrinkFactor1 and netFumDelta2 gives us our final, pessimistic adjShrinkFactor, from
             // our standard formula adjChangeFactor = ethChangeFactor**(netFumDelta / 2):
-            adjShrinkFactor = lowerBoundEthShrinkFactor1.wadExp(netFumDelta2 / 2);
+            adjShrinkFactor = lowerBoundEthShrinkFactor1.wadPowDown(netFumDelta2 / 2);
         }
 
         // 6. And adjShrinkFactor tells us the adjustedEthUsdPrice2 we'll end the operation at, from which we can also

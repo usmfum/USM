@@ -304,19 +304,27 @@ contract('USM', (accounts) => {
             const targetLogB = wad(Math.log(fl(b)))
             shouldEqualApprox(logB, targetLogB)
 
-            const expA = await w.wadExp(a)
+            const expDownA = await w.wadExpDown(a)
+            const expUpA = await w.wadExpUp(a)
             const targetExpA = wad(Math.exp(fl(a)))
-            shouldEqualApprox(expA, targetExpA)
-            const expB = await w.wadExp(b)
+            shouldEqualApprox(expDownA, targetExpA)
+            shouldEqualApprox(expUpA, targetExpA)
+            const expDownB = await w.wadExpDown(b)
+            const expUpB = await w.wadExpUp(b)
             const targetExpB = wad(Math.exp(fl(b)))
-            shouldEqualApprox(expB, targetExpB)
+            shouldEqualApprox(expDownB, targetExpB)
+            shouldEqualApprox(expUpB, targetExpB)
 
-            const expAB = await w.wadExp(a, b)
+            const expDownAB = await w.wadPowDown(a, b)
+            const expUpAB = await w.wadPowUp(a, b)
             const targetExpAB = wad(fl(a)**fl(b))
-            shouldEqualApprox(expAB, targetExpAB)
-            const expBA = await w.wadExp(b, a)
+            shouldEqualApprox(expDownAB, targetExpAB)
+            shouldEqualApprox(expUpAB, targetExpAB)
+            const expDownBA = await w.wadPowDown(b, a)
+            const expUpBA = await w.wadPowUp(b, a)
             const targetExpBA = wad(fl(b)**fl(a))
-            shouldEqualApprox(expBA, targetExpBA)
+            shouldEqualApprox(expDownBA, targetExpBA)
+            shouldEqualApprox(expUpBA, targetExpBA)
           })
 
           it("allows minting FUM (at sliding price)", async () => {
@@ -355,17 +363,17 @@ contract('USM', (accounts) => {
                 r = (new BN(roots[i])).mul(WAD)
                 square = wadSquared(r)
                 sqrt = await w.wadSqrtDown(square)
-                shouldEqual(sqrt, r)            // wadSqrtDown(49000000000000000000) should return 7000000000000000000
+                sqrt.should.be.bignumber.lte(r) // wadSqrtDown(49000000000000000000) should return <= 7000000000000000000
                 sqrt = await w.wadSqrtUp(square)
-                shouldEqual(sqrt, r)            // wadSqrtUp(49000000000000000000) should return 7000000000000000000
+                sqrt.should.be.bignumber.gte(r) // wadSqrtUp(49000000000000000000) should return >= 7000000000000000000
                 sqrt = await w.wadSqrtDown(square.add(ONE))
-                shouldEqual(sqrt, r)            // wadSqrtDown(49000000000000000001) should return 7000000000000000000 too
+                sqrt.should.be.bignumber.lte(r) // wadSqrtDown(49000000000000000001) should return <= 7000000000000000000 too
                 sqrt = await w.wadSqrtUp(square.add(ONE))
-                shouldEqual(sqrt, r.add(ONE))   // wadSqrtUp(49000000000000000001) should return 7000000000000000001 (ie, round up)
+                sqrt.should.be.bignumber.gt(r)  // wadSqrtUp(49000000000000000001) should return *>* 7000000000000000000 (ie, round up)
                 sqrt = await w.wadSqrtDown(square.sub(ONE))
-                shouldEqual(sqrt, r.sub(ONE))   // wadSqrtDown(48999999999999999999) should return 6999999999999999999 (ie, round down)
+                sqrt.should.be.bignumber.lt(r)  // wadSqrtDown(48999999999999999999) should return *<* 6999999999999999999 (ie, round down)
                 sqrt = await w.wadSqrtUp(square.sub(ONE))
-                shouldEqual(sqrt, r)            // wadSqrtUp(48999999999999999999) should return 7000000000000000000 (ie, round up)
+                sqrt.should.be.bignumber.gte(r) // wadSqrtUp(48999999999999999999) should return >= 7000000000000000000 (ie, round up)
               }
             })
 
