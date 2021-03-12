@@ -16,14 +16,6 @@ import "./MinOut.sol";
  * @title USM
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
- *
- * This abstract USM contract must be inherited by a concrete implementation, that also adds an Oracle implementation - eg, by
- * also inheriting a concrete Oracle implementation.  See USM (and MockUSM) for an example.
- *
- * We use this inheritance-based design (rather than the more natural, and frankly normally more correct, composition-based
- * design of storing the Oracle here as a variable), because inheriting the Oracle makes all the latestPrice()/refreshPrice()
- * calls *internal* rather than calls to a separate oracle contract (or multiple contracts) - which leads to a significant
- * saving in gas.
  */
 contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     using Address for address payable;
@@ -34,7 +26,6 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     event PriceChanged(uint timestamp, uint price);
 
     uint public constant WAD = 10 ** 18;
-    uint public constant HALF_WAD = WAD / 2;
     uint public constant FOUR_WAD = 4 * WAD;
     uint public constant BILLION = 10 ** 9;
     uint public constant HALF_BILLION = BILLION / 2;
@@ -79,7 +70,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     // ____________________ Modifiers ____________________
 
     /**
-     * @dev Sometimes we want to give FUM privileged access
+     * @dev Sometimes we want to give FUM privileged access.
      */
     modifier onlyHolderOrDelegateOrFUM(address owner, string memory errorMessage) {
         require(
@@ -92,8 +83,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     // ____________________ External transactional functions ____________________
 
     /**
-     * @notice Mint new USM, sending it to the given address, and only if the amount minted >= minUsmOut.  The amount of ETH is
-     * passed in as msg.value.
+     * @notice Mint new USM, sending it to the given address, and only if the amount minted >= `minUsmOut`.  The amount of ETH
+     * is passed in as `msg.value`.
      * @param to address to send the USM to.
      * @param minUsmOut Minimum accepted USM for a successful mint.
      */
@@ -118,7 +109,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
     /**
      * @notice Funds the pool with ETH, minting new FUM and sending it to the given address, but only if the amount minted >=
-     * minFumOut.  The amount of ETH is passed in as msg.value.
+     * `minFumOut`.  The amount of ETH is passed in as `msg.value`.
      * @param to address to send the FUM to.
      * @param minFumOut Minimum accepted FUM for a successful fund.
      */
@@ -165,9 +156,10 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     // ____________________ Internal ERC20 transactional functions ____________________
 
     /**
-     * @notice If a user sends USM tokens directly to this contract (or to the FUM contract), assume they intend it as a `burn`.
-     * If using `transfer`/`transferFrom` as `burn`, and if decimals 8 to 11 (included) of the amount transferred received
-     * are `0000` then the next 7 will be parsed as the maximum USM price accepted, with 5 digits before and 2 digits after the comma.
+     * @notice If a user sends USM tokens directly to this contract (or to the FUM contract), assume they intend it as a
+     * `burn`.  If using `transfer`/`transferFrom` as `burn`, and if decimals 8 to 11 (included) of the amount transferred
+     * received are `0000` then the next 7 will be parsed as the maximum USM price accepted, with 5 digits before and 2 digits
+     * after the comma.
      */
     function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) returns (bool) {
         if (recipient == address(this) || recipient == address(fum) || recipient == address(0)) {
@@ -292,13 +284,13 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
     /**
      * @notice Checks the external oracle for a fresh ETH/USD price.  If it has one, we take it as the new USM system price
-     * (and update bidAskAdjustment as described below); if no fresh oracle price is available, we stick with our existing
+     * (and update `bidAskAdjustment` as described below); if no fresh oracle price is available, we stick with our existing
      * system price, `ls.ethUsdPrice`, which may have been nudged around by mint/burn operations since the last oracle update.
      *
-     * Note that our definition of whether an oracle price is "fresh" (`priceChanged == true`) isn't quite as trivial as
-     * "whether it's changed since our last call."  Eg, we only consider a Uniswap TWAP price "fresh" when the *older* of the
-     * two TWAP records it's based on changes (every few minutes), not when the *newer* TWAP record changes (typically every
-     * time we call `latestPrice()`).  See the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
+     * Note that our definition of whether an oracle price is "fresh" (`priceChanged == true`) isn't as simple as "whether it's
+     * changed since our last call."  Eg, we only consider a Uniswap TWAP price "fresh" when the *older* of the two TWAP
+     * records it's based on changes (every few minutes), not when the *newer* TWAP record changes (typically every time we
+     * call `latestPrice()`).  See the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
      */
     function _refreshPrice(LoadedState memory ls)
         internal returns (uint price, uint updateTime, uint adjustment, bool priceChanged)
@@ -414,8 +406,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     /**
      * @notice The current bid/ask adjustment, equal to the stored value decayed over time towards its stable value, 1.  This
      * adjustment is intended as a measure of "how long-ETH recent user activity has been", so that we can slide price
-     * accordingly: if recent activity was mostly long-ETH (fund() and burn()), raise FUM buy price/reduce USM sell price; if
-     * recent activity was short-ETH (defund() and mint()), reduce FUM sell price/raise USM buy price.
+     * accordingly: if recent activity was mostly long-ETH (`fund()` and `burn()`), raise FUM buy price/reduce USM sell price;
+     * if recent activity was short-ETH (`defund()` and `mint()`), reduce FUM sell price/raise USM buy price.
      * @return adjustment The sliding-price bid/ask adjustment
      */
     function bidAskAdjustment() public override view returns (uint adjustment) {
@@ -487,7 +479,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @return price The ETH/USD price, adjusted by the bidAskAdjustment (if applicable) for the given buy/sell side.
+     * @return price The ETH/USD price, adjusted by the `bidAskAdjustment` (if applicable) for the given buy/sell side.
      */
     function adjustedEthUsdPrice(IUSM.Side side, uint ethUsdPrice, uint adjustment) public override pure returns (uint price) {
         price = ethUsdPrice;
@@ -503,37 +495,37 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * @notice Calculate the *marginal* price of USM (in ETH terms): that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
-    function usmPrice(IUSM.Side side, uint adjustedEthUsdPrice_) public override pure returns (uint price) {
+    function usmPrice(IUSM.Side side, uint ethUsdPrice) public override pure returns (uint price) {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
-        price = usmToEth(adjustedEthUsdPrice_, WAD, upOrDown);
+        price = usmToEth(ethUsdPrice, WAD, upOrDown);
     }
 
     /**
-     * @notice Calculate the *marginal* price of FUM (in ETH terms): that is, of the next unit, before the price start sliding.
+     * @notice Calculate the *marginal* price of FUM (in ETH terms): that is, of the next unit, before the price starts rising.
      * @param usmEffectiveSupply should be either the actual current USM supply, or, when calculating the FUM *buy* price, the
-     * `usmSupplyForFumBuys` return value from `checkIfUnderwater()`.
+     * return value of `usmSupplyForFumBuys()`.
      * @return price FUM price in ETH terms
      */
-    function fumPrice(IUSM.Side side, uint adjustedEthUsdPrice_, uint ethInPool, uint usmEffectiveSupply, uint fumSupply)
+    function fumPrice(IUSM.Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply)
         public override pure returns (uint price)
     {
         WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
         if (fumSupply == 0) {
-            price = usmToEth(adjustedEthUsdPrice_, WAD, upOrDown);  // if no FUM issued yet, fumPrice = 1 USD (in ETH terms)
+            price = usmToEth(ethUsdPrice, WAD, upOrDown);   // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
         } else {
             // Using usmEffectiveSupply here, rather than just the raw actual supply, has the effect of bumping the FUM price
             // up to the minFumBuyPrice when needed (ie, when debt ratio > MAX_DEBT_RATIO):
-            int buffer = ethBuffer(adjustedEthUsdPrice_, ethInPool, usmEffectiveSupply, upOrDown);
+            int buffer = ethBuffer(ethUsdPrice, ethInPool, usmEffectiveSupply, upOrDown);
             price = (buffer <= 0 ? 0 : uint(buffer).wadDiv(fumSupply, upOrDown));
         }
     }
 
     /**
      * @return timeSystemWentUnderwater_ The time at which we first detected the system was underwater (debt ratio >
-     * MAX_DEBT_RATIO), based on the current oracle price and pool ETH and USM; or 0 if we're not currently underwater.
+     * `MAX_DEBT_RATIO`), based on the current oracle price and pool ETH and USM; or 0 if we're not currently underwater.
      * @return usmSupplyForFumBuys The current supply of USM *for purposes of calculating the FUM buy price,* and therefore
      * for `fumFromFund()`.  The "supply for FUM buys" is the *lesser* of the actual current USM supply, and the USM amount
-     * that would make debt ratio = MAX_DEBT_RATIO.  Example:
+     * that would make debt ratio = `MAX_DEBT_RATIO`.  Example:
      *
      * 1. Suppose the system currently contains 50 ETH at price $1,000 (total pool value: $50,000), with an actual USM supply
      *    of 30,000 USM.  Then debt ratio = 30,000 / $50,000 = 60%: < MAX 80%, so `usmSupplyForFumBuys` = 30,000.
@@ -542,12 +534,12 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      *    (Call this the "80% supply".)
      * 3. ...Except, we also gradually increase the supply over time while we remain underwater.  This has the effect of
      *    *reducing* the FUM buy price inferred from that supply (higher JacobUSM supply -> smaller buffer -> lower FUM price).
-     *    The math we use gradually increases the supply from its initial "80% supply" value, where debt ratio = MAX_DEBT_RATIO
-     *    (20,000 above), to a theoretical maximum "100% supply" value, where debt ratio = 100% (in the $500 example above,
-     *    this would be 25,000).  (Or the actual supply, whichever is lower: we never increase `usmSupplyForFumBuys` above
-     *    `usmActualSupply`.)  The climb from the initial 80% supply (20,000) to the 100% supply (25,000) is at a rate that
-     *    brings it "halfway closer per MIN_FUM_BUY_PRICE_HALF_LIFE (eg, 1 day)": so three days after going underwater, the
-     *    supply returned will be 25,000 - 0.5**3 * (25,000 - 20,000) = 24,375.
+     *    The math we use gradually increases the supply from its initial "80% supply" value, where debt ratio =
+     *    `MAX_DEBT_RATIO` (20,000 above), to a theoretical maximum "100% supply" value, where debt ratio = 100% (in the $500
+     *    example above, this would be 25,000).  (Or the actual supply, whichever is lower: we never increase
+     *    `usmSupplyForFumBuys` above `usmActualSupply`.)  The climb from the initial 80% supply (20,000) to the 100% supply
+     *    (25,000) is at a rate that brings it "halfway closer per `MIN_FUM_BUY_PRICE_HALF_LIFE` (eg, 1 day)": so three days
+     *    after going underwater, the supply returned will be 25,000 - 0.5**3 * (25,000 - 20,000) = 24,375.
      */
     function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime)
         public override pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys, uint debtRatio_)
@@ -569,7 +561,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice Returns the given stored bidAskAdjustment value, updated (decayed towards 1) to the current time.
+     * @notice Returns the given stored `bidAskAdjustment` value, updated (decayed towards 1) to the current time.
      */
     function bidAskAdjustment(uint storedTime, uint storedAdjustment, uint currentTime) public pure returns (uint adjustment) {
         uint numHalvings = (currentTime - storedTime).wadDivDown(BID_ASK_ADJUSTMENT_HALF_LIFE);
@@ -582,8 +574,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice How much USM a minter currently gets back for ethIn ETH, accounting for adjustment and sliding prices.
-     * @param ethIn The amount of ETH passed to mint()
+     * @notice How much USM a minter currently gets back for `ethIn` ETH, accounting for `bidAskAdjustment` and sliding prices.
+     * @param ethIn The amount of ETH passed to `mint()`
      * @return usmOut The amount of USM to receive in exchange
      */
     function usmFromMint(LoadedState memory ls, uint ethIn)
@@ -621,8 +613,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice How much ETH a burner currently gets from burning usmIn USM, accounting for adjustment and sliding prices.
-     * @param usmIn The amount of USM passed to burn()
+     * @notice How much ETH a burner currently gets from burning `usmIn` USM, accounting for `bidAskAdjustment` and sliding
+     * prices.
+     * @param usmIn The amount of USM passed to `burn()`
      * @return ethOut The amount of ETH to receive in exchange
      */
     function ethFromBurn(LoadedState memory ls, uint usmIn)
@@ -644,7 +637,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // a pretty good approximation, but because of all its operations including a sqrt(), it uses ~5k more gas than the
         // exact formula above!
         // ethOut = (usmIn * usp0)**2   *   ((1 / (2 * e0)**2 + 1 / (usmIn * usp0)**2)**0.5   -   1 / (2 * e0))
-        //uint usmInTimesUsp0 = usmIn.wadMulDown(usmSellPrice0);                // b) Approx, pretty good but ~5k more gas!
+        //uint usmInTimesUsp0 = usmIn.wadMulDown(usmSellPrice0);                  // b) Approx, pretty good but ~5k more gas!
         //uint oneOver2E0 = WAD.wadDivDown(2 * ls.ethPool);
         //ethOut = usmInTimesUsp0.wadSquaredDown().wadMulDown(
         //    (oneOver2E0.wadSquaredDown() + WAD.wadDivDown(usmInTimesUsp0.wadSquaredUp())).wadSqrtApproxDown() - oneOver2E0);
@@ -655,12 +648,12 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice How much FUM a funder currently gets back for ethIn ETH, accounting for adjustment and sliding prices.  Note
-     * that we expect `ls.usmTotalSupply` of the LoadedState passed in to not necessarily be the actual current total USM
+     * @notice How much FUM a funder currently gets back for `ethIn` ETH, accounting for `bidAskAdjustment` and sliding prices.
+     * Note that we expect `ls.usmTotalSupply` of the LoadedState passed in to not necessarily be the actual current total USM
      * supply, but the *effective* USM supply for purposes of this operation - which can be a lower number, artificially
      * increasing the FUM price.  This is our "minFumBuyPrice" logic, used to prevent FUM buyers from paying tiny or negative
      * prices when the system is underwater or near it.
-     * @param ethIn The amount of ETH passed to fund()
+     * @param ethIn The amount of ETH passed to `fund()`
      * @return fumOut The amount of FUM to receive in exchange
      */
     function fumFromFund(LoadedState memory ls, uint fumSupply, uint ethIn, uint debtRatio_)
@@ -718,7 +711,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
     /**
      * @notice How much ETH a defunder currently gets back for fumIn FUM, accounting for adjustment and sliding prices.
-     * @param fumIn The amount of FUM passed to defund()
+     * @param fumIn The amount of FUM passed to `defund()`
      * @return ethOut The amount of ETH to receive in exchange
      */
     function ethFromDefund(LoadedState memory ls, uint fumSupply, uint fumIn)
