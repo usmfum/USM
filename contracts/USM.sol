@@ -60,7 +60,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     });
 
     constructor(Oracle oracle_, address[] memory optedOut_)
-        ERC20Permit("Minimalist USD v1.0", "USM")
+        ERC20Permit("Minimalist USD v1.0 - Test 3", "USMTest")
         WithOptOut(optedOut_)
     {
         oracle = oracle_;
