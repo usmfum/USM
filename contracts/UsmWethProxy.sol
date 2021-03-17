@@ -5,10 +5,10 @@ import "./external/IWETH9.sol";
 import "./IUSM.sol";
 
 /**
- * @title USM Frontend Proxy
+ * @title USM Weth Frontend Proxy
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  */
-contract Proxy {
+contract UsmWethProxy {
     IUSM public immutable usm;
     IWETH9 public immutable weth;
 
