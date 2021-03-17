@@ -51,7 +51,7 @@ contract Proxy {
     {
         ethOut = usm.burn(msg.sender, payable(this), usmToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
-        require(weth.transferFrom(address(this), to, ethOut), "WETH transfer fail");
+        require(weth.transfer(to, ethOut), "WETH transfer fail");
     }
 
     /**
@@ -80,6 +80,6 @@ contract Proxy {
     {
         ethOut = usm.defund(msg.sender, payable(this), fumToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
-        require(weth.transferFrom(address(this), to, ethOut), "WETH transfer fail");
+        require(weth.transfer(to, ethOut), "WETH transfer fail");
     }
 }
