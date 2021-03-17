@@ -49,6 +49,11 @@ contract Delegable {
         _revokeDelegate(msg.sender, delegate);
     }
 
+    /// @dev Allow a delegate to renounce to its delegation
+    function renounceDelegate(address user) public {
+        _revokeDelegate(user, msg.sender);
+    }
+
     /// @dev Add a delegate through an encoded signature
     function addDelegateBySignature(address user, address delegate, uint deadline, uint8 v, bytes32 r, bytes32 s) public {
         require(deadline >= block.timestamp, 'Delegable: Signature expired');
