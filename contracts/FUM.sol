@@ -6,23 +6,22 @@ import "./IUSM.sol";
 import "./WithOptOut.sol";
 import "./Ownable.sol";
 import "./MinOut.sol";
-import "./IUSM.sol";
 
 
 /**
  * @title FUM Token
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  *
- * @notice This should be owned by the stablecoin.
+ * @notice This should be owned by the USM instance.
  */
 contract FUM is ERC20Permit, WithOptOut, Ownable {
     IUSM public immutable usm;
 
-    constructor(IUSM usm_, address[] memory optedOut_)
+    constructor(address[] memory optedOut_)
         ERC20Permit("Minimalist Funding v1.0 - Test 4", "FUMTest")
         WithOptOut(optedOut_)
     {
-        usm = usm_;
+        usm = IUSM(msg.sender);     // FUM constructor can only be called by a USM instance
     }
 
     /**

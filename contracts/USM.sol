@@ -64,7 +64,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         WithOptOut(optedOut_)
     {
         oracle = oracle_;
-        fum = new FUM(this, optedOut_);
+        fum = new FUM(optedOut_);
     }
 
     // ____________________ Modifiers ____________________
