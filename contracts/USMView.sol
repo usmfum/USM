@@ -61,7 +61,9 @@ contract USMView {
      */
     function usmPrice(IUSM.Side side) external view returns (uint price) {
         (uint ethUsdPrice, ) = usm.latestPrice();
-        price = usm.usmPrice(side, ethUsdPrice, usm.bidAskAdjustment());
+        IUSM.Side ethSide = (side == IUSM.Side.Buy ? IUSM.Side.Sell : IUSM.Side.Buy);   // Buying USM = selling ETH
+        uint adjustedPrice = usm.adjustedEthUsdPrice(ethSide, ethUsdPrice, usm.bidAskAdjustment());
+        price = usm.usmPrice(side, adjustedPrice);
     }
 
     /**
@@ -70,12 +72,13 @@ contract USMView {
      */
     function fumPrice(IUSM.Side side) external view returns (uint price) {
         (uint ethUsdPrice, ) = usm.latestPrice();
+        uint adjustedPrice = usm.adjustedEthUsdPrice(side, ethUsdPrice, usm.bidAskAdjustment());
         uint ethPool = usm.ethPool();
         uint usmSupply = usm.totalSupply();
         uint oldTimeUnderwater = usm.timeSystemWentUnderwater();
         if (side == IUSM.Side.Buy) {
-            (, usmSupply) = usm.checkIfUnderwater(usmSupply, ethPool, ethUsdPrice, oldTimeUnderwater, block.timestamp);
+            (, usmSupply, ) = usm.checkIfUnderwater(usmSupply, ethPool, ethUsdPrice, oldTimeUnderwater, block.timestamp);
         }
-        price = usm.fumPrice(side, ethUsdPrice, ethPool, usmSupply, usm.fumTotalSupply(), usm.bidAskAdjustment());
+        price = usm.fumPrice(side, adjustedPrice, ethPool, usmSupply, usm.fumTotalSupply());
     }
 }

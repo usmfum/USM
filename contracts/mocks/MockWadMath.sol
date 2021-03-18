@@ -11,15 +11,27 @@ import "../WadMath.sol";
 contract MockWadMath {
     using WadMath for uint;
 
-    function wadLog(uint x) public pure returns (int y) {
-        y = x.wadLog();
+    function wadSqrtUp(uint x) public pure returns (uint y) {
+        y = x.wadSqrtUp();
     }
 
-    function wadExp(uint y) public pure returns (uint z) {
-        z = y.wadExp();
+    function wadSqrtDown(uint x) public pure returns (uint y) {
+        y = x.wadSqrtDown();
     }
 
-    function wadExp(uint x, uint y) public pure returns (uint z) {
-        z = x.wadExp(y);
+    function wadExpDown(uint y) public pure returns (uint z) {
+        z = y.wadExpDown();
+    }
+
+    function wadExpUp(uint y) public pure returns (uint z) {
+        z = y.wadExpUp();
+    }
+
+    function wadPowDown(uint x, uint y) public pure returns (uint z) {
+        z = x.wadPowDown(y);
+    }
+
+    function wadPowUp(uint x, uint y) public pure returns (uint z) {
+        z = x.wadPowUp(y);
     }
 }

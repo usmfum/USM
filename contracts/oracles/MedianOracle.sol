@@ -5,6 +5,12 @@ import "./ChainlinkOracle.sol";
 import "./CompoundOpenOracle.sol";
 import "./OurUniswapV2TWAPOracle.sol";
 
+/**
+ * We make MedianOracle *inherit* its median-component oracles (eg, ChainlinkOracle), rather than hold them as state variables
+ * like any sane person would, because this significantly reduces the number of (gas-pricey) external contract calls.
+ * Eg, this contract calling ChainlinkOracle.latestPrice() on itself is significantly cheaper than calling
+ * chainlinkOracle.latestPrice() on a chainlinkOracle var (contract).
+ */
 contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle {
 
     constructor(
