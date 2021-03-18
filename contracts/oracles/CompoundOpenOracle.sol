@@ -12,7 +12,7 @@ interface UniswapAnchoredView {
  */
 contract CompoundOpenOracle is Oracle {
 
-    uint public constant COMPOUND_SCALE_FACTOR = 10 ** 12;  // Since Compound has 6 dec places, and latestPrice() needs 18
+    uint public constant COMPOUND_SCALE_FACTOR = 1e12;  // Since Compound has 6 dec places, and latestPrice() needs 18
 
     struct TimedPrice {
         uint32 updateTime;

@@ -9,7 +9,7 @@ import "./Oracle.sol";
  */
 contract ChainlinkOracle is Oracle {
 
-    uint public constant CHAINLINK_SCALE_FACTOR = 10 ** 10; // Since Chainlink has 8 dec places, and latestPrice() needs 18
+    uint public constant CHAINLINK_SCALE_FACTOR = 1e10; // Since Chainlink has 8 dec places, and latestPrice() needs 18
 
     AggregatorV3Interface public immutable chainlinkAggregator;
 
