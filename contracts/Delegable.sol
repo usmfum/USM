@@ -7,8 +7,7 @@ pragma solidity ^0.8.0;
 contract Delegable {
     event Delegate(address indexed user, address indexed delegate, bool enabled);
 
-    // keccak256("Signature(address user,address delegate,uint256 nonce,uint256 deadline)");
-    bytes32 public constant SIGNATURE_TYPEHASH = 0x0d077601844dd17f704bafff948229d27f33b57445915754dfe3d095fda2beb7;
+    bytes32 public constant SIGNATURE_TYPEHASH = keccak256("Signature(address user,address delegate,uint256 nonce,uint256 deadline)"); // 0x0d077601844dd17f704bafff948229d27f33b57445915754dfe3d095fda2beb7;
     bytes32 public immutable DELEGABLE_DOMAIN;
     mapping(address => uint) public signatureCount;
 
@@ -48,6 +47,11 @@ contract Delegable {
     /// @dev Stop a delegate from acting on the behalf of caller
     function revokeDelegate(address delegate) public {
         _revokeDelegate(msg.sender, delegate);
+    }
+
+    /// @dev Allow a delegate to renounce to its delegation
+    function renounceDelegate(address user) public {
+        _revokeDelegate(user, msg.sender);
     }
 
     /// @dev Add a delegate through an encoded signature
