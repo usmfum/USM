@@ -133,9 +133,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     }
 
     /**
-     * @notice If anyone sends ETH here, assume they intend it as a `mint`.
-     * If decimals 8 to 11 (included) of the amount of Ether received are `0000` then the next 7 will
-     * be parsed as the minimum Ether price accepted, with 2 digits before and 5 digits after the comma.
+     * @notice If anyone sends ETH here, assume they intend it as a `mint`.  If decimals 8 to 11 (inclusive) of the amount of
+     * ETH received are `0000`, then the next 7 will be parsed as the minimum number of USM accepted per input ETH, with the
+     * 7-digit number interpreted as "hundredths of a USM".  See comments in `MinOut`.
      */
     receive() external payable {
         _mintUsm(msg.sender, MinOut.parseMinTokenOut(msg.value));
@@ -157,9 +157,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
     /**
      * @notice If a user sends USM tokens directly to this contract (or to the FUM contract), assume they intend it as a
-     * `burn`.  If using `transfer`/`transferFrom` as `burn`, and if decimals 8 to 11 (included) of the amount transferred
-     * received are `0000` then the next 7 will be parsed as the maximum USM price accepted, with 5 digits before and 2 digits
-     * after the comma.
+     * `burn`.  If using `transfer`/`transferFrom` as `burn`, and if decimals 8 to 11 (inclusive) of the amount transferred
+     * are `0000`, then the next 7 will be parsed as the maximum number of USM tokens sent per ETH received, with the 7-digit
+     * number interpreted as "hundredths of a USM".  See comments in `MinOut`.
      */
     function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) returns (bool) {
         if (recipient == address(this) || recipient == address(fum) || recipient == address(0)) {
