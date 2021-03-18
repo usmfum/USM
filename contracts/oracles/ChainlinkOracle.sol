@@ -29,6 +29,7 @@ contract ChainlinkOracle is Oracle {
     function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
         int rawPrice;
         (, rawPrice,, updateTime,) = chainlinkAggregator.latestRoundData();
-        price = uint(rawPrice) * CHAINLINK_SCALE_FACTOR; // TODO: Cast safely
+        require(rawPrice > 0, "Chainlink price <= 0");
+        price = uint(rawPrice) * CHAINLINK_SCALE_FACTOR;
     }
 }
