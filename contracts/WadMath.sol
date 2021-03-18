@@ -86,7 +86,7 @@ library WadMath {
         uint powerUnscaled;
         unchecked { powerUnscaled = powerInTenthsUnscaled / 10; }
         if (powerUnscaled <= maxPower) {    // If not, then 0.5**power is (more or less) tiny, so we just return exp = 0
-            exp = wadPowApprox(HALF_TO_THE_ONE_TENTH, powerInTenthsUnscaled);
+            exp = wadPowInt(HALF_TO_THE_ONE_TENTH, powerInTenthsUnscaled);
         }
     }
 
@@ -100,26 +100,25 @@ library WadMath {
      *
      * These facts are why it works:
      *
-     * - If n is even, then x^n = (x^2)^(n/2).
-     * - If n is odd,  then x^n = x * x^(n-1),
-     *   and applying the equation for even x gives
-     *   x^n = x * (x^2)^((n-1) / 2).
+     * 1. If n is even, then x^n = (x^2)^(n/2).
+     * 2. If n is odd, then x^n = x * x^(n-1), and substituting the equation for even n gives x^n = x * (x^2)^((n-1)/2).
+     * 3. Since EVM division is flooring, n /= 2 will give us the recursive exponent we want in both cases: n/2 for even n, and
+     *    (n-1)/2 for odd n.
      *
-     * Also, EVM division is flooring and floor[(n-1) / 2] = floor[n / 2].
      * @param x base to raise to power n (x is WAD-scaled)
      * @param n power to raise x to (n is *not* WAD-scaled - ie, passing n = 3 calculates x cubed)
      * @return z x**n, WAD-scaled: so, since x and z are WAD-scaled and n isn't, z = (x / 10**18)**n * 10**18
      */
-    function wadPowApprox(uint x, uint n) internal pure returns (uint z) {
+    function wadPowInt(uint x, uint n) internal pure returns (uint z) {
         unchecked { z = n % 2 != 0 ? x : WAD; }
 
         unchecked { n /= 2; }
-        bool divide;
+        bool nIsOdd;
         while (n != 0) {
             x = wadMulDown(x, x);
 
-            unchecked { divide = n % 2 != 0; }
-            if (divide) {
+            unchecked { nIsOdd = n % 2 != 0; }
+            if (nIsOdd) {
                 z = wadMulDown(z, x);
             }
             unchecked { n /= 2; }
