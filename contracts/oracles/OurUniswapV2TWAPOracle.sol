@@ -21,8 +21,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
      */
     uint public constant UNISWAP_MIN_TWAP_PERIOD = 10 minutes;
 
-    uint public constant WAD = 10 ** 18;
-    uint public constant BILLION = 10 ** 9;
+    uint public constant WAD = 1e18;
+    uint public constant BILLION = 1e9;
     uint public constant HALF_BILLION = BILLION / 2;
     // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
     uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
@@ -31,22 +31,22 @@ contract OurUniswapV2TWAPOracle is Oracle {
     uint public immutable uniswapTokenToUse;        // 0 -> calc TWAP from stored token0, 1 -> token1.  We only use one of them
     /**
      * Uniswap pairs store cumPriceSeconds: let's suppose the intended cumulative price-seconds stored is 12.345.  Converting
-     * from the stored format to our standard WAD format (18 decimal places, eg 12.345 * 10**18) involves several steps:
+     * from the stored format to our standard WAD format (18 decimal places, eg 12.345 * 1e18) involves several steps:
      *
      * 1. Uniswap stores the values in 112-bit fixed-point format.  So instead of 12.345, the pair stores 12.345 * 2**112 =
-     *    6.41 * 10**34.
+     *    6.41e34.
      * 2. ...Except, Uniswap's values are additional shifted by a certain number of decimal places.  Eg, USDC/ETH stores
      *    token1, the cumulative ETH price in USDC terms, shifted down (divided) by 12 decimal places: so 12.345 is stored as
-     *    12.345 * 2**112 / 10**12 = 6.41 * 10**22.  (See the constructor's tokenDecimals argument below.)
-     * 3. To get our desired 10**18 scaling, we need to divide that stored number, 12.345 * 2**112 / 10**12, by
-     *    2**112 / 10**30 = 5,129.2969.
+     *    12.345 * 2**112 / 1e12 = 6.41 * 1e22.  (See the constructor's tokenDecimals argument below.)
+     * 3. To get our desired 1e18 scaling, we need to divide that stored number, 12.345 * 2**112 / 1e12, by 2**112 / 1e30 =
+     *    5,129.2969.
      * 4. However, because we're storing uniswapScaleFactor as a uint, we need to scale it up: 5129 alone would lose too much
      *    precision (and if Uniswap's value is shifted by >12 decimal places, uniswapScaleFactor can even end up < 1).  So we
-     *    WAD-scale uniswapScaleFactor, setting it in the example to not 2**112 / 10**30, but (2**112 / 10**30) * 10**18 =
+     *    WAD-scale uniswapScaleFactor, setting it in the example to not 2**112 / 1e30, but (2**112 / 1e30) * 1e18 =
      *    5192296858534827628530.
      *
-     * So when we get a raw value from Uniswap like 12.345 * 2**112 / 10**12 = 6.41 * 10**22, we multiply it by WAD (getting
-     * 6.41 * 10**40), and divide by uniswapScaleFactor = 5192296858534827628530, yielding the desired 12.345 * 10**18.
+     * So when we get a raw value from Uniswap like 12.345 * 2**112 / 1e12 = 6.41 * 1e22, we multiply it by WAD (getting
+     * 6.41e40), and divide by uniswapScaleFactor = 5192296858534827628530, yielding the desired 12.345 * 1e18.
      */
     uint public immutable uniswapScaleFactor;
 
@@ -144,7 +144,7 @@ contract OurUniswapV2TWAPOracle is Oracle {
     {
         require(cumPriceSecondsTime <= type(uint32).max, "cumPriceSecondsTime overflow");
 
-        uint cumPriceSecondsToStore = cumPriceSeconds + HALF_BILLION;   // cumPriceSeconds is in WAD (10**18), we want 10**9
+        uint cumPriceSecondsToStore = cumPriceSeconds + HALF_BILLION;   // cumPriceSeconds is in WAD (1e18), we want 1e9
         unchecked { cumPriceSecondsToStore /= BILLION; }
         require(cumPriceSecondsToStore <= type(uint144).max, "cumPriceSecondsToStore overflow");
 
@@ -212,9 +212,9 @@ contract OurUniswapV2TWAPOracle is Oracle {
     /**
      * @return timestamp Timestamp at which Uniswap stored the cumPriceSeconds.
      * @return cumPriceSeconds Our pair's cumulative "price-seconds", using Uniswap's TWAP logic.  Eg, if at time t0
-     * cumPriceSeconds = 10,000,000 (returned here as 10,000,000 * 10**18, ie, in WAD fixed-point format), and during the 30
+     * cumPriceSeconds = 10,000,000 (returned here as 10,000,000 * 1e18, ie, in WAD fixed-point format), and during the 30
      * seconds between t0 and t1 = t0 + 30, the price is $45.67, then at time t1, cumPriceSeconds = 10,000,000 + 30 * 45.67 =
-     * 10,001,370.1 (stored as 10,001,370.1 * 10**18).
+     * 10,001,370.1 (stored as 10,001,370.1 * 1e18).
      */
     function cumulativePriceFromPair()
         public view returns (uint timestamp, uint cumPriceSeconds)

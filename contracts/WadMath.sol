@@ -9,16 +9,16 @@ pragma solidity ^0.8.0;
 library WadMath {
     enum Round {Down, Up}
 
-    uint public constant WAD = 10 ** 18;
+    uint public constant WAD = 1e18;
     uint public constant WAD_MINUS_1 = WAD - 1;
     uint public constant HALF_WAD = WAD / 2;
     uint public constant WAD_OVER_10 = WAD / 10;
     uint public constant WAD_OVER_20 = WAD / 20;
     uint public constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
-    uint public constant FLOOR_LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;  // log_2(10**18) * 2**121
-    uint public constant  CEIL_LOG_2_WAD_SCALED = 158961593653514369813532673448321674076;  // log_2(10**18) * 2**121
-    uint public constant FLOOR_LOG_2_E_SCALED_OVER_WAD = 3835341275459348169;               // log_2(e) * 2**121 / 10**18
-    uint public constant  CEIL_LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;               // log_2(e) * 2**121 / 10**18
+    uint public constant FLOOR_LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;  // log_2(1e18) * 2**121
+    uint public constant  CEIL_LOG_2_WAD_SCALED = 158961593653514369813532673448321674076;  // log_2(1e18) * 2**121
+    uint public constant FLOOR_LOG_2_E_SCALED_OVER_WAD = 3835341275459348169;               // log_2(e) * 2**121 / 1e18
+    uint public constant  CEIL_LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;               // log_2(e) * 2**121 / 1e18
 
     function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint z) {
         z = (upOrDown == Round.Down ? wadMulDown(x, y) : wadMulUp(x, y));
@@ -108,7 +108,7 @@ library WadMath {
      * Also, EVM division is flooring and floor[(n-1) / 2] = floor[n / 2].
      * @param x base to raise to power n (x is WAD-scaled)
      * @param n power to raise x to (n is *not* WAD-scaled - ie, passing n = 3 calculates x cubed)
-     * @return z x**n, WAD-scaled: so, since x and z are WAD-scaled and n isn't, z = (x / 10**18)**n * 10**18
+     * @return z x**n, WAD-scaled: so, since x and z are WAD-scaled and n isn't, z = (x / 1e18)**n * 1e18
      */
     function wadPowApprox(uint x, uint n) internal pure returns (uint z) {
         unchecked { z = n % 2 != 0 ? x : WAD; }
@@ -142,18 +142,18 @@ library WadMath {
      *
      *     wadExpDown(y < 0) = 1 / wadExp(-y > 0) = WAD.div(wadExp(-y > 0))
      *
-     * @dev We're given Y = y * 10**18 (WAD-formatted); we want to return Z = z * 10**18, where z =~ e**y; and we have
+     * @dev We're given Y = y * 1e18 (WAD-formatted); we want to return Z = z * 1e18, where z =~ e**y; and we have
      * `pow_2(X = x * 2**121)` below, which returns y =~ 2**x = 2**(X / 2**121).  So the math we use is:
      *
-     *     K1 = log2(10**18) * 2**121
-     *     K2 = log2(e) * 2**121 / 10**18
+     *     K1 = log2(1e18) * 2**121
+     *     K2 = log2(e) * 2**121 / 1e18
      *     Z = `pow_2(K1 + K2 * Y)`
      *       = 2**((K1 + K2 * Y) / 2**121)
-     *       = 2**((log2(10**18) * 2**121 + (log2(e) * 2**121 / 10**18) * (y * 10**18)) / 2**121)
-     *       = 2**(log2(10**18) + log2(e) * y)
-     *       = 2**(log2(10**18)) * 2**(log2(e) * y)
-     *       = 10**18 * (2**log2(e))**y
-     *       = e**y * 10**18
+     *       = 2**((log2(1e18) * 2**121 + (log2(e) * 2**121 / 1e18) * (y * 1e18)) / 2**121)
+     *       = 2**(log2(1e18) + log2(e) * y)
+     *       = 2**(log2(1e18)) * 2**(log2(e) * y)
+     *       = 1e18 * (2**log2(e))**y
+     *       = e**y * 1e18
      */
     function wadExpDown(uint y) internal pure returns (uint z) {
         uint exponent = FLOOR_LOG_2_WAD_SCALED + FLOOR_LOG_2_E_SCALED_OVER_WAD * y;
@@ -177,19 +177,19 @@ library WadMath {
      *     wadPowDown(x < 0, y) = -wadPowDown(-x > 0, y)
      *     wadPowDown(x, y < 0) = 1 / wadPowUp(x, -y > 0) = WAD.div(wadPowUp(x, -y > 0))
      *
-     * @dev We're given X = x * 10**18, and Y = y * 10**18 (both WAD-formatted); we want Z = z * 10**18, where z =~ x**y; and
+     * @dev We're given X = x * 1e18, and Y = y * 1e18 (both WAD-formatted); we want Z = z * 1e18, where z =~ x**y; and
      * we have `log_2(x)`, which returns log2(x) * 2**121, and `pow_2(X = x * 2**121)`, which returns 2**x = 2**(X / 2**121).
      * The math we use is (essentially):
      *
-     *     K = log2(10**18) * 2**121
-     *     Z = `pow_2(K + (log_2(X) - K) * Y / 10**18)`
-     *       = 2**((K + (log2(X) * 2**121 - K) * Y / 10**18) / 2**121)
-     *       = 2**((log2(10**18) * 2**121 + (log2(x * 10**18) * 2**121 - log2(10**18) * 2**121) * (y * 10**18) / 10**18) / 2**121)
-     *       = 2**(log2(10**18) + (log2(x * 10**18) - log2(10**18)) * y)
-     *       = 2**(log2(10**18) + log2(x) * y)
-     *       = 2**(log2(10**18)) * 2**(log2(x) * y)
-     *       = 10**18 * (2**log2(x))**y
-     *       = x**y * 10**18
+     *     K = log2(1e18) * 2**121
+     *     Z = `pow_2(K + (log_2(X) - K) * Y / 1e18)`
+     *       = 2**((K + (log2(X) * 2**121 - K) * Y / 1e18) / 2**121)
+     *       = 2**((log2(1e18) * 2**121 + (log2(x * 1e18) * 2**121 - log2(1e18) * 2**121) * (y * 1e18) / 1e18) / 2**121)
+     *       = 2**(log2(1e18) + (log2(x * 1e18) - log2(1e18)) * y)
+     *       = 2**(log2(1e18) + log2(x) * y)
+     *       = 2**(log2(1e18)) * 2**(log2(x) * y)
+     *       = 1e18 * (2**log2(x))**y
+     *       = x**y * 1e18
      *
      * Except, because we're working with unsigned numbers, we need to be careful to handle two cases separately:
      * log_2(X) >= K, and log_2(X) < K.

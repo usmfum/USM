@@ -25,9 +25,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     event BidAskAdjustmentChanged(uint adjustment);
     event PriceChanged(uint timestamp, uint price);
 
-    uint public constant WAD = 10 ** 18;
+    uint public constant WAD = 1e18;
     uint public constant FOUR_WAD = 4 * WAD;
-    uint public constant BILLION = 10 ** 9;
+    uint public constant BILLION = 1e9;
     uint public constant HALF_BILLION = BILLION / 2;
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                 // 80%
     uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
@@ -423,7 +423,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     function loadState() public view returns (LoadedState memory ls) {
         ls.timeSystemWentUnderwater = storedState.timeSystemWentUnderwater;
         ls.ethUsdPriceTimestamp = storedState.ethUsdPriceTimestamp;
-        ls.ethUsdPrice = storedState.ethUsdPrice * BILLION;     // Converting stored BILLION (10**9) format to WAD (10**18)
+        ls.ethUsdPrice = storedState.ethUsdPrice * BILLION;     // Converting stored BILLION (1e9) format to WAD (1e18)
 
         // Bring bidAskAdjustment up to the present - it gravitates towards 1 over time, so the stored value is obsolete:
         ls.bidAskAdjustmentTimestamp = block.timestamp;
