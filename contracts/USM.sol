@@ -446,8 +446,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     {
         // Reverse the input upOrDown, since we're using it for usmToEth(), which will be *subtracted* from ethInPool below:
         WadMath.Round downOrUp = (upOrDown == WadMath.Round.Down ? WadMath.Round.Up : WadMath.Round.Down);
-        buffer = int(ethInPool) - int(usmToEth(ethUsdPrice, usmSupply, downOrUp));
-        require(buffer <= int(ethInPool), "Underflow error");
+        uint usmValueInEth = usmToEth(ethUsdPrice, usmSupply, downOrUp);
+        require(ethUsdPrice <= uint(type(int).max) && usmValueInEth <= uint(type(int).max), "ethBuffer overflow/underflow");
+        buffer = int(ethInPool) - int(usmValueInEth);   // After the previous line, no over/underflow should be possible here
     }
 
     /**
