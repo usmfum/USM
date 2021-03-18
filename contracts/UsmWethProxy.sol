@@ -5,10 +5,10 @@ import "./external/IWETH9.sol";
 import "./IUSM.sol";
 
 /**
- * @title USM Frontend Proxy
+ * @title USM Weth Frontend Proxy
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  */
-contract Proxy {
+contract UsmWethProxy {
     IUSM public immutable usm;
     IWETH9 public immutable weth;
 
@@ -51,7 +51,7 @@ contract Proxy {
     {
         ethOut = usm.burn(msg.sender, payable(this), usmToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
-        require(weth.transferFrom(address(this), to, ethOut), "WETH transfer fail");
+        require(weth.transfer(to, ethOut), "WETH transfer fail");
     }
 
     /**
@@ -80,6 +80,6 @@ contract Proxy {
     {
         ethOut = usm.defund(msg.sender, payable(this), fumToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
-        require(weth.transferFrom(address(this), to, ethOut), "WETH transfer fail");
+        require(weth.transfer(to, ethOut), "WETH transfer fail");
     }
 }
