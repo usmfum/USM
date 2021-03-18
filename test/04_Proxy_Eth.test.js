@@ -7,11 +7,11 @@ const TestOracle = artifacts.require('TestOracle')
 const USM = artifacts.require('USM')
 const FUM = artifacts.require('FUM')
 const USMView = artifacts.require('USMView')
-const Proxy = artifacts.require('Proxy')
+const UsmWethProxy = artifacts.require('UsmWethProxy')
 
 require('chai').use(require('chai-as-promised')).should()
 
-contract('USM - Proxy - Eth', (accounts) => {
+contract('USM - UsmWethProxy - Eth', (accounts) => {
   const [deployer, user1, user2] = accounts
   const [TWO, WAD] =
         [2, '1000000000000000000'].map(function (n) { return new BN(n) })
@@ -32,7 +32,7 @@ contract('USM - Proxy - Eth', (accounts) => {
       await usm.refreshPrice()  // Ensures the savedPrice passed to the constructor above is also set in usm.storedPrice
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
-      proxy = await Proxy.new(usm.address, weth.address, { from: deployer })
+      proxy = await UsmWethProxy.new(usm.address, weth.address, { from: deployer })
 
       await weth.deposit({ from: user1, value: oneEth.mul(TWO) }) // One 1-ETH fund() + one 1-ETH mint()
       await weth.approve(proxy.address, MAX, { from: user1 })
