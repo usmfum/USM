@@ -344,6 +344,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * oracle price being "refreshed" is itself a subtle idea: see the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
      */
     function _storeState(LoadedState memory ls) internal {
+        require(ls.ethUsdPriceTimestamp <= type(uint32).max, "ethUsdPriceTimestamp overflow");
+        require(ls.bidAskAdjustmentTimestamp <= type(uint32).max, "bidAskAdjustmentTimestamp overflow");
+
         if (ls.timeSystemWentUnderwater != storedState.timeSystemWentUnderwater) {
             require(ls.timeSystemWentUnderwater <= type(uint32).max, "timeSystemWentUnderwater overflow");
             bool isUnderwater = (ls.timeSystemWentUnderwater != 0);
@@ -353,16 +356,12 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
             emit UnderwaterStatusChanged(isUnderwater);
         }
 
-        require(ls.ethUsdPriceTimestamp <= type(uint32).max, "ethUsdPriceTimestamp overflow");
-
         uint priceToStore = ls.ethUsdPrice + HALF_BILLION;
         unchecked { priceToStore /= BILLION; }
         if (priceToStore != storedState.ethUsdPrice) {
             require(priceToStore <= type(uint80).max, "ethUsdPrice overflow");
             unchecked { emit PriceChanged(ls.ethUsdPriceTimestamp, priceToStore * BILLION); }
         }
-
-        require(ls.bidAskAdjustmentTimestamp <= type(uint32).max, "bidAskAdjustmentTimestamp overflow");
 
         uint adjustmentToStore = ls.bidAskAdjustment + HALF_BILLION;
         unchecked { adjustmentToStore /= BILLION; }
