@@ -5,6 +5,10 @@ import "acc-erc20/contracts/IERC20.sol";
 import "./WadMath.sol";
 
 abstract contract IUSM is IERC20 {
+    event UnderwaterStatusChanged(bool underwater);
+    event BidAskAdjustmentChanged(uint adjustment);
+    event PriceChanged(uint timestamp, uint price);
+
     enum Side {Buy, Sell}
 
     function mint(address to, uint minUsmOut) external virtual payable returns (uint);

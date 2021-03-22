@@ -21,10 +21,6 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     using Address for address payable;
     using WadMath for uint;
 
-    event UnderwaterStatusChanged(bool underwater);
-    event BidAskAdjustmentChanged(uint adjustment);
-    event PriceChanged(uint timestamp, uint price);
-
     uint public constant WAD = 1e18;
     uint public constant FOUR_WAD = 4 * WAD;
     uint public constant BILLION = 1e9;
