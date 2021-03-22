@@ -18,8 +18,13 @@ abstract contract IUSM is IERC20 {
 
     function refreshPrice() public virtual returns (uint price, uint updateTime);
 
-    function latestPrice() public virtual view returns (uint price, uint updateTime);
+    /**
+     * latestOraclePrice() just returns the last ETH/USD price update we received from the oracle.  latestPrice() returns the
+     * USM system's latest internal (mid) ETH/USD price, which may have been pushed up (by long-ETH operations, ie, burn() or
+     * fund()) or down (by short-ETH operations, mint() or defund()) since the last oracle update.
+     */
     function latestOraclePrice() public virtual view returns (uint price, uint updateTime);
+    function latestPrice() public virtual view returns (uint price, uint updateTime);
     function ethPool() public virtual view returns (uint pool);
     function fumTotalSupply() public virtual view returns (uint supply);
     function bidAskAdjustment() public virtual view returns (uint adjustment);
