@@ -16,7 +16,7 @@ contract CompoundOpenOracle is Oracle {
 
     struct TimedPrice {
         uint32 updateTime;
-        uint224 price;
+        uint224 price;      // Standard WAD-scaled price
     }
 
     UniswapAnchoredView public immutable compoundUniswapAnchoredView;
@@ -46,9 +46,11 @@ contract CompoundOpenOracle is Oracle {
      */
     function latestPrice() public virtual override view returns (uint price, uint updateTime) {
         (price, updateTime) = (compoundStoredPrice.price, compoundStoredPrice.updateTime);
+        //require(updateTime > 0, "Price not set yet");
     }
 
     function latestCompoundPrice() public view returns (uint price, uint updateTime) {
         (price, updateTime) = (compoundStoredPrice.price, compoundStoredPrice.updateTime);
+        //require(updateTime > 0, "Price not set yet");
     }
 }
