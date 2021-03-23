@@ -15,10 +15,10 @@ library WadMath {
     uint public constant WAD_OVER_10 = WAD / 10;
     uint public constant WAD_OVER_20 = WAD / 20;
     uint public constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
-    uint public constant FLOOR_LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;  // log_2(1e18) * 2**121
-    uint public constant  CEIL_LOG_2_WAD_SCALED = 158961593653514369813532673448321674076;  // log_2(1e18) * 2**121
-    uint public constant FLOOR_LOG_2_E_SCALED_OVER_WAD = 3835341275459348169;               // log_2(e) * 2**121 / 1e18
-    uint public constant  CEIL_LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;               // log_2(e) * 2**121 / 1e18
+    uint public constant FLOOR_LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;  // log2(1e18) * 2**121
+    uint public constant  CEIL_LOG_2_WAD_SCALED = 158961593653514369813532673448321674076;  // log2(1e18) * 2**121
+    uint public constant FLOOR_LOG_2_E_SCALED_OVER_WAD = 3835341275459348169;               // log2(e) * 2**121 / 1e18
+    uint public constant  CEIL_LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;               // log2(e) * 2**121 / 1e18
 
     function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint z) {
         z = (upOrDown == Round.Down ? wadMulDown(x, y) : wadMulUp(x, y));
