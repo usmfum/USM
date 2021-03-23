@@ -77,8 +77,8 @@ abstract contract IUSM is IERC20 {
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
-     * @return supply the total supply of FUM.  We can't call `usm.fum().totalSupply()` directly because this `IUSM` interface
-     * doesn't (and shouldn't) know about the `FUM` type.
+     * @return supply the total supply of FUM.  Users of this `IUSM` interface, like `USMView`, need to call this rather than
+     * `usm.fum().totalSupply()` directly, because `IUSM` doesn't (and shouldn't) know about the `FUM` type.
      */
     function fumTotalSupply() public virtual view returns (uint supply);
 
