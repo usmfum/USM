@@ -5,7 +5,7 @@ const TestOracle = artifacts.require('TestOracle')
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
 const ChainlinkOracle = artifacts.require('ChainlinkOracle')
 
-const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
+const CompoundUniswapAnchoredView = artifacts.require('MockCompoundUniswapAnchoredView')
 const CompoundOracle = artifacts.require('CompoundOpenOracle')
 
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
@@ -26,7 +26,7 @@ contract('Oracle pricing', (accounts) => {
   const chainlinkPriceWAD = new BN(chainlinkPrice + '0000000000') // We want 18 dec places, so add 10 0s
   const chainlinkTime = '1613550219'                        // Timestamp ("updatedAt") of the Chainlink price
 
-  const compoundPrice = '414174999'                         // Compound view (UniswapAnchoredView) stores 6 dec places
+  const compoundPrice = '414174999'                         // CompoundUniswapAnchoredView stores 6 dec places
   const compoundPriceWAD = new BN(compoundPrice + '000000000000') // We want 18 dec places, so add 12 0s
 
   const uniswapCumPriceScaleFactor = (new BN(2)).pow(new BN(112))
@@ -116,7 +116,7 @@ contract('Oracle pricing', (accounts) => {
     let anchoredView
 
     beforeEach(async () => {
-      anchoredView = await UniswapAnchoredView.new({ from: deployer })
+      anchoredView = await CompoundUniswapAnchoredView.new({ from: deployer })
       await anchoredView.set(compoundPrice)
 
       oracle = await CompoundOracle.new(anchoredView.address, { from: deployer })
@@ -176,7 +176,7 @@ contract('Oracle pricing', (accounts) => {
       chainlinkAggregator = await Aggregator.new({ from: deployer })
       await chainlinkAggregator.set(chainlinkPrice, chainlinkTime)
 
-      compoundView = await UniswapAnchoredView.new({ from: deployer })
+      compoundView = await CompoundUniswapAnchoredView.new({ from: deployer })
       await compoundView.set(compoundPrice)
 
       usdcEthPair = await UniswapV2Pair.new({ from: deployer })

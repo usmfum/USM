@@ -2,10 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./Oracle.sol";
-
-interface UniswapAnchoredView {
-    function price(string calldata symbol) external view returns (uint);
-}
+import "./CompoundUniswapAnchoredView.sol";
 
 /**
  * @title CompoundOpenOracle
@@ -19,10 +16,10 @@ contract CompoundOpenOracle is Oracle {
         uint224 price;      // Standard WAD-scaled price
     }
 
-    UniswapAnchoredView public immutable compoundUniswapAnchoredView;
+    CompoundUniswapAnchoredView public immutable compoundUniswapAnchoredView;
     TimedPrice public compoundStoredPrice;
 
-    constructor(UniswapAnchoredView anchoredView)
+    constructor(CompoundUniswapAnchoredView anchoredView)
     {
         compoundUniswapAnchoredView = anchoredView;
     }
@@ -42,7 +39,7 @@ contract CompoundOpenOracle is Oracle {
     /**
      * @notice This returns the latest price retrieved and cached by `refreshPrice()`.  This function doesn't actually
      * retrieve the latest price, because as a view function, it (annoyingly) has no way to update updateTime, and (also
-     * annoyingly) Compound's UniswapAnchoredView stores but doesn't expose the updateTime of the price it returns.
+     * annoyingly) CompoundUniswapAnchoredView stores but doesn't expose the updateTime of the price it returns.
      */
     function latestPrice() public virtual override view returns (uint price, uint updateTime) {
         (price, updateTime) = (compoundStoredPrice.price, compoundStoredPrice.updateTime);

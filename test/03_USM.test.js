@@ -3,7 +3,7 @@ const { web3 } = require('@openzeppelin/test-helpers/src/setup')
 const timeMachine = require('ganache-time-traveler')
 
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
-const UniswapAnchoredView = artifacts.require('MockUniswapAnchoredView')
+const CompoundUniswapAnchoredView = artifacts.require('MockCompoundUniswapAnchoredView')
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
 
 const WadMath = artifacts.require('MockWadMath')
@@ -160,7 +160,7 @@ contract('USM', (accounts) => {
       aggregator = await Aggregator.new({ from: deployer })
       await aggregator.set(chainlinkPrice, chainlinkTime)
 
-      anchoredView = await UniswapAnchoredView.new({ from: deployer })
+      anchoredView = await CompoundUniswapAnchoredView.new({ from: deployer })
       await anchoredView.set(compoundPrice)
 
       usdcEthPair = await UniswapV2Pair.new({ from: deployer })
