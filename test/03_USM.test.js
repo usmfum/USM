@@ -461,6 +461,15 @@ contract('USM', (accounts) => {
             const debtRatio1 = await usmView.debtRatio()
             debtRatio1.should.be.bignumber.gt(MAX_DEBT_RATIO)
 
+            // Move forward a day, so our bidAskAdj reverts to 1 (ie no adjustment):
+            const block0 = await web3.eth.getBlockNumber()
+            const t0 = (await web3.eth.getBlock(block0)).timestamp
+            const timeDelay = 1 * DAY
+            await timeMachine.advanceTimeAndBlock(timeDelay)
+            const block1 = await web3.eth.getBlockNumber()
+            const t1 = (await web3.eth.getBlock(block1)).timestamp
+            shouldEqual(t1, t0 + timeDelay)
+
             // Make one tiny call to fund(), just to actually trigger the internal call to checkIfUnderwater(), with a mint()
             // before just so bidAskAdj doesn't end up > 1 (which would make our FUM buy price messier):
             await usm.mint(user1, 0, { from: user2, value: ethPerMint })
@@ -480,13 +489,13 @@ contract('USM', (accounts) => {
             shouldEqualApprox(fumBuyPrice2, targetFumBuyPrice2)
 
             // Now move forward a few days, and check that fumBuyPrice decays by the appropriate factor:
-            const block0 = await web3.eth.getBlockNumber()
-            const t0 = (await web3.eth.getBlock(block0)).timestamp
-            const timeDelay = 3 * DAY
-            await timeMachine.advanceTimeAndBlock(timeDelay)
-            const block1 = await web3.eth.getBlockNumber()
-            const t1 = (await web3.eth.getBlock(block1)).timestamp
-            shouldEqual(t1, t0 + timeDelay)
+            const block2 = await web3.eth.getBlockNumber()
+            const t2 = (await web3.eth.getBlock(block2)).timestamp
+            const timeDelay2 = 3 * DAY
+            await timeMachine.advanceTimeAndBlock(timeDelay2)
+            const block3 = await web3.eth.getBlockNumber()
+            const t3 = (await web3.eth.getBlock(block3)).timestamp
+            shouldEqual(t3, t2 + timeDelay2)
 
             //const targetFumBuyPrice3 = wadMul(fumBuyPrice2, decayFactor3, rounds.UP)
             const decayFactor3 = wadDiv(ONE, EIGHT, rounds.UP)  // aka 0.5**(timeDelay / MIN_FUM_BUY_PRICE_HALF_LIFE)
