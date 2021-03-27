@@ -12,7 +12,7 @@ import "../oracles/MedianOracle.sol";
 contract MockMedianOracle is MedianOracle, SettableOracle {
     constructor(
         AggregatorV3Interface chainlinkAggregator,
-        UniswapAnchoredView compoundView,
+        CompoundUniswapAnchoredView compoundView,
         IUniswapV2Pair uniswapPair, uint uniswapTokenToUse, int uniswapTokenDecimals
     )
         MedianOracle(chainlinkAggregator, compoundView,
