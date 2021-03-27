@@ -19,7 +19,7 @@ abstract contract IUSM is IERC20 {
      * @param to address to send the USM to.
      * @param minUsmOut Minimum accepted USM for a successful mint.
      */
-    function mint(address to, uint minUsmOut) external virtual payable returns (uint);
+    function mint(address to, uint minUsmOut) external virtual payable returns (uint usmOut);
 
     /**
      * @dev Burn USM in exchange for ETH.
@@ -28,7 +28,7 @@ abstract contract IUSM is IERC20 {
      * @param usmToBurn Amount of USM to burn.
      * @param minEthOut Minimum accepted ETH for a successful burn.
      */
-    function burn(address from, address payable to, uint usmToBurn, uint minEthOut) external virtual returns (uint);
+    function burn(address from, address payable to, uint usmToBurn, uint minEthOut) external virtual returns (uint ethOut);
 
     /**
      * @notice Funds the pool with ETH, minting new FUM and sending it to the given address, but only if the amount minted >=
@@ -36,7 +36,7 @@ abstract contract IUSM is IERC20 {
      * @param to address to send the FUM to.
      * @param minFumOut Minimum accepted FUM for a successful fund.
      */
-    function fund(address to, uint minFumOut) external virtual payable returns (uint);
+    function fund(address to, uint minFumOut) external virtual payable returns (uint fumOut);
 
     /**
      * @notice Defunds the pool by redeeming FUM in exchange for equivalent ETH from the pool.
@@ -45,7 +45,7 @@ abstract contract IUSM is IERC20 {
      * @param fumToBurn Amount of FUM to burn.
      * @param minEthOut Minimum accepted ETH for a successful defund.
      */
-    function defund(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint);
+    function defund(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint ethOut);
 
     // ____________________ Public transactional functions ____________________
 
@@ -125,13 +125,13 @@ abstract contract IUSM is IERC20 {
     /**
      * @return price The ETH/USD price, adjusted by the `bidAskAdjustment` (if applicable) for the given buy/sell side.
      */
-    function adjustedEthUsdPrice(Side side, uint ethUsdPrice, uint debtRatio_) public virtual pure returns (uint price);
+    function adjustedEthUsdPrice(Side side, uint ethUsdPrice, uint adjustment) public virtual pure returns (uint price);
 
     /**
      * @notice Calculate the *marginal* price of USM (in ETH terms): that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
-    function usmPrice(Side side, uint adjustedEthUsdPrice_) public virtual pure returns (uint price);
+    function usmPrice(Side side, uint ethUsdPrice) public virtual pure returns (uint price);
 
     /**
      * @notice Calculate the *marginal* price of FUM (in ETH terms): that is, of the next unit, before the price starts rising.
@@ -139,7 +139,7 @@ abstract contract IUSM is IERC20 {
      * return value of `usmSupplyForFumBuys()`.
      * @return price FUM price in ETH terms
      */
-    function fumPrice(Side side, uint adjustedEthUsdPrice_, uint ethInPool, uint usmEffectiveSupply, uint fumSupply) public virtual pure returns (uint price);
+    function fumPrice(Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply) public virtual pure returns (uint price);
 
     /**
      * @return timeSystemWentUnderwater_ The time at which we first detected the system was underwater (debt ratio >
