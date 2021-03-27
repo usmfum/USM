@@ -11,10 +11,10 @@ abstract contract IUSM is IERC20 {
 
     enum Side {Buy, Sell}
 
-    function mint(address to, uint minUsmOut) external virtual payable returns (uint);
-    function burn(address from, address payable to, uint usmToBurn, uint minEthOut) external virtual returns (uint);
-    function fund(address to, uint minFumOut) external virtual payable returns (uint);
-    function defund(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint);
+    function mint(address to, uint minUsmOut) external payable virtual returns (uint usmOut);
+    function burn(address from, address payable to, uint usmToBurn, uint minEthOut) external virtual returns (uint ethOut);
+    function fund(address to, uint minFumOut) external payable virtual returns (uint fumOut);
+    function defund(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint ethOut);
 
     function refreshPrice() public virtual returns (uint price, uint updateTime);
 
@@ -34,8 +34,8 @@ abstract contract IUSM is IERC20 {
     function debtRatio(uint ethUsdPrice, uint ethInPool, uint usmSupply) public virtual pure returns (uint ratio);
     function ethToUsm(uint ethUsdPrice, uint ethAmount, WadMath.Round upOrDown) public virtual pure returns (uint usmOut);
     function usmToEth(uint ethUsdPrice, uint usmAmount, WadMath.Round upOrDown) public virtual pure returns (uint ethOut);
-    function adjustedEthUsdPrice(Side side, uint ethUsdPrice, uint debtRatio_) public virtual pure returns (uint price);
-    function usmPrice(Side side, uint adjustedEthUsdPrice_) public virtual pure returns (uint price);
-    function fumPrice(Side side, uint adjustedEthUsdPrice_, uint ethInPool, uint usmEffectiveSupply, uint fumSupply) public virtual pure returns (uint price);
+    function adjustedEthUsdPrice(Side side, uint ethUsdPrice, uint adjustment) public virtual pure returns (uint price);
+    function usmPrice(Side side, uint ethUsdPrice) public virtual pure returns (uint price);
+    function fumPrice(Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply) public virtual pure returns (uint price);
     function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime) public virtual pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys, uint debtRatio_);
 }
