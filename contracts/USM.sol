@@ -383,10 +383,6 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
     // ____________________ Public informational view functions ____________________
 
-    function latestOraclePrice() public virtual override view returns (uint price, uint updateTime) {
-        (price, updateTime) = oracle.latestPrice();
-    }
-
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
      * @return pool ETH pool

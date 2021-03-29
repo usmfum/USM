@@ -56,18 +56,13 @@ abstract contract IUSM is IERC20 {
     /**
      * @return price the USM system's latest internal (mid) ETH/USD price, which may have been pushed up (by long-ETH
      * operations, ie, burn() or fund()) or down (by short-ETH operations, mint() or defund()) since the last oracle update.
+     * Note that this may be a different value from `USM.oracle.latestPrice()`, which is not moved by USM user operations.
      * @return updateTime the time as of which the price was updated.  This is not as simple as "the last time the returned
      * price changed"; see the comment in `OurUniswapV2TWAPOracle._latestPrice()`.
      */
     function latestPrice() public virtual view returns (uint price, uint updateTime);
 
     // ____________________ Public informational view functions ____________________
-
-    /**
-     * @return price the last ETH/USD price update we received from the oracle.
-     * @return updateTime time the price was updated - again, not trivial, see `OurUniswapV2TWAPOracle._latestPrice()`.
-     */
-    function latestOraclePrice() public virtual view returns (uint price, uint updateTime);
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
