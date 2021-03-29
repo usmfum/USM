@@ -412,6 +412,13 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
     // ____________________ Public helper view functions (for functions above) ____________________
 
+    /**
+     * @return ls A `LoadedState` object packaging the system's current state: `ethUsdPrice`, `bidAskAdjustment`, etc (see
+     * `storedState`), plus the ETH and USM balances.  `bidAskAdjustment` is also brought up to date, ie, decayed closer to 1
+     * according to how much time has passed since it was stored: so if `bidAskAdjustment` was 2.0 five minutes ago, and
+     * `BID_ASK_ADJUSTMENT_HALF_LIFE` = 1 minute, `ls.bidAskAdjustment` is set to 1.03125 (see
+     * `bidAskAdjustment(storedTime, storedAdjustment, currentTime)`).
+     */
     function loadState() public view returns (LoadedState memory ls) {
         ls.timeSystemWentUnderwater = storedState.timeSystemWentUnderwater;
         ls.ethUsdPriceTimestamp = storedState.ethUsdPriceTimestamp;
