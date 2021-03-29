@@ -94,7 +94,7 @@ abstract contract IUSM is IERC20 {
      * @notice Calculate the amount of ETH in the buffer.
      * @return buffer ETH buffer
      */
-    function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, WadMath.Round upOrDown) public virtual pure returns (int buffer);
+    function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, bool roundUp) public virtual pure returns (int buffer);
 
     /**
      * @notice Calculate debt ratio for a given eth to USM price: ratio of the outstanding USM (amount of USM in total supply),
@@ -108,14 +108,14 @@ abstract contract IUSM is IERC20 {
      * @param ethAmount The amount of ETH to convert
      * @return usmOut The amount of USM
      */
-    function ethToUsm(uint ethUsdPrice, uint ethAmount, WadMath.Round upOrDown) public virtual pure returns (uint usmOut);
+    function ethToUsm(uint ethUsdPrice, uint ethAmount, bool roundUp) public virtual pure returns (uint usmOut);
 
     /**
      * @notice Convert USM amount to ETH using a ETH/USD price.
      * @param usmAmount The amount of USM to convert
      * @return ethOut The amount of ETH
      */
-    function usmToEth(uint ethUsdPrice, uint usmAmount, WadMath.Round upOrDown) public virtual pure returns (uint ethOut);
+    function usmToEth(uint ethUsdPrice, uint usmAmount, bool roundUp) public virtual pure returns (uint ethOut);
 
     /**
      * @return price The ETH/USD price, adjusted by the `bidAskAdjustment` (if applicable) for the given buy/sell side.

@@ -7,8 +7,6 @@ pragma solidity ^0.8.0;
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  */
 library WadMath {
-    enum Round {Down, Up}
-
     uint public constant WAD = 1e18;
     uint public constant WAD_MINUS_1 = WAD - 1;
     uint public constant HALF_WAD = WAD / 2;
@@ -20,8 +18,8 @@ library WadMath {
     uint public constant FLOOR_LOG_2_E_SCALED_OVER_WAD = 3835341275459348169;               // log2(e) * 2**121 / 1e18
     uint public constant  CEIL_LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;               // log2(e) * 2**121 / 1e18
 
-    function wadMul(uint x, uint y, Round upOrDown) internal pure returns (uint z) {
-        z = (upOrDown == Round.Down ? wadMulDown(x, y) : wadMulUp(x, y));
+    function wadMul(uint x, uint y, bool roundUp) internal pure returns (uint z) {
+        z = (roundUp ? wadMulUp(x, y) : wadMulDown(x, y));
     }
 
     function wadMulDown(uint x, uint y) internal pure returns (uint z) {
@@ -44,8 +42,8 @@ library WadMath {
         unchecked { z /= WAD; }
     }
 
-    function wadDiv(uint x, uint y, Round upOrDown) internal pure returns (uint z) {
-        z = (upOrDown == Round.Down ? wadDivDown(x, y) : wadDivUp(x, y));
+    function wadDiv(uint x, uint y, bool roundUp) internal pure returns (uint z) {
+        z = (roundUp ? wadDivUp(x, y) : wadDivDown(x, y));
     }
 
     function wadDivDown(uint x, uint y) internal pure returns (uint z) {
