@@ -457,7 +457,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      */
     function debtRatio(uint ethUsdPrice, uint ethInPool, uint usmSupply) public override pure returns (uint ratio) {
         uint ethPoolValueInUsd = ethInPool.wadMulDown(ethUsdPrice);
-        ratio = (ethPoolValueInUsd == 0 ? 0 : usmSupply.wadDivUp(ethPoolValueInUsd));
+        ratio = (usmSupply == 0 ? 0 : (ethPoolValueInUsd == 0 ? type(uint).max : usmSupply.wadDivUp(ethPoolValueInUsd)));
     }
 
     /**
