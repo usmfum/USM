@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "acc-erc20/contracts/IERC20.sol";
-import "./WadMath.sol";
 
 abstract contract IUSM is IERC20 {
     event UnderwaterStatusChanged(bool underwater);
