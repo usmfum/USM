@@ -439,12 +439,11 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * @notice Calculate the amount of ETH in the buffer.
      * @return buffer ETH buffer
      */
-    function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, WadMath.Round upOrDown)
+    function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, bool roundUp)
         public override pure returns (int buffer)
     {
         // Reverse the input upOrDown, since we're using it for usmToEth(), which will be *subtracted* from ethInPool below:
-        WadMath.Round downOrUp = (upOrDown == WadMath.Round.Down ? WadMath.Round.Up : WadMath.Round.Down);
-        uint usmValueInEth = usmToEth(ethUsdPrice, usmSupply, downOrUp);
+        uint usmValueInEth = usmToEth(ethUsdPrice, usmSupply, !roundUp);    // Iff rounding the buffer up, round usmValue down
         require(ethUsdPrice <= uint(type(int).max) && usmValueInEth <= uint(type(int).max), "ethBuffer overflow/underflow");
         buffer = int(ethInPool) - int(usmValueInEth);   // After the previous line, no over/underflow should be possible here
     }
@@ -464,8 +463,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * @param ethAmount The amount of ETH to convert
      * @return usmOut The amount of USM
      */
-    function ethToUsm(uint ethUsdPrice, uint ethAmount, WadMath.Round upOrDown) public override pure returns (uint usmOut) {
-        usmOut = ethAmount.wadMul(ethUsdPrice, upOrDown);
+    function ethToUsm(uint ethUsdPrice, uint ethAmount, bool roundUp) public override pure returns (uint usmOut) {
+        usmOut = ethAmount.wadMul(ethUsdPrice, roundUp);
     }
 
     /**
@@ -473,8 +472,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * @param usmAmount The amount of USM to convert
      * @return ethOut The amount of ETH
      */
-    function usmToEth(uint ethUsdPrice, uint usmAmount, WadMath.Round upOrDown) public override pure returns (uint ethOut) {
-        ethOut = usmAmount.wadDiv(ethUsdPrice, upOrDown);
+    function usmToEth(uint ethUsdPrice, uint usmAmount, bool roundUp) public override pure returns (uint ethOut) {
+        ethOut = usmAmount.wadDiv(ethUsdPrice, roundUp);
     }
 
     /**
@@ -485,8 +484,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
         // Apply the adjustment if (side == Buy and adj > 1), or (side == Sell and adj < 1):
         if (side == IUSM.Side.Buy ? (adjustment > WAD) : (adjustment < WAD)) {
-            WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
-            price = price.wadMul(adjustment, upOrDown);
+            price = price.wadMul(adjustment, side == IUSM.Side.Buy);    // Round up iff side = buy
         }
     }
 
@@ -495,8 +493,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * @return price USM price in ETH terms
      */
     function usmPrice(IUSM.Side side, uint ethUsdPrice) public override pure returns (uint price) {
-        WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
-        price = usmToEth(ethUsdPrice, WAD, upOrDown);
+        price = usmToEth(ethUsdPrice, WAD, side == IUSM.Side.Buy);      // Round up iff side = buy
     }
 
     /**
@@ -508,14 +505,14 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     function fumPrice(IUSM.Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply)
         public override pure returns (uint price)
     {
-        WadMath.Round upOrDown = (side == IUSM.Side.Buy ? WadMath.Round.Up : WadMath.Round.Down);
+        bool roundUp = (side == IUSM.Side.Buy);
         if (fumSupply == 0) {
-            price = usmToEth(ethUsdPrice, WAD, upOrDown);   // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
+            price = usmToEth(ethUsdPrice, WAD, roundUp);    // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
         } else {
             // Using usmEffectiveSupply here, rather than just the raw actual supply, has the effect of bumping the FUM price
             // up to the minFumBuyPrice when needed (ie, when debt ratio > MAX_DEBT_RATIO):
-            int buffer = ethBuffer(ethUsdPrice, ethInPool, usmEffectiveSupply, upOrDown);
-            price = (buffer <= 0 ? 0 : uint(buffer).wadDiv(fumSupply, upOrDown));
+            int buffer = ethBuffer(ethUsdPrice, ethInPool, usmEffectiveSupply, roundUp);
+            price = (buffer <= 0 ? 0 : uint(buffer).wadDiv(fumSupply, roundUp));
         }
     }
 

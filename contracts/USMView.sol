@@ -21,9 +21,9 @@ contract USMView {
      * @notice Calculate the amount of ETH in the buffer.
      * @return buffer ETH buffer
      */
-    function ethBuffer(WadMath.Round upOrDown) external view returns (int buffer) {
+    function ethBuffer(bool roundUp) external view returns (int buffer) {
         (uint price, ) = usm.latestPrice();
-        buffer = usm.ethBuffer(price, usm.ethPool(), usm.totalSupply(), upOrDown);
+        buffer = usm.ethBuffer(price, usm.ethPool(), usm.totalSupply(), roundUp);
     }
 
     /**
@@ -31,9 +31,9 @@ contract USMView {
      * @param ethAmount The amount of ETH to convert
      * @return usmOut The amount of USM
      */
-    function ethToUsm(uint ethAmount, WadMath.Round upOrDown) external view returns (uint usmOut) {
+    function ethToUsm(uint ethAmount, bool roundUp) external view returns (uint usmOut) {
         (uint price, ) = usm.latestPrice();
-        usmOut = usm.ethToUsm(price, ethAmount, upOrDown);
+        usmOut = usm.ethToUsm(price, ethAmount, roundUp);
     }
 
     /**
@@ -41,9 +41,9 @@ contract USMView {
      * @param usmAmount The amount of USM to convert
      * @return ethOut The amount of ETH
      */
-    function usmToEth(uint usmAmount, WadMath.Round upOrDown) external view returns (uint ethOut) {
+    function usmToEth(uint usmAmount, bool roundUp) external view returns (uint ethOut) {
         (uint price, ) = usm.latestPrice();
-        ethOut = usm.usmToEth(price, usmAmount, upOrDown);
+        ethOut = usm.usmToEth(price, usmAmount, roundUp);
     }
 
     /**

@@ -20,7 +20,6 @@ contract('USM', (accounts) => {
         [0, 1, 2, 4, 6, 8, 10, 18, 100, 1000, '1000000000000000000'].map(function (n) { return new BN(n) })
   const WAD_MINUS_1 = WAD.sub(ONE)
   const sides = { BUY: 0, SELL: 1 }
-  const rounds = { DOWN: 0, UP: 1 }
   const oneEth = WAD
   const oneUsm = WAD
   const oneFum = WAD
@@ -80,8 +79,8 @@ contract('USM', (accounts) => {
     return ethUsdMidPrice * (side == sides.BUY ? Math.max(1, bidAskAdj) : Math.min(1, bidAskAdj))
   }
 
-  function wadMul(x, y, upOrDown) {
-    return ((x.mul(y)).add(upOrDown == rounds.DOWN ? ZERO : WAD_MINUS_1)).div(WAD)
+  function wadMul(x, y, roundUp) {
+      return ((x.mul(y)).add(roundUp ? WAD_MINUS_1 : ZERO)).div(WAD)
   }
 
   function wadSquared(x) {
@@ -117,7 +116,7 @@ contract('USM', (accounts) => {
   }
 
   function wadDecay(adjustment, decayFactor) {
-    return WAD.add(wadMul(adjustment, decayFactor, rounds.DOWN)).sub(decayFactor)
+    return WAD.add(wadMul(adjustment, decayFactor, false)).sub(decayFactor)
   }
 
   function shouldEqual(x, y) {
@@ -181,7 +180,7 @@ contract('USM', (accounts) => {
       await usm.refreshPrice()  // ...And this stores the cumPriceSeconds for usdcEthTimestamp_1 - so we have a valid TWAP now
 
       priceWAD = (await usm.latestPrice())[0]
-      oneDollarInEth = wadDiv(WAD, priceWAD, rounds.UP)
+      oneDollarInEth = wadDiv(WAD, priceWAD, true)
 
       ethPerFund = oneEth.mul(FOUR)     // Can be any (?) number
       ethPerMint = oneEth.mul(TWO)      // Can be any (?) number (though < ethPerFund nice, so fumSellPrice isn't pushed to 0)
@@ -229,7 +228,7 @@ contract('USM', (accounts) => {
 
         // Check that the FUM created was just based on straight linear pricing - qty * price:
         const user2FumBalance = await fum.balanceOf(user2)
-        const targetTotalFumSupply = wadMul(ethPool, priceWAD, rounds.DOWN)
+        const targetTotalFumSupply = wadMul(ethPool, priceWAD, false)
         shouldEqualApprox(user2FumBalance, targetTotalFumSupply)    // Only approx b/c fumFromFund() loses some precision
         const totalFumSupply = await fum.totalSupply()
         shouldEqualApprox(totalFumSupply, targetTotalFumSupply)
@@ -441,7 +440,7 @@ contract('USM', (accounts) => {
               shouldEqual(t1, t0 + timeDelay)
 
               const bidAskAdj = await usm.bidAskAdjustment()
-              const decayFactor = wadDiv(ONE, EIGHT, rounds.DOWN)
+              const decayFactor = wadDiv(ONE, EIGHT, false)
               const targetBidAskAdj = wadDecay(bidAskAdjF, decayFactor)
               shouldEqualApprox(bidAskAdj, targetBidAskAdj)
             })
@@ -451,8 +450,8 @@ contract('USM', (accounts) => {
             // Move price to get debt ratio just *above* MAX:
             //const targetDebtRatio1 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
             const targetDebtRatio1 = WAD    // 100%.  More is OK but between 80% and 100% makes the math below more complicated
-            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, rounds.UP)
-            const targetPrice1 = wadMul(price0, priceChangeFactor1, rounds.DOWN)
+            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, true)
+            const targetPrice1 = wadMul(price0, priceChangeFactor1, false)
             await oracle.setPrice(targetPrice1)
             await usm.refreshPrice()    // Need to refreshPrice() after setPrice(), to get the new value into usm.storedPrice
             const price1 = (await usm.latestPrice())[0]
@@ -476,14 +475,14 @@ contract('USM', (accounts) => {
             await usm.fund(user3, 0, { from: user3, value: bitOfEth })
 
             // Calculate targetFumBuyPrice using the math in USM.checkIfUnderwater():
-            //const targetFumBuyPrice2 = wadDiv(wadMul(WAD.sub(MAX_DEBT_RATIO), ethPool0, rounds.UP), totalFumSupply0, rounds.UP)
+            //const targetFumBuyPrice2 = wadDiv(wadMul(WAD.sub(MAX_DEBT_RATIO), ethPool0, true), totalFumSupply0, true)
             const ethPool2 = await usm.ethPool()
             const price2 = (await usm.latestPrice())[0]
             const totalFumSupply2 = await fum.totalSupply()
-            const poolValue2 = wadMul(ethPool2, price2, rounds.DOWN)
-            const usmForFumBuy2 = wadMul(poolValue2, MAX_DEBT_RATIO, rounds.DOWN)
-            const ethBuffer2 = ethPool2.sub(wadDiv(usmForFumBuy2, price2, rounds.DOWN))
-            const targetFumBuyPrice2 = wadDiv(ethBuffer2, totalFumSupply2, rounds.UP)
+            const poolValue2 = wadMul(ethPool2, price2, false)
+            const usmForFumBuy2 = wadMul(poolValue2, MAX_DEBT_RATIO, false)
+            const ethBuffer2 = ethPool2.sub(wadDiv(usmForFumBuy2, price2, false))
+            const targetFumBuyPrice2 = wadDiv(ethBuffer2, totalFumSupply2, true)
 
             const fumBuyPrice2 = await usmView.fumPrice(sides.BUY)
             shouldEqualApprox(fumBuyPrice2, targetFumBuyPrice2)
@@ -497,11 +496,11 @@ contract('USM', (accounts) => {
             const t3 = (await web3.eth.getBlock(block3)).timestamp
             shouldEqual(t3, t2 + timeDelay2)
 
-            //const targetFumBuyPrice3 = wadMul(fumBuyPrice2, decayFactor3, rounds.UP)
-            const decayFactor3 = wadDiv(ONE, EIGHT, rounds.UP)  // aka 0.5**(timeDelay / MIN_FUM_BUY_PRICE_HALF_LIFE)
-            const usmForFumBuy3 = poolValue2.sub(wadMul(decayFactor3, poolValue2.sub(usmForFumBuy2), rounds.DOWN))
-            const ethBuffer3 = ethPool2.sub(wadDiv(usmForFumBuy3, price2, rounds.DOWN))
-            const targetFumBuyPrice3 = wadDiv(ethBuffer3, totalFumSupply2, rounds.UP)
+            //const targetFumBuyPrice3 = wadMul(fumBuyPrice2, decayFactor3, true)
+            const decayFactor3 = wadDiv(ONE, EIGHT, true)   // aka 0.5**(timeDelay / MIN_FUM_BUY_PRICE_HALF_LIFE)
+            const usmForFumBuy3 = poolValue2.sub(wadMul(decayFactor3, poolValue2.sub(usmForFumBuy2), false))
+            const ethBuffer3 = ethPool2.sub(wadDiv(usmForFumBuy3, price2, false))
+            const targetFumBuyPrice3 = wadDiv(ethBuffer3, totalFumSupply2, true)
 
             const fumBuyPrice3 = await usmView.fumPrice(sides.BUY)
             fumBuyPrice3.should.be.bignumber.lt(fumBuyPrice2)
@@ -605,8 +604,8 @@ contract('USM', (accounts) => {
           it("reduces bidAskAdjustment when minting while debt ratio > 100%", async () => {
             // Move price to get debt ratio just *above* 100%:
             const targetDebtRatio = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
-            const priceChangeFactor = wadDiv(debtRatio0, targetDebtRatio, rounds.UP)
-            const targetPrice = wadMul(price0, priceChangeFactor, rounds.DOWN)
+            const priceChangeFactor = wadDiv(debtRatio0, targetDebtRatio, true)
+            const targetPrice = wadMul(price0, priceChangeFactor, false)
             await oracle.setPrice(targetPrice)
             await usm.refreshPrice()
             const price = (await usm.latestPrice())[0]
@@ -790,8 +789,8 @@ contract('USM', (accounts) => {
             // Move price to get debt ratio just *below* MAX.  Eg, if debt ratio is currently 156%, increasing the price by
             // (156% / 79%) should bring debt ratio to just about 79%:
             const targetDebtRatio1 = MAX_DEBT_RATIO.sub(WAD.div(HUNDRED)) // Eg, 80% - 1% = 79%
-            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, rounds.DOWN)
-            const targetPrice1 = wadMul(price0, priceChangeFactor1, rounds.UP)
+            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, false)
+            const targetPrice1 = wadMul(price0, priceChangeFactor1, true)
             await oracle.setPrice(targetPrice1)
             await usm.refreshPrice()
             const price1 = (await usm.latestPrice())[0]
@@ -806,8 +805,8 @@ contract('USM', (accounts) => {
             const debtRatio2 = await usmView.debtRatio()
             // Next, similarly move price to get debt ratio just *above* MAX:
             const targetDebtRatio3 = MAX_DEBT_RATIO.add(WAD.div(HUNDRED)) // Eg, 80% + 1% = 81%
-            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.UP)
-            const targetPrice3 = wadMul(price1, priceChangeFactor3, rounds.DOWN)
+            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, true)
+            const targetPrice3 = wadMul(price1, priceChangeFactor3, false)
             await oracle.setPrice(targetPrice3)
             await usm.refreshPrice()
             const price3 = (await usm.latestPrice())[0]
@@ -960,8 +959,8 @@ contract('USM', (accounts) => {
           it("doesn't allow burning USM if debt ratio over 100%", async () => {
             // Move price to get debt ratio just *below* 100%:
             const targetDebtRatio1 = WAD.mul(HUNDRED.sub(ONE)).div(HUNDRED) // 99%
-            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, rounds.DOWN)
-            const targetPrice1 = wadMul(price0, priceChangeFactor1, rounds.UP)
+            const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, false)
+            const targetPrice1 = wadMul(price0, priceChangeFactor1, true)
             await oracle.setPrice(targetPrice1)
             await usm.refreshPrice()
             const price1 = (await usm.latestPrice())[0]
@@ -976,8 +975,8 @@ contract('USM', (accounts) => {
             // Next, similarly move price to get debt ratio just *above* 100%:
             const debtRatio2 = await usmView.debtRatio()
             const targetDebtRatio3 = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
-            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, rounds.UP)
-            const targetPrice3 = wadMul(price1, priceChangeFactor3, rounds.DOWN)
+            const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, true)
+            const targetPrice3 = wadMul(price1, priceChangeFactor3, false)
             await oracle.setPrice(targetPrice3)
             await usm.refreshPrice()
             const price3 = (await usm.latestPrice())[0]
