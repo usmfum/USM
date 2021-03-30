@@ -323,13 +323,12 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
              * In cases like this, our bidAskAdj update has protected the system, by preventing users from getting any chance
              * to buy at the bogus $99 price.
              */
-            adjustment = ls.ethUsdPrice * adjustment / price;
             if (ls.bidAskAdjustment > WAD) {
                 // max(1, old buy price / new mid price):
-                adjustment = WAD.wadMax(adjustment);
+                adjustment = WAD.wadMax(ls.ethUsdPrice.wadMulDivUp(adjustment, price));
             } else if (ls.bidAskAdjustment < WAD) {
                 // min(1, old sell price / new mid price):
-                adjustment = WAD.wadMin(adjustment);
+                adjustment = WAD.wadMin(ls.ethUsdPrice.wadMulDivDown(adjustment, price));
             }
         }
     }
@@ -598,8 +597,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // the following simple logarithm:
         //int log = ethPool1.wadDivDown(ls.ethPool).wadLog();                   // 2a) Most exact: ~4k more gas
         //require(log >= 0, "log underflow");
-        ////usmOut = ls.ethPool.wadDivDown(usmBuyPrice0).wadMulDown(uint(log));
-        //usmOut = ls.ethPool * uint(log) / usmBuyPrice0;
+        //usmOut = ls.ethPool.wadMulDivDown(uint(log), usmBuyPrice0);
 
         // But in practice, we can save some gas by approximating the log integral above as follows: take the geometric average
         // of the starting and ending usmBuyPrices, and just appply that average price to the entier ethIn passes in.
@@ -623,8 +621,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, adjustedEthUsdPrice0);    // Burning USM = selling USM = buying ETH
 
         // The exact integral - calculating the amount of ETH yielded by burning the USM at our sliding-down USM price:
-        //uint exponent = usmIn.wadMulDown(usmSellPrice0).wadDivDown(ls.ethPool);
-        uint exponent = usmIn * usmSellPrice0 / ls.ethPool;
+        uint exponent = usmIn.wadMulDivDown(usmSellPrice0, ls.ethPool);
         uint ethPool1 = ls.ethPool.wadDivUp(exponent.wadExpDown());
         ethOut = ls.ethPool - ethPool1;
 

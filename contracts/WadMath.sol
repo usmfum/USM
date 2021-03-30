@@ -58,6 +58,25 @@ library WadMath {
         z /= y;
     }
 
+    /**
+     * @return z The appropriately rounded result of w * x / y, with all three inputs and the result represented in WAD format.
+     * This function is based on the following simplification - why divide and then multiply by WAD?
+     *
+     *        w.wadMul(x).wadDiv(y)
+     *     =~ (w * x / WAD) * WAD / y
+     *     =~ w * x / y
+     *
+     */
+    function wadMulDivDown(uint w, uint x, uint y) internal pure returns (uint z) {
+        z = w * x / y;
+    }
+
+    function wadMulDivUp(uint w, uint x, uint y) internal pure returns (uint z) {
+        z = w * x + y;              // See wadDivUp() above
+        unchecked { z -= 1; }
+        z /= y;
+    }
+
     function wadMax(uint x, uint y) internal pure returns (uint z) {
         z = (x > y ? x : y);
     }
