@@ -18,42 +18,35 @@ library WadMath {
     uint public constant FLOOR_LOG_2_E_SCALED_OVER_WAD = 3835341275459348169;               // log2(e) * 2**121 / 1e18
     uint public constant  CEIL_LOG_2_E_SCALED_OVER_WAD = 3835341275459348170;               // log2(e) * 2**121 / 1e18
 
+    function divRounded(uint x, uint y, bool roundUp) internal pure returns (uint z) {
+        if (roundUp) {
+            x += y;
+            unchecked { x -= 1; }   // Can do unchecked subtraction since division in next line will catch y = 0 case anyway
+        }
+        z = x / y;
+    }
+
+    /**
+     * @notice Multiplies the two WAD-formatted inputs, truncates the result's final 18 digits, and rounds it up or down
+     * depending on `roundUp`.  Examples based on 12345678901234567890 (representing 12.345678901234567890) and
+     * 9876543210987654321 (9.876543210987654321):
+     *
+     *     wadMul(12345678901234567890, 9876543210987654321, false) = 121932631137021795223.746380111126352690 rounded down
+     *                                                              = 121932631137021795223 (121.932631137021795223)
+     *     wadMul(12345678901234567890, 9876543210987654321, true) = 121932631137021795223.746380111126352690 rounded up
+     *                                                             = 121932631137021795224 (121.932631137021795224)
+     *
+     */
     function wadMul(uint x, uint y, bool roundUp) internal pure returns (uint z) {
-        z = (roundUp ? wadMulUp(x, y) : wadMulDown(x, y));
+        z = divRounded(x * y, WAD, roundUp);
     }
 
-    function wadMulDown(uint x, uint y) internal pure returns (uint z) {
-        z = x * y;                  // Rounds down, truncating the last 18 digits.  So (imagining 2 dec places rather than 18):
-        unchecked { z /= WAD; }     // 369 (3.69) * 271 (2.71) -> 99999 (9.9999) -> 999 (9.99).
-    }
-
-    function wadMulUp(uint x, uint y) internal pure returns (uint z) {
-        z = x * y + WAD_MINUS_1;    // Rounds up.  So (again imagining 2 decimal places):
-        unchecked { z /= WAD; }     // 383 (3.83) * 235 (2.35) -> 90005 (9.0005), + 99 (0.0099) -> 90104, / 100 -> 901 (9.01).
-    }
-
-    function wadSquaredDown(uint x) internal pure returns (uint z) {
-        z = x * x;
-        unchecked { z /= WAD; }
-    }
-
-    function wadSquaredUp(uint x) internal pure returns (uint z) {
-        z = (x * x) + WAD_MINUS_1;
-        unchecked { z /= WAD; }
+    function wadSquared(uint x, bool roundUp) internal pure returns (uint z) {
+        z = divRounded(x * x, WAD, roundUp);
     }
 
     function wadDiv(uint x, uint y, bool roundUp) internal pure returns (uint z) {
-        z = (roundUp ? wadDivUp(x, y) : wadDivDown(x, y));
-    }
-
-    function wadDivDown(uint x, uint y) internal pure returns (uint z) {
-        z = (x * WAD) / y;          // Rounds down: 199 (1.99) / 1000 (10) -> (199 * 100) / 1000 -> 19 (0.19: 0.199 truncated).
-    }
-
-    function wadDivUp(uint x, uint y) internal pure returns (uint z) {
-        z = x * WAD + y;            // 101 (1.01) / 1000 (10) -> (101 * 100 + 1000 - 1) / 1000 -> 11 (0.11 = 0.101 rounded up).
-        unchecked { z -= 1; }       // Can do unchecked subtraction since division in next line will catch y = 0 case anyway
-        z /= y;
+        z = divRounded(x * WAD, y, roundUp);
     }
 
     function wadMax(uint x, uint y) internal pure returns (uint z) {
@@ -113,11 +106,11 @@ library WadMath {
         unchecked { n /= 2; }
         bool nIsOdd;
         while (n != 0) {
-            x = wadMulDown(x, x);
+            x = wadMul(x, x, false);
 
             unchecked { nIsOdd = n % 2 != 0; }
             if (nIsOdd) {
-                z = wadMulDown(z, x);
+                z = wadMul(z, x, false);
             }
             unchecked { n /= 2; }
         }
@@ -162,7 +155,7 @@ library WadMath {
         uint exponent = FLOOR_LOG_2_WAD_SCALED - CEIL_LOG_2_E_SCALED_OVER_WAD * y;
         require(exponent <= type(uint128).max, "exponent overflow");
         uint wadOneOverExpY = pow_2(uint128(exponent));
-        z = wadDivUp(WAD, wadOneOverExpY);
+        z = wadDiv(WAD, wadOneOverExpY, true);
     }
 
     /**
@@ -198,14 +191,14 @@ library WadMath {
         if (logX >= CEIL_LOG_2_WAD_SCALED) {
             // Case 1: Z = pow_2(FLOOR_LOG_2_WAD_SCALED + (log_2(X) - CEIL_LOG_2_WAD_SCALED) * Y / WAD):
             unchecked { exponent = logX - CEIL_LOG_2_WAD_SCALED; }
-            exponent = FLOOR_LOG_2_WAD_SCALED + wadMulDown(exponent, y);
+            exponent = FLOOR_LOG_2_WAD_SCALED + wadMul(exponent, y, false);
             require(exponent <= type(uint128).max, "exponent overflow");
             z = pow_2(uint128(exponent));
         } else {
             // Case 2: Z = pow_2(FLOOR_LOG_2_WAD_SCALED - (CEIL_LOG_2_WAD_SCALED - log_2(X)) * Y / WAD):
             uint exponentSubtrahend;
             unchecked { exponentSubtrahend = CEIL_LOG_2_WAD_SCALED - logX; }
-            exponentSubtrahend = wadMulUp(exponentSubtrahend, y);
+            exponentSubtrahend = wadMul(exponentSubtrahend, y, true);
             if (exponentSubtrahend <= FLOOR_LOG_2_WAD_SCALED) {
                 unchecked { exponent = FLOOR_LOG_2_WAD_SCALED - exponentSubtrahend; }
                 z = pow_2(uint128(exponent));   // Needn't check overflow b/c exp <= FLOOR_LOG_2_WAD_SCALED < type(uint128).max
@@ -216,7 +209,7 @@ library WadMath {
     }
 
     function wadPowUp(uint x, uint y) internal pure returns (uint z) {
-        z = wadDivUp(WAD, wadPowDown(wadDivDown(WAD, x), y));
+        z = wadDiv(WAD, wadPowDown(wadDiv(WAD, x, false), y), true);
     }
 
     /* ____________________ Exponential/logarithm fns borrowed from Yield Protocol ____________________
