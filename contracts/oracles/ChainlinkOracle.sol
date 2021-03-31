@@ -23,10 +23,6 @@ contract ChainlinkOracle is Oracle {
      * @return price
      */
     function latestPrice() public virtual override view returns (uint price, uint updateTime) {
-        (price, updateTime) = latestChainlinkPrice();
-    }
-
-    function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
         int rawPrice;
         (, rawPrice,, updateTime,) = chainlinkAggregator.latestRoundData();
         require(rawPrice > 0, "Chainlink price <= 0");

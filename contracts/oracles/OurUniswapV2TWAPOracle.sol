@@ -82,10 +82,6 @@ contract OurUniswapV2TWAPOracle is Oracle {
     }
 
     function latestPrice() public virtual override view returns (uint price, uint updateTime) {
-        (price, updateTime) = latestUniswapTWAPPrice();
-    }
-
-    function latestUniswapTWAPPrice() public view returns (uint price, uint updateTime) {
         (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice) = orderedStoredPrices();
         // Here we rely on the invariant that after every call to refreshPrice(), the freshest price is stored on the *newer*
         // of the two storedPrices, but is calculated relative to the timestamp (& cumPriceSeconds) of the *older* storedPrice:

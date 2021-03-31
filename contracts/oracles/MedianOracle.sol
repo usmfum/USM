@@ -25,10 +25,6 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOr
     function latestPrice() public virtual override(ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOracle)
         view returns (uint price, uint updateTime)
     {
-        (price, updateTime) = latestMedianOraclePrice();
-    }
-
-    function latestMedianOraclePrice() public view returns (uint price, uint updateTime) {
         (uint chainlinkPrice, uint chainlinkUpdateTime) = ChainlinkOracle.latestPrice();
         (uint compoundPrice, uint compoundUpdateTime) = CompoundOpenOracle.latestPrice();
         (uint uniswapPrice, uint uniswapUpdateTime) = OurUniswapV2TWAPOracle.latestPrice();
@@ -36,6 +32,18 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, OurUniswapV2TWAPOr
         (price, updateTime) = (index == 0 ? (chainlinkPrice, chainlinkUpdateTime) :
                                             (index == 1 ? (compoundPrice, compoundUpdateTime) :
                                                           (uniswapPrice, uniswapUpdateTime)));
+    }
+
+    function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
+        (price, updateTime) = ChainlinkOracle.latestPrice();
+    }
+
+    function latestCompoundPrice() public view returns (uint price, uint updateTime) {
+        (price, updateTime) = CompoundOpenOracle.latestPrice();
+    }
+
+    function latestUniswapTWAPPrice() public view returns (uint price, uint updateTime) {
+        (price, updateTime) = OurUniswapV2TWAPOracle.latestPrice();
     }
 
     function refreshPrice() public virtual override(Oracle, CompoundOpenOracle, OurUniswapV2TWAPOracle)

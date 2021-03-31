@@ -44,9 +44,4 @@ contract CompoundOpenOracle is Oracle {
         (price, updateTime) = (compoundStoredPrice.price, compoundStoredPrice.updateTime);
         //require(updateTime > 0, "Price not set yet");
     }
-
-    function latestCompoundPrice() public view returns (uint price, uint updateTime) {
-        (price, updateTime) = (compoundStoredPrice.price, compoundStoredPrice.updateTime);
-        //require(updateTime > 0, "Price not set yet");
-    }
 }
