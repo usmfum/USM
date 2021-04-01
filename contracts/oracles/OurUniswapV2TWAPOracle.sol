@@ -174,17 +174,17 @@ contract OurUniswapV2TWAPOracle is Oracle {
     function storedPriceToCompareVs(uint newCumPriceSecondsTime, CumulativePrice storage newerStoredPrice)
         internal view returns (CumulativePrice storage refStoredPrice, bool refStoredPriceIsNewerStoredPrice)
     {
-        bool aAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, uniswapStoredPriceA);
-        bool bAcceptable = areNewAndStoredPriceFarEnoughApart(newCumPriceSecondsTime, uniswapStoredPriceB);
-        if (aAcceptable) {
-            if (bAcceptable) {
+        bool aOldEnough = isStoredPriceOldEnoughToCompareVs(newCumPriceSecondsTime, uniswapStoredPriceA);
+        bool bOldEnough = isStoredPriceOldEnoughToCompareVs(newCumPriceSecondsTime, uniswapStoredPriceB);
+        if (aOldEnough) {
+            if (bOldEnough) {
                 refStoredPrice = newerStoredPrice;          // Neither is *too* recent, so return the fresher of the two
                 refStoredPriceIsNewerStoredPrice = true;    // This is the only case where refStoredPrice is the *newer* one
             } else {
-                refStoredPrice = uniswapStoredPriceA;       // Only A is acceptable
+                refStoredPrice = uniswapStoredPriceA;       // Only A is old enough
             }
-        } else if (bAcceptable) {
-            refStoredPrice = uniswapStoredPriceB;           // Only B is acceptable
+        } else if (bOldEnough) {
+            refStoredPrice = uniswapStoredPriceB;           // Only B is old enough
         } else {
             revert("Both stored prices too recent");
         }
@@ -198,11 +198,11 @@ contract OurUniswapV2TWAPOracle is Oracle {
             (uniswapStoredPriceA, uniswapStoredPriceB) : (uniswapStoredPriceB, uniswapStoredPriceA);
     }
 
-    function areNewAndStoredPriceFarEnoughApart(uint newCumPriceSecondsTime, CumulativePrice storage storedPrice)
-        internal view returns (bool farEnough)
+    function isStoredPriceOldEnoughToCompareVs(uint newCumPriceSecondsTime, CumulativePrice storage storedPrice)
+        internal view returns (bool oldEnough)
     {
         // uint32 + x can't overflow:
-        unchecked { farEnough = newCumPriceSecondsTime >= storedPrice.cumPriceSecondsTime + UNISWAP_MIN_TWAP_PERIOD; }
+        unchecked { oldEnough = newCumPriceSecondsTime >= storedPrice.cumPriceSecondsTime + UNISWAP_MIN_TWAP_PERIOD; }
     }
 
     /**
