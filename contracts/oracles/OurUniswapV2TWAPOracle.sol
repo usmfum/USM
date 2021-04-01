@@ -163,9 +163,8 @@ contract OurUniswapV2TWAPOracle is Oracle {
     {
         uint priceToStore = price + HALF_BILLION;                       // See analogous comment above
         unchecked { priceToStore /= BILLION; }
-        require(priceToStore <= type(uint80).max, "priceToStore overflow");
-
         if (priceToStore != storedPriceToUpdate.price) {
+            require(priceToStore <= type(uint80).max, "priceToStore overflow");
             storedPriceToUpdate.price = uint80(priceToStore);
             emit TWAPPriceUpdated(price);
         }
