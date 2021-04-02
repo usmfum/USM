@@ -25,9 +25,10 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
     uint public constant FOUR_WAD = 4 * WAD;
     uint public constant BILLION = 1e9;
     uint public constant HALF_BILLION = BILLION / 2;
-    uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                 // 80%
-    uint public constant MIN_FUM_BUY_PRICE_HALF_LIFE = 1 days;          // Solidity for 1 * 24 * 60 * 60
-    uint public constant BID_ASK_ADJUSTMENT_HALF_LIFE = 1 minutes;      // Solidity for 1 * 60
+    uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                             // 80%
+    uint public constant MIN_FUM_BUY_PRICE_DECAY_PER_SECOND = 999991977495368426;   // 1-sec decay equiv to halving in 1 day
+    uint public constant BID_ASK_ADJUSTMENT_DECAY_PER_SECOND = 988514020352896135;  // 1-sec decay equiv to halving in 1 minute
+    uint public constant BID_ASK_ADJUSTMENT_ZERO_OUT_PERIOD = 600;                  // After 10 min, adjustment just goes to 0
 
     FUM public immutable fum;
     Oracle public immutable oracle;
@@ -415,8 +416,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * @return ls A `LoadedState` object packaging the system's current state: `ethUsdPrice`, `bidAskAdjustment`, etc (see
      * `storedState`), plus the ETH and USM balances.  `bidAskAdjustment` is also brought up to date, ie, decayed closer to 1
      * according to how much time has passed since it was stored: so if `bidAskAdjustment` was 2.0 five minutes ago, and
-     * `BID_ASK_ADJUSTMENT_HALF_LIFE` = 1 minute, `ls.bidAskAdjustment` is set to 1.03125 (see
-     * `bidAskAdjustment(storedTime, storedAdjustment, currentTime)`).
+     * `BID_ASK_ADJUSTMENT_DECAY_PER_SECOND` corresponds to a half-life of 1 minute, `ls.bidAskAdjustment` is set to 1.03125
+     * (see `bidAskAdjustment(storedTime, storedAdjustment, currentTime)`).
      */
     function loadState() public view returns (LoadedState memory ls) {
         ls.timeSystemWentUnderwater = storedState.timeSystemWentUnderwater;
@@ -534,8 +535,8 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      *    `MAX_DEBT_RATIO` (20,000 above), to a theoretical maximum "100% supply" value, where debt ratio = 100% (in the $500
      *    example above, this would be 25,000).  (Or the actual supply, whichever is lower: we never increase
      *    `usmSupplyForFumBuys` above `usmActualSupply`.)  The climb from the initial 80% supply (20,000) to the 100% supply
-     *    (25,000) is at a rate that brings it "halfway closer per `MIN_FUM_BUY_PRICE_HALF_LIFE` (eg, 1 day)": so three days
-     *    after going underwater, the supply returned will be 25,000 - 0.5**3 * (25,000 - 20,000) = 24,375.
+     *    (25,000) is at a rate that brings it "halfway closer per `minFumBuyPrice` half-life (eg, 1 day)": so three days after
+     *    going underwater, the supply returned will be 25,000 - 0.5**3 * (25,000 - 20,000) = 24,375.
      */
     function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime)
         public override pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys, uint debtRatio_)
@@ -549,8 +550,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
             // Calculate usmSupplyForFumBuys:
             uint maxEffectiveDebtRatio = debtRatio_.wadMin(WAD);    // min(actual debt ratio, 100%)
-            uint numHalvings = (currentTime - timeSystemWentUnderwater_).wadDivDown(MIN_FUM_BUY_PRICE_HALF_LIFE);
-            uint decayFactor = numHalvings.wadHalfExpApprox();
+            uint decayFactor = MIN_FUM_BUY_PRICE_DECAY_PER_SECOND.wadPowInt(currentTime - timeSystemWentUnderwater_);
             uint effectiveDebtRatio = maxEffectiveDebtRatio - decayFactor.wadMulUp(maxEffectiveDebtRatio - MAX_DEBT_RATIO);
             usmSupplyForFumBuys = effectiveDebtRatio.wadMulDown(ethPool_.wadMulDown(ethUsdPrice));
         }
@@ -560,8 +560,9 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
      * @notice Returns the given stored `bidAskAdjustment` value, updated (decayed towards 1) to the current time.
      */
     function bidAskAdjustment(uint storedTime, uint storedAdjustment, uint currentTime) public pure returns (uint adjustment) {
-        uint numHalvings = (currentTime - storedTime).wadDivDown(BID_ASK_ADJUSTMENT_HALF_LIFE);
-        uint decayFactor = numHalvings.wadHalfExpApprox(10);
+        uint secsSinceStored = currentTime - storedTime;
+        uint decayFactor = (secsSinceStored >= BID_ASK_ADJUSTMENT_ZERO_OUT_PERIOD ? 0 :
+                            BID_ASK_ADJUSTMENT_DECAY_PER_SECOND.wadPowInt(secsSinceStored));
         // Here we use the idea that for any b and 0 <= p <= 1, we can crudely approximate b**p by 1 + (b-1)p = 1 + bp - p.
         // Eg: 0.6**0.5 pulls 0.6 "about halfway" to 1 (0.8); 0.6**0.25 pulls 0.6 "about 3/4 of the way" to 1 (0.9).
         // So b**p =~ b + (1-p)(1-b) = b + 1 - b - p + bp = 1 + bp - p.
