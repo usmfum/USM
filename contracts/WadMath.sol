@@ -168,7 +168,7 @@ library WadMath {
      *
      * @dev We're given X = x * 1e18, and Y = y * 1e18 (both WAD-formatted); we want Z = z * 1e18, where z =~ x**y; and
      * we have `log_2(x)`, which returns log2(x) * 2**121, and `pow_2(X = x * 2**121)`, which returns 2**x = 2**(X / 2**121).
-     * The math we use is (essentially):
+     * The math we use is:
      *
      *     K = log2(1e18) * 2**121
      *     Z = `pow_2(K + (log_2(X) - K) * Y / 1e18)`
@@ -180,32 +180,19 @@ library WadMath {
      *       = 1e18 * (2**log2(x))**y
      *       = x**y * 1e18
      *
-     * Except, because we're working with unsigned numbers, we need to be careful to handle two cases separately:
-     * log_2(X) >= K, and log_2(X) < K.
      */
     function wadPowDown(uint x, uint y) internal pure returns (uint z) {
         require(x <= type(uint128).max, "x overflow");
-        uint logX = log_2(uint128(x));
-        uint exponent;
-        if (logX >= CEIL_LOG_2_WAD_SCALED) {
-            // Case 1: Z = pow_2(FLOOR_LOG_2_WAD_SCALED + (log_2(X) - CEIL_LOG_2_WAD_SCALED) * Y / WAD):
-            unchecked { exponent = logX - CEIL_LOG_2_WAD_SCALED; }
-            exponent = FLOOR_LOG_2_WAD_SCALED + wadMulDown(exponent, y);
-            require(exponent <= type(uint128).max, "exponent overflow");
-            z = pow_2(uint128(exponent));
-        } else {
-            // Case 2: Z = pow_2(FLOOR_LOG_2_WAD_SCALED - (CEIL_LOG_2_WAD_SCALED - log_2(X)) * Y / WAD):
-            uint exponentSubtrahend;
-            unchecked { exponentSubtrahend = CEIL_LOG_2_WAD_SCALED - logX; }
-            exponentSubtrahend = wadMulUp(exponentSubtrahend, y);
-            if (exponentSubtrahend <= FLOOR_LOG_2_WAD_SCALED) {
-                unchecked { exponent = FLOOR_LOG_2_WAD_SCALED - exponentSubtrahend; }
-                z = pow_2(uint128(exponent));   // Needn't check overflow b/c exp <= FLOOR_LOG_2_WAD_SCALED < type(uint128).max
-            } else {
-                // z = 0: exponent would be < 0, so pow_2(exponent) is vanishingly small (as a WAD-formatted num) - call it 0
-            }
-        }
-    }
+        require(y <= uint(type(int).max), "y overflow");
+        // The logic here is: Z = pow_2(FLOOR_LOG_2_WAD_SCALED + (log_2(X) - CEIL_LOG_2_WAD_SCALED) * Y / WAD)
+        int exponent = log_2(uint128(x));
+        unchecked { exponent -= int(CEIL_LOG_2_WAD_SCALED); }   // No chance of overflow here, both operands too small
+        exponent *= int(y);
+        unchecked { exponent = exponent / int(WAD) + int(FLOOR_LOG_2_WAD_SCALED); } // Can't overflow (would have in prev line)
+        require(exponent >= 0, "exponent underflow");
+        require(exponent <= type(uint128).max, "exponent overflow");
+        z = pow_2(uint128(uint(exponent)));     // Apparently Solidity won't let us do this cast in one shot.  Weird eh?
+     }
 
     function wadPowUp(uint x, uint y) internal pure returns (uint z) {
         z = wadDivUp(WAD, wadPowDown(wadDivDown(WAD, x), y));
