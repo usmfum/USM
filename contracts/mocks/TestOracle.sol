@@ -2,9 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./SettableOracle.sol";
-import "../Ownable.sol";
 
-contract TestOracle is SettableOracle, Ownable {
+contract TestOracle is SettableOracle {
     constructor(uint p) {
         setPrice(p);
     }
