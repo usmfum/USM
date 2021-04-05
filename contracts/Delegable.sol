@@ -86,15 +86,17 @@ contract Delegable {
 
     /// @dev Enable a delegate to act on the behalf of an user
     function _addDelegate(address user, address delegate) internal {
-        require(!delegated[user][delegate], "Delegable: Already delegated");
-        delegated[user][delegate] = true;
-        emit Delegate(user, delegate, true);
+        if (!delegated[user][delegate]) {
+            delegated[user][delegate] = true;
+            emit Delegate(user, delegate, true);
+        }
     }
 
     /// @dev Stop a delegate from acting on the behalf of an user
     function _revokeDelegate(address user, address delegate) internal {
-        require(delegated[user][delegate], "Delegable: Already undelegated");
-        delegated[user][delegate] = false;
-        emit Delegate(user, delegate, false);
+        if (delegated[user][delegate]) {
+            delegated[user][delegate] = false;
+            emit Delegate(user, delegate, false);
+        }
     }
 }
