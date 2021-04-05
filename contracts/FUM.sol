@@ -3,8 +3,7 @@ pragma solidity ^0.8.0;
 
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
-import "./WithOptOut.sol";
-import "./Ownable.sol";
+import "./OptOutable.sol";
 import "./MinOut.sol";
 
 
@@ -12,14 +11,14 @@ import "./MinOut.sol";
  * @title FUM Token
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  *
- * @notice This should be owned by the USM instance.
+ * @notice This should be created and owned by the USM instance.
  */
-contract FUM is ERC20Permit, WithOptOut, Ownable {
+contract FUM is ERC20Permit, OptOutable {
     IUSM public immutable usm;
 
     constructor(address[] memory optedOut_)
         ERC20Permit("Minimalist Funding v1.0 - Test 4", "FUMTest")
-        WithOptOut(optedOut_)
+        OptOutable(optedOut_)
     {
         usm = IUSM(msg.sender);     // FUM constructor can only be called by a USM instance
     }
@@ -54,7 +53,8 @@ contract FUM is ERC20Permit, WithOptOut, Ownable {
      * @param _recipient address to mint to
      * @param _amount amount to mint
      */
-    function mint(address _recipient, uint _amount) external onlyOwner {
+    function mint(address _recipient, uint _amount) external {
+        require(msg.sender == address(usm), "Only USM");
         _mint(_recipient, _amount);
     }
 
@@ -64,7 +64,8 @@ contract FUM is ERC20Permit, WithOptOut, Ownable {
      * @param _holder address to burn from
      * @param _amount amount to burn
      */
-    function burn(address _holder, uint _amount) external onlyOwner {
+    function burn(address _holder, uint _amount) external {
+        require(msg.sender == address(usm), "Only USM");
         _burn(_holder, _amount);
     }
 }

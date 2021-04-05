@@ -10,9 +10,6 @@ library WadMath {
     uint public constant WAD = 1e18;
     uint public constant WAD_MINUS_1 = WAD - 1;
     uint public constant HALF_WAD = WAD / 2;
-    uint public constant WAD_OVER_10 = WAD / 10;
-    uint public constant WAD_OVER_20 = WAD / 20;
-    uint public constant HALF_TO_THE_ONE_TENTH = 933032991536807416;
     uint public constant FLOOR_LOG_2_WAD_SCALED = 158961593653514369813532673448321674075;  // log2(1e18) * 2**121
     uint public constant  CEIL_LOG_2_WAD_SCALED = 158961593653514369813532673448321674076;  // log2(1e18) * 2**121
     uint public constant FLOOR_LOG_2_E_SCALED_OVER_WAD = 3835341275459348169;               // log2(e) * 2**121 / 1e18
@@ -81,30 +78,6 @@ library WadMath {
 
     function wadMin(uint x, uint y) internal pure returns (uint z) {
         z = (x < y ? x : y);
-    }
-
-    /**
-     * @return exp Just returns `wadHalfExpApprox(power, MAX_VALUE)`, ie, an approximation of 0.5**`power`, with `power` uncapped.
-     */
-    function wadHalfExpApprox(uint power) internal pure returns (uint exp) {
-        exp = wadHalfExpApprox(power, type(uint).max);
-    }
-
-    /**
-     * @notice Crudely approximates e**power.  Negative powers are not handled (as implied by power being a uint).
-     * @param power WAD-scaled (eg, 2.7364 * WAD)
-     * @param maxPower plain unscaled uint (eg, 10)
-     * @return exp a loose but "gas-efficient" approximation of 0.5**power, where power is rounded to the nearest 0.1, and is
-     * capped at maxPower
-     */
-    function wadHalfExpApprox(uint power, uint maxPower) internal pure returns (uint exp) {
-        uint powerInTenthsUnscaled = power + WAD_OVER_20;       // Rounds 2.7499 -> 2.7, 2.7500 -> 2.8
-        unchecked { powerInTenthsUnscaled /= WAD_OVER_10; }
-        uint powerUnscaled;
-        unchecked { powerUnscaled = powerInTenthsUnscaled / 10; }
-        if (powerUnscaled <= maxPower) {    // If not, then 0.5**power is (more or less) tiny, so we just return exp = 0
-            exp = wadPowInt(HALF_TO_THE_ONE_TENTH, powerInTenthsUnscaled);
-        }
     }
 
     /**
