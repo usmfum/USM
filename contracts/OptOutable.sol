@@ -24,6 +24,8 @@ pragma solidity ^0.8.0;
  * contract.)
  */
 abstract contract OptOutable {
+    event OptOutStatusChanged(address indexed user, bool newStatus);
+
     mapping(address => bool) public optedOut;  // true = address opted out of something
 
     constructor(address[] memory optedOut_) {
@@ -38,10 +40,16 @@ abstract contract OptOutable {
     }
 
     function optOut() public virtual {
-        optedOut[msg.sender] = true;
+        if (!optedOut[msg.sender]) {
+            optedOut[msg.sender] = true;
+            emit OptOutStatusChanged(msg.sender, true);
+        }
     }
 
     function optBackIn() public virtual {
-        optedOut[msg.sender] = false;
+        if (optedOut[msg.sender]) {
+            optedOut[msg.sender] = false;
+            emit OptOutStatusChanged(msg.sender, false);
+        }
     }
 }
