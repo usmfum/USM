@@ -40,7 +40,6 @@ abstract contract OptOutable {
     }
 
     function optOut() public virtual {
-        optedOut[msg.sender] = true;
         if (!optedOut[msg.sender]) {
             optedOut[msg.sender] = true;
             emit OptOutStatusChanged(msg.sender, true);
@@ -48,7 +47,6 @@ abstract contract OptOutable {
     }
 
     function optBackIn() public virtual {
-        optedOut[msg.sender] = false;
         if (optedOut[msg.sender]) {
             optedOut[msg.sender] = false;
             emit OptOutStatusChanged(msg.sender, false);
