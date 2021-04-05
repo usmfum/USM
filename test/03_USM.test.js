@@ -956,7 +956,7 @@ contract('USM', (accounts) => {
             await usm.transfer(user2, user1UsmBalance0, { from: user1 })
           })
 
-          it("doesn't allow burning USM if debt ratio over 100%", async () => {
+          it("allows burning USM if debt ratio over 100%", async () => {
             // Move price to get debt ratio just *below* 100%:
             const targetDebtRatio1 = WAD.mul(HUNDRED.sub(ONE)).div(HUNDRED) // 99%
             const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, false)
@@ -972,6 +972,15 @@ contract('USM', (accounts) => {
             // Now this tiny burn() should succeed:
             await usm.burn(user1, user2, oneUsm, 0, { from: user1 })
 
+            // Move forward a day, so our bidAskAdj reverts to 1 (ie no adjustment):
+            const block0 = await web3.eth.getBlockNumber()
+            const t0 = (await web3.eth.getBlock(block0)).timestamp
+            const timeDelay = 1 * DAY
+            await timeMachine.advanceTimeAndBlock(timeDelay)
+            const block1 = await web3.eth.getBlockNumber()
+            const t1 = (await web3.eth.getBlock(block1)).timestamp
+            shouldEqual(t1, t0 + timeDelay)
+
             // Next, similarly move price to get debt ratio just *above* 100%:
             const debtRatio2 = await usmView.debtRatio()
             const targetDebtRatio3 = WAD.mul(HUNDRED.add(ONE)).div(HUNDRED) // 101%
@@ -985,8 +994,8 @@ contract('USM', (accounts) => {
             const debtRatio3 = await usmView.debtRatio()
             debtRatio3.should.be.bignumber.gt(WAD)
 
-            // And now the same burn() should fail:
-            await expectRevert(usm.burn(user1, user2, oneUsm, 0, { from: user1 }), "Debt ratio > 100%")
+            // And now the same burn() should still succeed:
+            await usm.burn(user1, user2, oneUsm, 0, { from: user1 })
           })
         })
       })
