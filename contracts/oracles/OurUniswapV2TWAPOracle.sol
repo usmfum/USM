@@ -105,20 +105,31 @@ contract OurUniswapV2TWAPOracle is Oracle {
      * another a day old, it's more accurate to think of that TWAP as "a day old" than "5 seconds fresh".
      */
     function refreshPrice() public virtual override returns (uint price, uint updateTime) {
-        // "updateTime" aka "refCumPriceSecondsTime" - timestamp of the stored cumPriceSeconds value we're calculating TWAP vs:
+        // ("updateTime" here = "refCumPriceSecondsTime": timestamp of the stored cumPriceSeconds we're calculating TWAP vs)
+
+        // 1. Get the Uniswap pair's up-to-date cumulative price-seconds:
         (uint newCumPriceSecondsTime, uint newCumPriceSeconds) = cumulativePriceFromPair();
 
+        // 2. Figure out which of our stored cumPriceSeconds we should be comparing the new one against:
         (CumulativePrice storage olderStoredPrice, CumulativePrice storage newerStoredPrice) = orderedStoredPrices();
-
-        // Now that we have the current cum price, subtract-&-divide the stored one, to get the TWAP price:
-        (CumulativePrice storage refStoredPrice, bool refStoredPriceIsNewerStoredPrice) =
-            storedPriceToCompareVs(newCumPriceSecondsTime, newerStoredPrice);
+        bool isNewerStoredPriceOldEnough = isStoredPriceOldEnoughToCompareVs(newCumPriceSecondsTime, newerStoredPrice);
+        CumulativePrice storage refStoredPrice;
+        if (isNewerStoredPriceOldEnough) {
+            refStoredPrice = newerStoredPrice;
+        } else {
+            require(isStoredPriceOldEnoughToCompareVs(newCumPriceSecondsTime, olderStoredPrice),
+                    "Both stored prices too recent");   // This should never fail unless block time goes backwards...
+            refStoredPrice = olderStoredPrice;
+        }
         uint refCumPriceSecondsTime = refStoredPrice.cumPriceSecondsTime;
+
+        // 3. Now that we have the new and stored cum prices to compare, subtract-&-divide new vs stored to get the TWAP price:
         price = calculateTWAP(newCumPriceSecondsTime, newCumPriceSeconds, refCumPriceSecondsTime,
                               refStoredPrice.cumPriceSeconds * BILLION);    // Converting stored billionths to WAD format
         updateTime = refCumPriceSecondsTime;
 
-        if (refStoredPriceIsNewerStoredPrice) {
+        // 4. Finally, store the latest price (and if changed, the new cumulative price) for use by future calls:
+        if (isNewerStoredPriceOldEnough) {
             // Enough time has passed since our newer storedPrice that we're using it as our reference stored price (the one we
             // calculate the TWAP with reference to).  This means we're no longer using the older storedPrice at all, so it's
             // time to replace it:
@@ -167,25 +178,6 @@ contract OurUniswapV2TWAPOracle is Oracle {
             require(priceToStore <= type(uint80).max, "priceToStore overflow");
             storedPriceToUpdate.price = uint80(priceToStore);
             emit TWAPPriceUpdated(price);
-        }
-    }
-
-    function storedPriceToCompareVs(uint newCumPriceSecondsTime, CumulativePrice storage newerStoredPrice)
-        internal view returns (CumulativePrice storage refStoredPrice, bool refStoredPriceIsNewerStoredPrice)
-    {
-        bool aOldEnough = isStoredPriceOldEnoughToCompareVs(newCumPriceSecondsTime, uniswapStoredPriceA);
-        bool bOldEnough = isStoredPriceOldEnoughToCompareVs(newCumPriceSecondsTime, uniswapStoredPriceB);
-        if (aOldEnough) {
-            if (bOldEnough) {
-                refStoredPrice = newerStoredPrice;          // Neither is *too* recent, so return the fresher of the two
-                refStoredPriceIsNewerStoredPrice = true;    // This is the only case where refStoredPrice is the *newer* one
-            } else {
-                refStoredPrice = uniswapStoredPriceA;       // Only A is old enough
-            }
-        } else if (bOldEnough) {
-            refStoredPrice = uniswapStoredPriceB;           // Only B is old enough
-        } else {
-            revert("Both stored prices too recent");
         }
     }
 
