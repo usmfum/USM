@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
-import "./WithOptOut.sol";
+import "./OptOutable.sol";
 import "./MinOut.sol";
 
 
@@ -13,12 +13,12 @@ import "./MinOut.sol";
  *
  * @notice This should be created and owned by the USM instance.
  */
-contract FUM is ERC20Permit, WithOptOut {
+contract FUM is ERC20Permit, OptOutable {
     IUSM public immutable usm;
 
     constructor(address[] memory optedOut_)
         ERC20Permit("Minimalist Funding v1.0 - Test 4", "FUMTest")
-        WithOptOut(optedOut_)
+        OptOutable(optedOut_)
     {
         usm = IUSM(msg.sender);     // FUM constructor can only be called by a USM instance
     }

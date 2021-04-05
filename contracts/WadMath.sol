@@ -103,7 +103,7 @@ library WadMath {
         uint powerUnscaled;
         unchecked { powerUnscaled = powerInTenthsUnscaled / 10; }
         if (powerUnscaled <= maxPower) {    // If not, then 0.5**power is (more or less) tiny, so we just return exp = 0
-            exp = wadPowInt(HALF_TO_THE_ONE_TENTH, powerInTenthsUnscaled);
+            exp = wadPowInt(HALF_TO_THE_ONE_TENTH, powerInTenthsUnscaled % 10) >> (powerInTenthsUnscaled / 10);
         }
     }
 

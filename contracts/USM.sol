@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
-import "./WithOptOut.sol";
+import "./OptOutable.sol";
 import "./oracles/Oracle.sol";
 import "./Address.sol";
 import "./Delegable.sol";
@@ -17,7 +17,7 @@ import "./MinOut.sol";
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
+contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
     using Address for address payable;
     using WadMath for uint;
 
@@ -57,7 +57,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
 
     constructor(Oracle oracle_, address[] memory optedOut_)
         ERC20Permit("Minimalist USD v1.0 - Test 4", "USMTest")
-        WithOptOut(optedOut_)
+        OptOutable(optedOut_)
     {
         oracle = oracle_;
         fum = new FUM(optedOut_);
