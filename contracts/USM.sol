@@ -211,11 +211,7 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         ls.bidAskAdjustment = ls.bidAskAdjustment.wadMulUp(adjGrowthFactor);
         ls.ethUsdPrice = ls.ethUsdPrice.wadMulUp(adjGrowthFactor);
 
-        // 5. Check that the burn didn't leave debt ratio > 100%:
-        uint newDebtRatio = debtRatio(ls.ethUsdPrice, ls.ethPool - ethOut, ls.usmTotalSupply - usmToBurn);
-        require(newDebtRatio <= WAD, "Debt ratio > 100%");
-
-        // 6. Burn the input USM, store the updated state, and return the user's ETH:
+        // 5. Burn the input USM, store the updated state, and return the user's ETH:
         _burn(from, usmToBurn);
         _storeState(ls);
         to.sendValue(ethOut);
@@ -616,6 +612,10 @@ contract USM is IUSM, Oracle, ERC20Permit, WithOptOut, Delegable {
         // end up with an exponent (exponent.wadExpDown() below, aka e**exponent) rather than a logarithm.
         uint adjustedEthUsdPrice0 = adjustedEthUsdPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.bidAskAdjustment);
         uint usmSellPrice0 = usmPrice(IUSM.Side.Sell, adjustedEthUsdPrice0);    // Burning USM = selling USM = buying ETH
+
+        // The USM sell price is capped by the ETH pool value per USM outstanding.  In other words, when the system is
+        // underwater (debt ratio > 100%), burners "take a haircut" - burning USM yields less than $1 of ETH per USM burned:
+        usmSellPrice0 = usmSellPrice0.wadMin(ls.ethPool.wadDivDown(ls.usmTotalSupply));
 
         // The exact integral - calculating the amount of ETH yielded by burning the USM at our sliding-down USM price:
         uint exponent = usmIn.wadMulDivDown(usmSellPrice0, ls.ethPool);
