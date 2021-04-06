@@ -69,7 +69,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
     /**
      * @dev Sometimes we want to give FUM privileged access.
      */
-    modifier onlyHolderOrDelegateOrFUM(address owner, string memory errorMessage) {
+    modifier onlyHolderOrDelegateOrFum(address owner, string memory errorMessage) {
         require(
             msg.sender == owner || delegated[owner][msg.sender] || msg.sender == address(fum),
             errorMessage
@@ -123,7 +123,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
      */
     function defund(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
-        onlyHolderOrDelegateOrFUM(from, "Only holder or delegate or FUM")
+        onlyHolderOrDelegateOrFum(from, "Only holder or delegate or FUM")
         returns (uint ethOut)
     {
         ethOut = _defundFum(from, to, fumToBurn, minEthOut);
