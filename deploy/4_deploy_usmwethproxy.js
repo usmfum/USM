@@ -24,14 +24,14 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
 
   usmAddress = (await get('USM')).address;
 
-  const proxy = await deploy('UsmWethProxy', {
+  const proxy = await deploy('USMWETHProxy', {
     from: deployer,
     deterministicDeployment: true,
     args: [usmAddress, wethAddress]
   })
 
-  console.log(`Deployed UsmWethProxy to ${proxy.address}`);
+  console.log(`Deployed USMWETHProxy to ${proxy.address}`);
 }
 
 module.exports = func;
-module.exports.tags = ["UsmWethProxy"];
+module.exports.tags = ["USMWETHProxy"];
