@@ -111,12 +111,12 @@ contract('USM - UsmWethProxy - Eth', (accounts) => {
           })
 
           it('allows minting USM by sending ETH, if minUsmOut specified but met (2)', async () => {
-            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000010206' }) // Returns >= 102.06 USM per ETH
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000010254' }) // Returns >= 102.54 USM per ETH
           })
 
           it('does not mint USM by sending ETH, if minUsmOut specified and missed (1)', async () => {
             await expectRevert(
-              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000010207' }), // Returns < 102.07 USM per ETH
+              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000010255' }), // Returns < 102.55 USM per ETH
               "Limit not reached",
             )
           })
