@@ -595,7 +595,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         //usmOut = ls.ethPool.wadMulDivDown(uint(log), usmBuyPrice0);
 
         // But in practice, we can save some gas by approximating the log integral above as follows: take the geometric average
-        // of the starting and ending usmBuyPrices, and just appply that average price to the entier ethIn passes in.
+        // of the starting and ending usmBuyPrices, and just apply that average price to the entire ethIn passed in.
         uint usmBuyPriceAvg = usmBuyPrice0.wadDivUp(adjShrinkFactor);
         usmOut = ethIn.wadDivDown(usmBuyPriceAvg);
     }
