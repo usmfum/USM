@@ -87,6 +87,8 @@ abstract contract IUSM is IERC20 {
 
     function timeSystemWentUnderwater() public virtual view returns (uint timestamp);
 
+    function isDuringPrefund() public virtual view returns (bool duringPrefund);
+
     // ____________________ Public helper pure functions (for functions above) ____________________
 
     /**
@@ -133,7 +135,7 @@ abstract contract IUSM is IERC20 {
      * return value of `usmSupplyForFumBuys()`.
      * @return price FUM price in ETH terms
      */
-    function fumPrice(Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply) public virtual pure returns (uint price);
+    function fumPrice(Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply, bool prefund) public virtual pure returns (uint price);
 
     /**
      * @return timeSystemWentUnderwater_ The time at which we first detected the system was underwater (debt ratio >

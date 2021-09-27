@@ -30,6 +30,9 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
     uint public constant BID_ASK_ADJUSTMENT_DECAY_PER_SECOND = 988514020352896135;  // 1-sec decay equiv to halving in 1 minute
     uint public constant BID_ASK_ADJUSTMENT_ZERO_OUT_PERIOD = 600;                  // After 10 min, adjustment just goes to 0
 
+    uint public constant PREFUND_END_TIMESTAMP = 1635724800;                        // Midnight, morning of Nov 1, 2021
+    uint public constant PREFUND_FUM_PRICE_IN_ETH = WAD / 4000;                     // Prefund FUM price: 1/4000 = 0.00025 ETH
+
     FUM public immutable fum;
     Oracle public immutable oracle;
 
@@ -74,6 +77,14 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
             msg.sender == owner || delegated[owner][msg.sender] || msg.sender == address(fum),
             errorMessage
         );
+        _;
+    }
+
+    /**
+     * @dev Some operations are only allowed after the initial "prefund" (fixed-price funding) period.
+     */
+    modifier onlyAfterPrefund {
+        require(!isDuringPrefund(), "Not allowed during prefund");
         _;
     }
 
@@ -124,6 +135,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
     function defund(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
         onlyHolderOrDelegateOrFum(from, "Only holder or delegate or FUM")
+        onlyAfterPrefund
         returns (uint ethOut)
     {
         ethOut = _defundFum(from, to, fumToBurn, minEthOut);
@@ -235,7 +247,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         // 4. Calculate fumOut:
         uint fumSupply = fum.totalSupply();
         uint adjGrowthFactor;
-        (fumOut, adjGrowthFactor) = fumFromFund(ls, fumSupply, msg.value, debtRatio_);
+        (fumOut, adjGrowthFactor) = fumFromFund(ls, fumSupply, msg.value, debtRatio_, isDuringPrefund());
         require(fumOut >= minFumOut, "Limit not reached");
 
         // 5. Update the in-memory LoadedState's bidAskAdjustment and price:
@@ -406,6 +418,10 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         timestamp = storedState.timeSystemWentUnderwater;
     }
 
+    function isDuringPrefund() public override view returns (bool duringPrefund) {
+        duringPrefund = block.timestamp < PREFUND_END_TIMESTAMP;
+    }
+
     // ____________________ Public helper view functions (for functions above) ____________________
 
     /**
@@ -499,15 +515,15 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
      * return value of `usmSupplyForFumBuys()`.
      * @return price FUM price in ETH terms
      */
-    function fumPrice(IUSM.Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply)
+    function fumPrice(IUSM.Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply, bool prefund)
         public override pure returns (uint price)
     {
-        bool roundUp = (side == IUSM.Side.Buy);
-        if (fumSupply == 0) {
-            price = usmToEth(ethUsdPrice, WAD, roundUp);    // if no FUM issued yet, default fumPrice to 1 USD (in ETH terms)
+        if (prefund) {
+            price = PREFUND_FUM_PRICE_IN_ETH;   // We're in the prefund period, so the price is just the prefund's "prix fixe"
         } else {
             // Using usmEffectiveSupply here, rather than just the raw actual supply, has the effect of bumping the FUM price
             // up to the minFumBuyPrice when needed (ie, when debt ratio > MAX_DEBT_RATIO):
+            bool roundUp = (side == IUSM.Side.Buy);
             int buffer = ethBuffer(ethUsdPrice, ethInPool, usmEffectiveSupply, roundUp);
             price = (buffer <= 0 ? 0 : uint(buffer).wadDiv(fumSupply, roundUp));
         }
@@ -637,13 +653,13 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
      * @param ethIn The amount of ETH passed to `fund()`
      * @return fumOut The amount of FUM to receive in exchange
      */
-    function fumFromFund(LoadedState memory ls, uint fumSupply, uint ethIn, uint debtRatio_)
+    function fumFromFund(LoadedState memory ls, uint fumSupply, uint ethIn, uint debtRatio_, bool prefund)
         public pure returns (uint fumOut, uint adjGrowthFactor)
     {
         uint adjustedEthUsdPrice0 = adjustedEthUsdPrice(IUSM.Side.Buy, ls.ethUsdPrice, ls.bidAskAdjustment);
-        uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, adjustedEthUsdPrice0, ls.ethPool, ls.usmTotalSupply, fumSupply);
-        if (ls.ethPool == 0) {
-            // No ETH in the system yet, which breaks our adjGrowthFactor calculation below - skip sliding-prices this time:
+        uint fumBuyPrice0 = fumPrice(IUSM.Side.Buy, adjustedEthUsdPrice0, ls.ethPool, ls.usmTotalSupply, fumSupply, prefund);
+        if (prefund) {
+            // We're in the prefund period, so no fees - fumOut is just ethIn divided by the fixed prefund FUM price:
             adjGrowthFactor = WAD;
             fumOut = ethIn.wadDivDown(fumBuyPrice0);
         } else {
@@ -684,7 +700,8 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
             // purposes: we mostly just want to charge funders a positive fee, that increases as a % of ethIn as ethIn gets
             // larger ("larger trades pay superlinearly larger fees").
             uint adjustedEthUsdPrice1 = adjustedEthUsdPrice0.wadMulUp(adjGrowthFactor.wadSquaredUp());
-            uint fumBuyPrice1 = fumPrice(IUSM.Side.Buy, adjustedEthUsdPrice1, ls.ethPool, ls.usmTotalSupply, fumSupply);
+            uint fumBuyPrice1 = fumPrice(IUSM.Side.Buy, adjustedEthUsdPrice1, ls.ethPool, ls.usmTotalSupply, fumSupply,
+                                         prefund);
             uint avgFumBuyPrice = fumBuyPrice0.wadMulUp(fumBuyPrice1).wadSqrtUp();      // Taking the geometric avg
             fumOut = ethIn.wadDivDown(avgFumBuyPrice);
         }
@@ -703,7 +720,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
 
         // 1. Calculating the initial FUM sell price we start from is no problem:
         uint adjustedEthUsdPrice0 = adjustedEthUsdPrice(IUSM.Side.Sell, ls.ethUsdPrice, ls.bidAskAdjustment);
-        uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, adjustedEthUsdPrice0, ls.ethPool, ls.usmTotalSupply, fumSupply);
+        uint fumSellPrice0 = fumPrice(IUSM.Side.Sell, adjustedEthUsdPrice0, ls.ethPool, ls.usmTotalSupply, fumSupply, false);
 
         { // Scope for adjShrinkFactor, to avoid the dreaded "stack too deep" error.  Thanks Uniswap v2 for the trick!
             // 2. Now we want a "pessimistic" lower bound on the ending ETH pool qty.  We can get this by supposing the entire
@@ -734,7 +751,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         // calculate the instantaneous FUM sell price we'll end the operation at, just as we calculated our ending fumBuyPrice1
         // in fumFromFund():
         uint adjustedEthUsdPrice2 = adjustedEthUsdPrice0.wadMulDown(adjShrinkFactor.wadSquaredDown());
-        uint fumSellPrice2 = fumPrice(IUSM.Side.Sell, adjustedEthUsdPrice2, ls.ethPool, ls.usmTotalSupply, fumSupply);
+        uint fumSellPrice2 = fumPrice(IUSM.Side.Sell, adjustedEthUsdPrice2, ls.ethPool, ls.usmTotalSupply, fumSupply, false);
 
         // 7. We now know the starting fumSellPrice0, and the ending fumSellPrice2.  We want to combine these to get a single
         // avgFumSellPrice we can use for the entire defund operation, which will trivially give us ethOut.  But taking the
