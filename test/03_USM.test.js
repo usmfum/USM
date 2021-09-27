@@ -3,8 +3,7 @@ const { web3 } = require('@openzeppelin/test-helpers/src/setup')
 const timeMachine = require('ganache-time-traveler')
 
 const Aggregator = artifacts.require('MockChainlinkAggregatorV3')
-const CompoundUniswapAnchoredView = artifacts.require('MockCompoundUniswapAnchoredView')
-const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
+const UniswapV3Pool = artifacts.require('MockUniswapV3Pool')
 
 const WadMath = artifacts.require('MockWadMath')
 const MedianOracle = artifacts.require('MockMedianOracle')
@@ -33,19 +32,24 @@ contract('USM', (accounts) => {
   const shift = '18'
 
   let aggregator
-  const chainlinkPrice = '38598000000'                      // 8 dec places: see ChainlinkOracle
+  const chainlinkPrice = '309647000000'                     // 8 dec places: see ChainlinkOracle
   const chainlinkTime = '1613550219'                        // Timestamp ("updatedAt") of the Chainlink price
 
-  let anchoredView
-  const compoundPrice = '414174999'                         // 6 dec places: see CompoundOpenOracle
+  let usdcEthPool
+  const usdcEthTokenToPrice = new BN(1)                     // See UniswapV3TWAPOracle for explanations of these
+  const usdcEthTimestamp0 = new BN('1632203136')
+  const usdcEthTickCum0 = new BN('2357826690419')           // From the V3 USDC/ETH pool
+  const usdcEthTimestamp1 = new BN('1632203736')
+  const usdcEthTickCum1 = new BN('2357944474677')
+  const usdcEthDecimals = new BN(-12)
 
-  let usdcEthPair
-  const usdcEthTokenToUse = new BN(1)                       // See UniswapV2TWAPOracle for explanations of these
-  const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103')     // From the USDC/ETH pair
-  const usdcEthTimestamp_0 = new BN('1606780664')
-  const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')
-  const usdcEthTimestamp_1 = new BN('1606782003')
-  const usdcEthEthDecimals = new BN(-12)
+  let ethUsdtPool
+  const ethUsdtTokenToPrice = new BN(0)
+  const ethUsdtTimestamp0 = new BN('1632453299')
+  const ethUsdtTickCum0 = new BN('-2406882279470')          // From the V3 ETH/USDT pool
+  const ethUsdtTimestamp1 = new BN('1632453899')
+  const ethUsdtTickCum1 = new BN('-2406999836487')
+  const ethUsdtDecimals = new BN(-12)
 
   let MAX_DEBT_RATIO
 
@@ -160,25 +164,22 @@ contract('USM', (accounts) => {
       aggregator = await Aggregator.new({ from: deployer })
       await aggregator.set(chainlinkPrice, chainlinkTime)
 
-      anchoredView = await CompoundUniswapAnchoredView.new({ from: deployer })
-      await anchoredView.set(compoundPrice)
+      usdcEthPool = await UniswapV3Pool.new({ from: deployer })
+      await usdcEthPool.setObservation(ZERO, usdcEthTimestamp0, usdcEthTickCum0)
+      await usdcEthPool.setObservation(ONE, usdcEthTimestamp1, usdcEthTickCum1)
 
-      usdcEthPair = await UniswapV2Pair.new({ from: deployer })
-      await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_0)
-      await usdcEthPair.setCumulativePrices(0, usdcEthCumPrice1_0)
+      ethUsdtPool = await UniswapV3Pool.new({ from: deployer })
+      await ethUsdtPool.setObservation(ZERO, ethUsdtTimestamp0, ethUsdtTickCum0)
+      await ethUsdtPool.setObservation(ONE, ethUsdtTimestamp1, ethUsdtTickCum1)
 
       // USM
-      oracle = await MedianOracle.new(aggregator.address, anchoredView.address,
-                                      usdcEthPair.address, usdcEthTokenToUse, usdcEthEthDecimals,
-                                      { from: deployer })
+      oracle = await MedianOracle.new(aggregator.address,
+        usdcEthPool.address, usdcEthTokenToPrice, usdcEthDecimals,
+        ethUsdtPool.address, ethUsdtTokenToPrice, ethUsdtDecimals, { from: deployer })
       usm = await USM.new(oracle.address, [optOut1, optOut2], { from: deployer })
-      await usm.refreshPrice()  // This call stores the Uniswap cumPriceSeconds record for time usdcEthTimestamp_0
+      await usm.refreshPrice()
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
-
-      await usdcEthPair.setReserves(0, 0, usdcEthTimestamp_1)
-      await usdcEthPair.setCumulativePrices(0, usdcEthCumPrice1_1)
-      await usm.refreshPrice()  // ...And this stores the cumPriceSeconds for usdcEthTimestamp_1 - so we have a valid TWAP now
 
       priceWAD = (await usm.latestPrice())[0]
       oneDollarInEth = wadDiv(WAD, priceWAD, true)

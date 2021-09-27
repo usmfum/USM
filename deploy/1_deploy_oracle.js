@@ -3,17 +3,14 @@ const chainlinkAddresses = {
   '1' : '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
   '42' : '0x9326BFA02ADD2366b30bacB125260Af641031331',
 }
-const compoundAddresses = {
-  '1' : '0x922018674c12a7f0d394ebeef9b58f186cde13c1',
+const usdcEthAddresses = {
+  '1' : '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
 }
 const ethUsdtAddresses = {
-  '1' : '0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852',
-}
-const usdcEthAddresses = {
-  '1' : '0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc',
+  '1' : '0x11b815efb8f581194ae79006d24e0d814b7697f6',
 }
 const daiEthAddresses = {
-  '1' : '0xa478c2975ab1ea89e8196811f51a7b7ade33eb11',
+  '1' : '0x60594a405d53811d3bc4766596efd80fd545a270',
 }
 
 const func = async function ({ deployments, getNamedAccounts, getChainId }) {
@@ -21,18 +18,27 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId()
 
-  const usdcEthTokenToUse = 1
-  const usdcEthEthDecimals = -12
+  const usdcEthTokenToPrice = 1
+  const usdcEthDecimals = -12
+  const ethUsdtTokenToPrice = 0
+  const ethUsdtDecimals = -12
 
-  let aggregator, anchoredView, usdcEthPair
-  let aggregatorAddress, anchoredViewAddress, usdcEthPairAddress
+  let aggregator, usdcEthPool, ethUsdtPool
+  let aggregatorAddress, usdcEthPoolAddress, ethUsdtPoolAddress
 
   if (chainId === '31337') { // buidlerevm's chainId
-    const chainlinkPrice = '38598000000' // 8 dec places: see ChainlinkOracle
+    const chainlinkPrice = '309647000000' // 8 dec places: see ChainlinkOracle
     const chainlinkTime = '1613550219' // Timestamp ("updatedAt") of the Chainlink price
-    const compoundPrice = '414174999' // 6 dec places: see CompoundOpenOracle
-    const usdcEthCumPrice0 = 0 // We don't use token0 (for USDC/ETH) so whatever
-    const usdcEthCumPrice1 = '31377639132666967530700283664103'
+
+    const usdcEthTimestamp0 = '1632203136'
+    const usdcEthTickCum0 = '2357826690419'
+    const usdcEthTimestamp1 = '1632203736'
+    const usdcEthTickCum1 = '2357944474677'
+
+    const ethUsdtTimestamp0 = '1632453299'
+    const ethUsdtTickCum0 = '-2406882279470'
+    const ethUsdtTimestamp1 = '1632453899'
+    const ethUsdtTickCum1 = '-2406999836487'
 
     aggregator = await deploy('MockChainlinkAggregatorV3', {
       from: deployer,
@@ -42,40 +48,40 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     console.log(`Deployed MockChainlinkAggregatorV3 to ${aggregator.address}`);
     aggregatorAddress = aggregator.address
 
-    anchoredView = await deploy('MockUniswapAnchoredView', {
+    usdcEthPool = await deploy('MockUniswapV3Pool', {
       from: deployer,
       deterministicDeployment: true,
     });
-    await execute('MockUniswapAnchoredView', { from: deployer }, 'set', compoundPrice)
-    console.log(`Deployed MockUniswapAnchoredView to ${anchoredView.address}`);
-    anchoredViewAddress = anchoredView.address
+    await execute('MockUniswapV3Pool', { from: deployer }, 'setObservation', '0', usdcEthTimestamp0, usdcEthTickCum0)
+    await execute('MockUniswapV3Pool', { from: deployer }, 'setObservation', '1', usdcEthTimestamp1, usdcEthTickCum1)
+    console.log(`Deployed MockUniswapV3Pool to ${usdcEthPool.address}`);
+    usdcEthPoolAddress = usdcEthPool.address
 
-    usdcEthPair = await deploy('MockUniswapV2Pair', {
+    ethUsdtPool = await deploy('MockUniswapV3Pool', {
       from: deployer,
       deterministicDeployment: true,
     });
-    await execute('MockUniswapV2Pair', { from: deployer }, 'setCumulativePrices', usdcEthCumPrice0, usdcEthCumPrice1)
-    console.log(`Deployed MockUniswapV2Pair to ${usdcEthPair.address}`);
-    usdcEthPairAddress = usdcEthPair.address
+    await execute('MockUniswapV3Pool', { from: deployer }, 'setObservation', '0', ethUsdtTimestamp0, ethUsdtTickCum0)
+    await execute('MockUniswapV3Pool', { from: deployer }, 'setObservation', '1', ethUsdtTimestamp1, ethUsdtTickCum1)
+    console.log(`Deployed MockUniswapV3Pool to ${ethUsdtPool.address}`);
+    ethUsdtPoolAddress = ethUsdtPool.address
 
     const oracle = await deploy('MedianOracle', {
       from: deployer,
       deterministicDeployment: true,
       args: [
         aggregatorAddress,
-        anchoredViewAddress,
-        usdcEthPairAddress,
-        usdcEthTokenToUse,
-        usdcEthEthDecimals,
+        usdcEthPoolAddress,
+        usdcEthTokenToPrice,
+        usdcEthDecimals,
+        ethUsdtPoolAddress,
+        ethUsdtTokenToPrice,
+        ethUsdtDecimals,
       ],
     })
     console.log(`Deployed MedianOracle to ${oracle.address}`);
 
   } else if (chainId === '42') {
-    aggregatorAddress = chainlinkAddresses[chainId]
-    anchoredViewAddress = compoundAddresses[chainId]
-    usdcEthPairAddress = usdcEthAddresses[chainId]
-  
     const oracle = await deploy('MockChainlinkOracle', {
       from: deployer,
       deterministicDeployment: true,
@@ -84,10 +90,6 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     console.log(`Deployed MockChainlinkOracle to ${oracle.address}`);    
     
   } else { // mainnet
-    aggregatorAddress = chainlinkAddresses[chainId]
-    anchoredViewAddress = compoundAddresses[chainId]
-    usdcEthPairAddress = usdcEthAddresses[chainId]
-  
     const oracle = await deploy('MedianOracle', {
       from: deployer,
       deterministicDeployment: true,
