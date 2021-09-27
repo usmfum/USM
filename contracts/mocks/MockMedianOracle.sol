@@ -12,11 +12,12 @@ import "../oracles/MedianOracle.sol";
 contract MockMedianOracle is MedianOracle, SettableOracle {
     constructor(
         AggregatorV3Interface chainlinkAggregator,
-        CompoundUniswapAnchoredView compoundView,
-        IUniswapV2Pair uniswapV2Pair, uint uniswapTokenToUse, int uniswapTokenDecimals
+        IUniswapV3Pool uniswapPool1, uint uniswapTokenToPrice1, int uniswapDecimals1,
+        IUniswapV3Pool uniswapPool2, uint uniswapTokenToPrice2, int uniswapDecimals2
     )
-        MedianOracle(chainlinkAggregator, compoundView,
-            uniswapV2Pair, uniswapTokenToUse, uniswapTokenDecimals) {}
+        MedianOracle(chainlinkAggregator,
+            uniswapPool1, uniswapTokenToPrice1, uniswapDecimals1,
+            uniswapPool2, uniswapTokenToPrice2, uniswapDecimals2) {}
 
     function refreshPrice() public override(MedianOracle, Oracle) returns (uint price, uint updateTime) {
         (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.refreshPrice();

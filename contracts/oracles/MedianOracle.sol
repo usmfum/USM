@@ -3,7 +3,8 @@ pragma solidity ^0.8.0;
 
 import "./ChainlinkOracle.sol";
 import "./CompoundOpenOracle.sol";
-import "./UniswapV2TWAPOracle.sol";
+import "./UniswapV3TWAPOracle.sol";
+import "./UniswapV3TWAPOracle2.sol";
 
 /**
  * We make MedianOracle *inherit* its median-component oracles (eg, ChainlinkOracle), rather than hold them as state variables
@@ -11,51 +12,44 @@ import "./UniswapV2TWAPOracle.sol";
  * Eg, this contract calling ChainlinkOracle.latestPrice() on itself is significantly cheaper than calling
  * chainlinkOracle.latestPrice() on a chainlinkOracle var (contract).
  */
-contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapV2TWAPOracle {
+contract MedianOracle is ChainlinkOracle, UniswapV3TWAPOracle, UniswapV3TWAPOracle2 {
 
     constructor(
         AggregatorV3Interface chainlinkAggregator,
-        CompoundUniswapAnchoredView compoundView,
-        IUniswapV2Pair uniswapV2Pair, uint uniswapTokenToUse, int uniswapTokenDecimals
+        IUniswapV3Pool uniswapPool1, uint uniswapTokenToPrice1, int uniswapDecimals1,
+        IUniswapV3Pool uniswapPool2, uint uniswapTokenToPrice2, int uniswapDecimals2
     )
         ChainlinkOracle(chainlinkAggregator)
-        CompoundOpenOracle(compoundView)
-        UniswapV2TWAPOracle(uniswapV2Pair, uniswapTokenToUse, uniswapTokenDecimals) {}
+        UniswapV3TWAPOracle(uniswapPool1, uniswapTokenToPrice1, uniswapDecimals1)
+        UniswapV3TWAPOracle2(uniswapPool2, uniswapTokenToPrice2, uniswapDecimals2) {}
 
-    function latestPrice() public virtual override(ChainlinkOracle, CompoundOpenOracle, UniswapV2TWAPOracle)
+    function latestPrice() public virtual override(ChainlinkOracle, UniswapV3TWAPOracle, UniswapV3TWAPOracle2)
         view returns (uint price, uint updateTime)
     {
         (uint chainlinkPrice, uint chainlinkUpdateTime) = ChainlinkOracle.latestPrice();
-        (uint compoundPrice, uint compoundUpdateTime) = CompoundOpenOracle.latestPrice();
-        (uint uniswapPrice, uint uniswapUpdateTime) = UniswapV2TWAPOracle.latestPrice();
+        (uint uniswapPrice1, uint uniswapUpdateTime1) = UniswapV3TWAPOracle.latestPrice();
+        (uint uniswapPrice2, uint uniswapUpdateTime2) = UniswapV3TWAPOracle2.latestPrice();
         (price, updateTime) = medianPriceAndUpdateTime(chainlinkPrice, chainlinkUpdateTime,
-                                                       compoundPrice, compoundUpdateTime,
-                                                       uniswapPrice, uniswapUpdateTime);
+                                                       uniswapPrice1, uniswapUpdateTime1,
+                                                       uniswapPrice2, uniswapUpdateTime2);
     }
 
     function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
         (price, updateTime) = ChainlinkOracle.latestPrice();
     }
 
-    function latestCompoundPrice() public view returns (uint price, uint updateTime) {
-        (price, updateTime) = CompoundOpenOracle.latestPrice();
+    function latestUniswapV3TWAPPrice1() public view returns (uint price, uint updateTime) {
+        (price, updateTime) = UniswapV3TWAPOracle.latestPrice();
     }
 
-    function latestUniswapV2TWAPPrice() public view returns (uint price, uint updateTime) {
-        (price, updateTime) = UniswapV2TWAPOracle.latestPrice();
+    function latestUniswapV3TWAPPrice2() public view returns (uint price, uint updateTime) {
+        (price, updateTime) = UniswapV3TWAPOracle2.latestPrice();
     }
 
-    function refreshPrice() public virtual override(Oracle, CompoundOpenOracle, UniswapV2TWAPOracle)
+    function refreshPrice() public virtual override(Oracle)
         returns (uint price, uint updateTime)
     {
-        // Not ideal to call latestPrice() on one of these and refreshPrice() on two...  But it works, and inheriting them like
-        // this saves significant gas:
-        (uint chainlinkPrice, uint chainlinkUpdateTime) = ChainlinkOracle.latestPrice();
-        (uint compoundPrice, uint compoundUpdateTime) = CompoundOpenOracle.refreshPrice();      // Note: refreshPrice()
-        (uint uniswapPrice, uint uniswapUpdateTime) = UniswapV2TWAPOracle.refreshPrice();       // Note: refreshPrice()
-        (price, updateTime) = medianPriceAndUpdateTime(chainlinkPrice, chainlinkUpdateTime,
-                                                       compoundPrice, compoundUpdateTime,
-                                                       uniswapPrice, uniswapUpdateTime);
+        (price, updateTime) = latestPrice();
     }
 
     /**

@@ -25,7 +25,7 @@ contract('Oracle pricing', (accounts) => {
 
   const testPriceWAD = '250000000000000000000'              // TestOracle just uses WAD (18-dec-place) pricing
 
-  const chainlinkPrice = '38598000000'                      // Chainlink aggregator (AggregatorV3Interface) stores 8 dec places
+  const chainlinkPrice = '309647000000'                     // Chainlink aggregator (AggregatorV3Interface) stores 8 dec places
   const chainlinkPriceWAD = new BN(chainlinkPrice + '0000000000') // We want 18 dec places, so add 10 0s
   const chainlinkTime = '1613550219'                        // Timestamp ("updatedAt") of the Chainlink price
 
@@ -230,27 +230,27 @@ contract('Oracle pricing', (accounts) => {
       chainlinkAggregator = await Aggregator.new({ from: deployer })
       await chainlinkAggregator.set(chainlinkPrice, chainlinkTime)
 
-      compoundView = await CompoundUniswapAnchoredView.new({ from: deployer })
-      await compoundView.set(compoundPrice)
+      usdcEthPool = await UniswapV3Pool.new({ from: deployer })
+      await usdcEthPool.setObservation(ZERO, usdcEthV3Timestamp0, usdcEthV3TickCum0)
+      await usdcEthPool.setObservation(ONE, usdcEthV3Timestamp1, usdcEthV3TickCum1)
 
-      usdcEthPair = await UniswapV2Pair.new({ from: deployer })
-      await usdcEthPair.setReserves(0, 0, usdcEthV2Timestamp_0)
-      await usdcEthPair.setCumulativePrices(0, usdcEthV2CumPrice1_0)
+      ethUsdtPool = await UniswapV3Pool.new({ from: deployer })
+      await ethUsdtPool.setObservation(ZERO, ethUsdtV3Timestamp0, ethUsdtV3TickCum0)
+      await ethUsdtPool.setObservation(ONE, ethUsdtV3Timestamp1, ethUsdtV3TickCum1)
 
-      rawOracle = await MedianOracle.new(chainlinkAggregator.address, compoundView.address,
-        usdcEthPair.address, usdcEthTokenToPrice, usdcEthDecimals, { from: deployer })
+      rawOracle = await MedianOracle.new(chainlinkAggregator.address,
+        usdcEthPool.address, usdcEthTokenToPrice, usdcEthDecimals,
+        ethUsdtPool.address, ethUsdtTokenToPrice, ethUsdtDecimals, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(rawOracle.address, "median", { from: deployer })
-      await oracle.refreshPrice()
-
-      await usdcEthPair.setReserves(0, 0, usdcEthV2Timestamp_1)
-      await usdcEthPair.setCumulativePrices(0, usdcEthV2CumPrice1_1)
       await oracle.refreshPrice()
     })
 
     it('returns the correct price', async () => {
       const oraclePrice = (await oracle.latestPrice())[0]
-      const uniswapPrice = (await rawOracle.latestUniswapV2TWAPPrice())[0]
-      const targetOraclePrice = median(chainlinkPriceWAD, compoundPriceWAD, uniswapPrice)
+      const uniswapPrice1 = (await rawOracle.latestUniswapV3TWAPPrice1())[0]
+      const uniswapPrice2 = (await rawOracle.latestUniswapV3TWAPPrice2())[0]
+      const targetOraclePrice = median(chainlinkPriceWAD, uniswapPrice1, uniswapPrice2)
+      //console.log("Prices: oracle " + fl(oraclePrice) + ", target " + fl(targetOraclePrice) + ", Chainlink " + fl((await rawOracle.latestChainlinkPrice())[0]) + ", Uniswap1 " + fl(uniswapPrice1) + ", Uniswap2 " + fl(uniswapPrice2))
       oraclePrice.toString().should.equal(targetOraclePrice.toString())
     })
 
