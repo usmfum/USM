@@ -40,7 +40,7 @@ contract('USM', (accounts) => {
   const compoundPrice = '414174999'                         // 6 dec places: see CompoundOpenOracle
 
   let usdcEthPair
-  const usdcEthTokenToUse = new BN(1)                       // See OurUniswapV2TWAPOracle for explanations of these
+  const usdcEthTokenToUse = new BN(1)                       // See UniswapV2TWAPOracle for explanations of these
   const usdcEthCumPrice1_0 = new BN('31375939132666967530700283664103')     // From the USDC/ETH pair
   const usdcEthTimestamp_0 = new BN('1606780664')
   const usdcEthCumPrice1_1 = new BN('31378725947216452626380862836246')

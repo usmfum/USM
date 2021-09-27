@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./Oracle.sol";
 
-contract OurUniswapV2TWAPOracle is Oracle {
+contract UniswapV2TWAPOracle is Oracle {
     /**
      * UNISWAP_MIN_TWAP_PERIOD plays two roles:
      *
