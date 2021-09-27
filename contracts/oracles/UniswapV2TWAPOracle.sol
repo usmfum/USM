@@ -27,7 +27,7 @@ contract UniswapV2TWAPOracle is Oracle {
     // Uniswap stores its cumulative prices in "FixedPoint.uq112x112" format - 112-bit fixed point:
     uint public constant UNISWAP_CUM_PRICE_SCALE_FACTOR = 2 ** 112;
 
-    IUniswapV2Pair public immutable uniswapPair;
+    IUniswapV2Pair public immutable uniswapV2Pair;
     uint public immutable uniswapTokenToUse;        // 0 -> calc TWAP from stored token0, 1 -> token1.  We only use one of them
     /**
      * Uniswap pairs store cumPriceSeconds: let's suppose the intended cumulative price-seconds stored is 12.345.  Converting
@@ -73,7 +73,7 @@ contract UniswapV2TWAPOracle is Oracle {
      * DAI/ETH: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11, 1, 0
      */
     constructor(IUniswapV2Pair pair, uint tokenToUse, int tokenDecimals) {
-        uniswapPair = pair;
+        uniswapV2Pair = pair;
         require(tokenToUse == 0 || tokenToUse == 1, "tokenToUse not 0 or 1");
         uniswapTokenToUse = tokenToUse;
         uniswapScaleFactor = tokenDecimals >= 0 ?
@@ -206,13 +206,13 @@ contract UniswapV2TWAPOracle is Oracle {
     function cumulativePriceFromPair()
         public view returns (uint timestamp, uint cumPriceSeconds)
     {
-        (,, timestamp) = uniswapPair.getReserves();
+        (,, timestamp) = uniswapV2Pair.getReserves();
 
         // Retrieve the current Uniswap cumulative price.  Modeled off of Uniswap's own example:
         // https://github.com/Uniswap/uniswap-v2-periphery/blob/master/contracts/examples/ExampleOracleSimple.sol
         uint uniswapCumPrice = uniswapTokenToUse == 1 ?
-            uniswapPair.price1CumulativeLast() :
-            uniswapPair.price0CumulativeLast();
+            uniswapV2Pair.price1CumulativeLast() :
+            uniswapV2Pair.price0CumulativeLast();
         cumPriceSeconds = uniswapCumPrice * WAD;
         unchecked { cumPriceSeconds /= uniswapScaleFactor; }
     }

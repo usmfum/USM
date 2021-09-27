@@ -16,11 +16,11 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapV2TWAPOracl
     constructor(
         AggregatorV3Interface chainlinkAggregator,
         CompoundUniswapAnchoredView compoundView,
-        IUniswapV2Pair uniswapPair, uint uniswapTokenToUse, int uniswapTokenDecimals
+        IUniswapV2Pair uniswapV2Pair, uint uniswapTokenToUse, int uniswapTokenDecimals
     )
         ChainlinkOracle(chainlinkAggregator)
         CompoundOpenOracle(compoundView)
-        UniswapV2TWAPOracle(uniswapPair, uniswapTokenToUse, uniswapTokenDecimals) {}
+        UniswapV2TWAPOracle(uniswapV2Pair, uniswapTokenToUse, uniswapTokenDecimals) {}
 
     function latestPrice() public virtual override(ChainlinkOracle, CompoundOpenOracle, UniswapV2TWAPOracle)
         view returns (uint price, uint updateTime)
@@ -41,7 +41,7 @@ contract MedianOracle is ChainlinkOracle, CompoundOpenOracle, UniswapV2TWAPOracl
         (price, updateTime) = CompoundOpenOracle.latestPrice();
     }
 
-    function latestUniswapTWAPPrice() public view returns (uint price, uint updateTime) {
+    function latestUniswapV2TWAPPrice() public view returns (uint price, uint updateTime) {
         (price, updateTime) = UniswapV2TWAPOracle.latestPrice();
     }
 
