@@ -46,10 +46,6 @@ abstract contract IUSM is IERC20 {
      */
     function defund(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint ethOut);
 
-    // ____________________ Public transactional functions ____________________
-
-    function refreshPrice() public virtual returns (uint price, uint updateTime);
-
     // ____________________ Public Oracle view functions ____________________
 
     /**

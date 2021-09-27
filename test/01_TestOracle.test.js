@@ -114,7 +114,6 @@ contract('Oracle pricing', (accounts) => {
 
       oracle = await UniswapV3TWAPOracle.new(pool.address, ethUsdtTokenToPrice, ethUsdtDecimals, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(oracle.address, "uniswapV3TWAP", { from: deployer })
-      await oracle.refreshPrice()
     })
 
     it('returns the correct price', async () => {
@@ -158,7 +157,6 @@ contract('Oracle pricing', (accounts) => {
         usdcEthPool.address, usdcEthTokenToPrice, usdcEthDecimals,
         ethUsdtPool.address, ethUsdtTokenToPrice, ethUsdtDecimals, { from: deployer })
       oracle = await GasMeasuredOracleWrapper.new(rawOracle.address, "median", { from: deployer })
-      await oracle.refreshPrice()
     })
 
     it('returns the correct price', async () => {
@@ -166,7 +164,6 @@ contract('Oracle pricing', (accounts) => {
       const uniswapPrice1 = (await rawOracle.latestUniswapV3TWAPPrice1())[0]
       const uniswapPrice2 = (await rawOracle.latestUniswapV3TWAPPrice2())[0]
       const targetOraclePrice = median(chainlinkPriceWAD, uniswapPrice1, uniswapPrice2)
-      //console.log("Prices: oracle " + fl(oraclePrice) + ", target " + fl(targetOraclePrice) + ", Chainlink " + fl((await rawOracle.latestChainlinkPrice())[0]) + ", Uniswap1 " + fl(uniswapPrice1) + ", Uniswap2 " + fl(uniswapPrice2))
       oraclePrice.toString().should.equal(targetOraclePrice.toString())
     })
 

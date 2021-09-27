@@ -150,18 +150,6 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         _mintUsm(msg.sender, MinOut.parseMinTokenOut(msg.value));
     }
 
-    // ____________________ Public transactional functions ____________________
-
-    function refreshPrice() public virtual override(IUSM, Oracle) returns (uint price, uint updateTime) {
-        LoadedState memory ls = loadState();
-        bool priceChanged;
-        (price, updateTime, ls.bidAskAdjustment, priceChanged) = _refreshPrice(ls);
-        if (priceChanged) {
-            (ls.ethUsdPrice, ls.ethUsdPriceTimestamp) = (price, updateTime);
-            _storeState(ls);
-        }
-    }
-
     // ____________________ Internal ERC20 transactional functions ____________________
 
     /**
@@ -190,8 +178,8 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         // 2. Check that fund() has been called first - no minting before funding:
         require(ls.ethPool > 0, "Fund before minting");
 
-        // 3. Refresh the oracle price (if available - see _refreshPrice() below):
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment, ) = _refreshPrice(ls);
+        // 3. Refresh the oracle price (if available - see checkForFreshOraclePrice() below):
+        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 4. Calculate usmOut:
         uint adjShrinkFactor;
@@ -213,7 +201,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment, ) = _refreshPrice(ls);
+        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Calculate ethOut:
         uint adjGrowthFactor;
@@ -237,7 +225,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         ls.ethPool -= msg.value;    // Backing out the ETH just received, which our calculations should ignore
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment, ) = _refreshPrice(ls);
+        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Refresh timeSystemWentUnderwater, and replace ls.usmTotalSupply with the *effective* USM supply for FUM buys:
         uint debtRatio_;
@@ -265,7 +253,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment, ) = _refreshPrice(ls);
+        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Calculate ethOut:
         uint fumSupply = fum.totalSupply();
@@ -285,60 +273,6 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
         fum.burn(from, fumToBurn);
         _storeState(ls);
         to.sendValue(ethOut);
-    }
-
-    /**
-     * @notice Checks the external oracle for a fresh ETH/USD price.  If it has one, we take it as the new USM system price
-     * (and update `bidAskAdjustment` as described below); if no fresh oracle price is available, we stick with our existing
-     * system price, `ls.ethUsdPrice`, which may have been nudged around by mint/burn operations since the last oracle update.
-     *
-     * Note that our definition of whether an oracle price is "fresh" (`priceChanged == true`) isn't as simple as "whether it's
-     * changed since our last call."  Eg, we only consider a Uniswap TWAP price "fresh" when a new price observation (trade)
-     * occurs, even though `price` may change without such an observation.  See the comment in `Oracle.latestPrice()`.
-     */
-    function _refreshPrice(LoadedState memory ls)
-        internal returns (uint price, uint updateTime, uint adjustment, bool priceChanged)
-    {
-        (price, updateTime) = oracle.refreshPrice();
-
-        // The rest of this fn should be non-transactional: only the oracle.refreshPrice() call above may affect storage.
-        adjustment = ls.bidAskAdjustment;
-        priceChanged = updateTime > ls.ethUsdPriceTimestamp;
-
-        if (!priceChanged) {                // If the price isn't fresher than our old one, scrap it and stick to the old one
-            (price, updateTime) = (ls.ethUsdPrice, ls.ethUsdPriceTimestamp);
-        } else if (ls.ethUsdPrice != 0) {   // If the old price is 0, don't try to use it to adjust the bidAskAdjustment...
-            /**
-             * This is a bit subtle.  We want to update the mid stored price to the oracle's fresh value, while updating
-             * bidAskAdjustment in such a way that the currently adjusted (more expensive than mid) side gets no cheaper/more
-             * favorably priced for users.  Example:
-             *
-             * 1. storedPrice = $1,000, and bidAskAdjustment = 1.02.  So, our current ETH buy price is $1,020, and our current
-             *    ETH sell price is $1,000 (mid).
-             * 2. The oracle comes back with a fresh price (newer updateTime) of $990.
-             * 3. The currently adjusted price is buy price (ie, adj > 1).  So, we want to:
-             *    a) Update storedPrice (mid) to $990.
-             *    b) Update bidAskAdj to ensure that buy price remains >= $1,020.
-             * 4. We do this by upping bidAskAdj 1.02 -> 1.0303.  Then the new buy price will remain $990 * 1.0303 = $1,020.
-             *    The sell price will remain the unadjusted mid: formerly $1,000, now $990.
-             *
-             * Because the bidAskAdjustment reverts to 1 in a few minutes, the new 3.03% buy premium is temporary: buy price
-             * will revert to the $990 mid soon - unless the new mid is egregiously low, in which case buyers should push it
-             * back up.  Eg, suppose the oracle gives us a glitchy price of $99.  Then new mid = $99, bidAskAdj = 10.303, buy
-             * price = $1,020, and the buy price will rapidly drop towards $99; but as it does so, users are incentivized to
-             * step in and buy, eventually pushing mid back up to the real-world ETH market price (eg $990).
-             *
-             * In cases like this, our bidAskAdj update has protected the system, by preventing users from getting any chance
-             * to buy at the bogus $99 price.
-             */
-            if (ls.bidAskAdjustment > WAD) {
-                // max(1, old buy price / new mid price):
-                adjustment = WAD.wadMax(ls.ethUsdPrice.wadMulDivUp(adjustment, price));
-            } else if (ls.bidAskAdjustment < WAD) {
-                // min(1, old sell price / new mid price):
-                adjustment = WAD.wadMin(ls.ethUsdPrice.wadMulDivDown(adjustment, price));
-            }
-        }
     }
 
     /**
@@ -385,10 +319,63 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
     // ____________________ Public Oracle view functions ____________________
 
     function latestPrice() public virtual override(IUSM, Oracle) view returns (uint price, uint updateTime) {
-        (price, updateTime) = (storedState.ethUsdPrice * BILLION, storedState.ethUsdPriceTimestamp);
+        (price, updateTime,) = checkForFreshOraclePrice(loadState());
     }
 
     // ____________________ Public informational view functions ____________________
+
+    /**
+     * @notice Checks the external oracle for a fresh ETH/USD price.  If it has one, we take it as the new USM system price
+     * (and update `bidAskAdjustment` as described below); if no fresh oracle price is available, we stick with our existing
+     * system price, `ls.ethUsdPrice`, which may have been nudged around by mint/burn operations since the last oracle update.
+     *
+     * Note that our definition of whether an oracle price is "fresh" (`updateTime > ls.ethUsdPriceTimestamp`) isn't as simple
+     * as "whether it's changed since our last call."  Eg, we only consider a Uniswap TWAP price "fresh" when a new price
+     * observation (trade) occurs, even though `price` may change without such an observation.  See the comment in
+     * `Oracle.latestPrice()`.
+     */
+    function checkForFreshOraclePrice(LoadedState memory ls)
+        public view returns (uint price, uint updateTime, uint adjustment)
+    {
+        (price, updateTime) = oracle.latestPrice();
+
+        adjustment = ls.bidAskAdjustment;
+
+        if (updateTime <= ls.ethUsdPriceTimestamp) {    // If oracle's price isn't fresher than our stored one, keep stored one
+            (price, updateTime) = (ls.ethUsdPrice, ls.ethUsdPriceTimestamp);
+        } else if (ls.ethUsdPrice != 0) {   // If the old price is 0, don't try to use it to adjust the bidAskAdjustment...
+            /**
+             * This is a bit subtle.  We want to update the mid stored price to the oracle's fresh value, while updating
+             * bidAskAdjustment in such a way that the currently adjusted (more expensive than mid) side gets no cheaper/more
+             * favorably priced for users.  Example:
+             *
+             * 1. storedPrice = $1,000, and bidAskAdjustment = 1.02.  So, our current ETH buy price is $1,020, and our current
+             *    ETH sell price is $1,000 (mid).
+             * 2. The oracle comes back with a fresh price (newer updateTime) of $990.
+             * 3. The currently adjusted price is buy price (ie, adj > 1).  So, we want to:
+             *    a) Update storedPrice (mid) to $990.
+             *    b) Update bidAskAdj to ensure that buy price remains >= $1,020.
+             * 4. We do this by upping bidAskAdj 1.02 -> 1.0303.  Then the new buy price will remain $990 * 1.0303 = $1,020.
+             *    The sell price will remain the unadjusted mid: formerly $1,000, now $990.
+             *
+             * Because the bidAskAdjustment reverts to 1 in a few minutes, the new 3.03% buy premium is temporary: buy price
+             * will revert to the $990 mid soon - unless the new mid is egregiously low, in which case buyers should push it
+             * back up.  Eg, suppose the oracle gives us a glitchy price of $99.  Then new mid = $99, bidAskAdj = 10.303, buy
+             * price = $1,020, and the buy price will rapidly drop towards $99; but as it does so, users are incentivized to
+             * step in and buy, eventually pushing mid back up to the real-world ETH market price (eg $990).
+             *
+             * In cases like this, our bidAskAdj update has protected the system, by preventing users from getting any chance
+             * to buy at the bogus $99 price.
+             */
+            if (adjustment > WAD) {
+                // max(1, old buy price / new mid price):
+                adjustment = WAD.wadMax(ls.ethUsdPrice.wadMulDivUp(adjustment, price));
+            } else if (adjustment < WAD) {
+                // min(1, old sell price / new mid price):
+                adjustment = WAD.wadMin(ls.ethUsdPrice.wadMulDivDown(adjustment, price));
+            }
+        }
+    }
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
