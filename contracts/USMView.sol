@@ -67,10 +67,20 @@ contract USMView {
     }
 
     /**
-     * @notice Calculate the *marginal* price of FUM (in ETH terms) - that is, of the next unit, before price start sliding.
+     * @notice Calculate the marginal price of FUM, based on whether we're currently in the prefund period or not.
      * @return price FUM price in ETH terms
      */
     function fumPrice(IUSM.Side side) external view returns (uint price) {
+        price = fumPrice(side, usm.isDuringPrefund());
+    }
+
+    // ____________________ Public informational view functions ____________________
+
+    /**
+     * @notice Calculate the *marginal* price of FUM (in ETH terms) - that is, of the next unit, before price start sliding.
+     * @return price FUM price in ETH terms
+     */
+    function fumPrice(IUSM.Side side, bool prefund) public view returns (uint price) {
         (uint ethUsdPrice, ) = usm.latestPrice();
         uint adjustedPrice = usm.adjustedEthUsdPrice(side, ethUsdPrice, usm.bidAskAdjustment());
         uint ethPool = usm.ethPool();
@@ -79,6 +89,6 @@ contract USMView {
         if (side == IUSM.Side.Buy) {
             (, usmSupply, ) = usm.checkIfUnderwater(usmSupply, ethPool, ethUsdPrice, oldTimeUnderwater, block.timestamp);
         }
-        price = usm.fumPrice(side, adjustedPrice, ethPool, usmSupply, usm.fumTotalSupply());
+        price = usm.fumPrice(side, adjustedPrice, ethPool, usmSupply, usm.fumTotalSupply(), prefund);
     }
 }

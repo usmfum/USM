@@ -27,6 +27,7 @@ contract('USM', (accounts) => {
   const HOUR = 60 * MINUTE
   const DAY = 24 * HOUR
 
+  const prefundFumPrice = WAD.div(new BN(4000))
   let priceWAD
   let oneDollarInEth
   const shift = '18'
@@ -198,10 +199,10 @@ contract('USM', (accounts) => {
       it("starts with correct FUM price", async () => {
         const fumBuyPrice = await usmView.fumPrice(sides.BUY)
         // The FUM price should start off equal to $1, in ETH terms = 1 / price:
-        shouldEqualApprox(fumBuyPrice, oneDollarInEth)
+        shouldEqualApprox(fumBuyPrice, prefundFumPrice)
 
         const fumSellPrice = await usmView.fumPrice(sides.SELL)
-        shouldEqualApprox(fumSellPrice, oneDollarInEth)
+        shouldEqualApprox(fumSellPrice, prefundFumPrice)
       })
     })
 
@@ -226,9 +227,9 @@ contract('USM', (accounts) => {
         const targetEthPool = ethPerFund
         shouldEqual(ethPool, targetEthPool)
 
-        // Check that the FUM created was just based on straight linear pricing - qty * price:
+        // Check that the FUM created was just based on straight linear pricing, ETH qty / price:
         const user2FumBalance = await fum.balanceOf(user2)
-        const targetTotalFumSupply = wadMul(ethPool, priceWAD, false)
+        const targetTotalFumSupply = wadDiv(ethPerFund, prefundFumPrice, false)
         shouldEqualApprox(user2FumBalance, targetTotalFumSupply)    // Only approx b/c fumFromFund() loses some precision
         const totalFumSupply = await fum.totalSupply()
         shouldEqualApprox(totalFumSupply, targetTotalFumSupply)
@@ -245,9 +246,9 @@ contract('USM', (accounts) => {
         shouldEqualApprox(usmSellPrice, oneDollarInEth)
 
         const fumBuyPrice = await usmView.fumPrice(sides.BUY)
-        shouldEqualApprox(fumBuyPrice, oneDollarInEth)
+        shouldEqualApprox(fumBuyPrice, prefundFumPrice)
         const fumSellPrice = await usmView.fumPrice(sides.SELL)
-        shouldEqualApprox(fumSellPrice, oneDollarInEth)
+        shouldEqualApprox(fumSellPrice, prefundFumPrice)
       })
 
       describe("with existing FUM supply", () => {
@@ -266,10 +267,10 @@ contract('USM', (accounts) => {
           beforeEach(async () => {
             await usm.mint(user1, 0, { from: user2, value: ethPerMint })
 
-            // Move forward a day, so our bidAskAdj reverts to 1 (ie no adjustment):
+            // Move forward 60 days, so bidAskAdj reverts to 1 (ie no adj), and we're past the prefund period (no fixed price):
             const block0 = await web3.eth.getBlockNumber()
             const t0 = (await web3.eth.getBlock(block0)).timestamp
-            const timeDelay = 1 * DAY
+            const timeDelay = 60 * DAY
             await timeMachine.advanceTimeAndBlock(timeDelay)
             const block1 = await web3.eth.getBlockNumber()
             const t1 = (await web3.eth.getBlock(block1)).timestamp

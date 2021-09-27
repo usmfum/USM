@@ -1,6 +1,7 @@
 const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const { expect } = require('chai')
 const { id } = require('ethers/lib/utils')
+const timeMachine = require('ganache-time-traveler')
 
 const WETH9 = artifacts.require('WETH9')
 const TestOracle = artifacts.require('TestOracle')
@@ -18,11 +19,14 @@ contract('USM - USMWETHProxy - Eth', (accounts) => {
 
   const MAX = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
   const oneEth = WAD
+  const MINUTE = 60
+  const HOUR = 60 * MINUTE
+  const DAY = 24 * HOUR
   const price = new BN(250)
   const priceWAD = price.mul(WAD)
 
   describe('mints and burns a static amount', () => {
-    let weth, oracle, usm, fum, usmView, proxy
+    let weth, oracle, usm, fum, usmView, proxy, snapshot, snapshotId
 
     beforeEach(async () => {
       // Deploy contracts
@@ -38,6 +42,13 @@ contract('USM - USMWETHProxy - Eth', (accounts) => {
       await weth.approve(proxy.address, MAX, { from: user1 })
       await usm.addDelegate(proxy.address, { from: user1 })
       await usm.approve(user1, MAX, { from: user1 })
+
+      snapshot = await timeMachine.takeSnapshot()
+      snapshotId = snapshot['result']
+    })
+
+    afterEach(async () => {
+      await timeMachine.revertToSnapshot(snapshotId)
     })
 
     describe('minting and burning', () => {
@@ -88,6 +99,9 @@ contract('USM - USMWETHProxy - Eth', (accounts) => {
         describe('with existing USM supply', () => {
           beforeEach(async () => {
             await proxy.mint(user1, oneEth, 0, { from: user1 })
+
+            const timeDelay = 60 * DAY
+            await timeMachine.advanceTimeAndBlock(timeDelay)
           })
 
           it('allows minting USM by sending ETH, if no minUsmOut specified (1)', async () => {
@@ -111,12 +125,12 @@ contract('USM - USMWETHProxy - Eth', (accounts) => {
           })
 
           it('allows minting USM by sending ETH, if minUsmOut specified but met (2)', async () => {
-            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000010254' }) // Returns >= 102.54 USM per ETH
+            await web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000014433' }) // Returns >= 144.33 USM per ETH
           })
 
           it('does not mint USM by sending ETH, if minUsmOut specified and missed (1)', async () => {
             await expectRevert(
-              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000010255' }), // Returns < 102.55 USM per ETH
+              web3.eth.sendTransaction({ from: user1, to: usm.address, value: '1000000000000014434' }), // Returns < 144.34 USM per ETH
               "Limit not reached",
             )
           })
@@ -155,7 +169,7 @@ contract('USM - USMWETHProxy - Eth', (accounts) => {
             const startingEthPool = await usm.ethPool()
             const startingWethBalance = await weth.balanceOf(user1)
 
-            const fumToBurn = startingFumBalance.div(new BN('2')) // defund 50% of our FUM
+            const fumToBurn = startingFumBalance.div(new BN('4')) // defund 25% of our FUM
             await proxy.defund(user1, fumToBurn, 0, { from: user1 })
 
             const endingFumBalance = await fum.balanceOf(user1)
