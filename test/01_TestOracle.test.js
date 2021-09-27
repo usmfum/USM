@@ -56,9 +56,9 @@ contract('Oracle pricing', (accounts) => {
   const daiEthScaleFactor = uniswapCumPriceScaleFactor.div(TEN.pow(daiEthEthDecimals.neg()))
 
   function median(a, b, c) {
-    const ab = a > b
-    const bc = b > c
-    const ca = c > a
+    const ab = a.gt(b)      // Not "a > b", which seems to do a lexicographic comparison.  JavaScript numbers man, FML...
+    const bc = b.gt(c)
+    const ca = c.gt(a)
     return (ca == ab ? a : (ab == bc ? b : c))
   }
 
