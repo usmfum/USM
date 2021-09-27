@@ -9,7 +9,7 @@ const CompoundUniswapAnchoredView = artifacts.require('MockCompoundUniswapAnchor
 const CompoundOracle = artifacts.require('CompoundOpenOracle')
 
 const UniswapV2Pair = artifacts.require('MockUniswapV2Pair')
-const UniswapTWAPOracle = artifacts.require('OurUniswapV2TWAPOracle')
+const UniswapTWAPOracle = artifacts.require('UniswapV2TWAPOracle')
 
 const MedianOracle = artifacts.require('MedianOracle')
 
@@ -32,7 +32,7 @@ contract('Oracle pricing', (accounts) => {
   const uniswapCumPriceScaleFactor = (new BN(2)).pow(new BN(112))
 
   const ethUsdtTokenToUse = new BN(0)
-  const ethUsdtCumPrice0_0 = new BN('30197009659458262808281833965635') // From the ETH/USDT pair.  See OurUniswapV2TWAPOracle
+  const ethUsdtCumPrice0_0 = new BN('30197009659458262808281833965635') // From the ETH/USDT pair.  See UniswapV2TWAPOracle
   const ethUsdtTimestamp_0 = new BN('1606780564')
   const ethUsdtCumPrice0_1 = new BN('30198349396553956234684790868151')
   const ethUsdtTimestamp_1 = new BN('1606781184')
@@ -134,7 +134,7 @@ contract('Oracle pricing', (accounts) => {
     })
   })
 
-  describe("with OurUniswapV2TWAPOracle", () => {
+  describe("with UniswapV2TWAPOracle", () => {
     const [deployer] = accounts
     let oracle
     let pair
