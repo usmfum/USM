@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import "@uniswap/v3-core/contracts/libraries/Oracle.sol";
-import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
+//import "@uniswap/v3-core/contracts/libraries/Oracle.sol";
+import "../oracles/uniswap/v3-core/Oracle.sol";
+//import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import "../oracles/uniswap/v3-core/TickMath.sol";
+//import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
+import "../oracles/uniswap/v3-periphery/OracleLibrary.sol";
 
 contract MockUniswapV3Pool {
     address public token0 = address(1);     // Mimic USDC/ETH mainnet pool, where token0 < token1 (alphabetically)
