@@ -177,7 +177,6 @@ contract('USM', (accounts) => {
         usdcEthPool.address, usdcEthTokenToPrice, usdcEthDecimals,
         ethUsdtPool.address, ethUsdtTokenToPrice, ethUsdtDecimals, { from: deployer })
       usm = await USM.new(oracle.address, [optOut1, optOut2], { from: deployer })
-      await usm.refreshPrice()
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
 
@@ -455,7 +454,6 @@ contract('USM', (accounts) => {
             const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, true)
             const targetPrice1 = wadMul(price0, priceChangeFactor1, false)
             await oracle.setPrice(targetPrice1)
-            await usm.refreshPrice()    // Need to refreshPrice() after setPrice(), to get the new value into usm.storedPrice
             const price1 = (await usm.latestPrice())[0]
             shouldEqualApprox(price1, targetPrice1)
 
@@ -609,7 +607,6 @@ contract('USM', (accounts) => {
             const priceChangeFactor = wadDiv(debtRatio0, targetDebtRatio, true)
             const targetPrice = wadMul(price0, priceChangeFactor, false)
             await oracle.setPrice(targetPrice)
-            await usm.refreshPrice()
             const price = (await usm.latestPrice())[0]
             shouldEqualApprox(price, targetPrice)
 
@@ -794,7 +791,6 @@ contract('USM', (accounts) => {
             const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, false)
             const targetPrice1 = wadMul(price0, priceChangeFactor1, true)
             await oracle.setPrice(targetPrice1)
-            await usm.refreshPrice()
             const price1 = (await usm.latestPrice())[0]
             shouldEqualApprox(price1, targetPrice1)
 
@@ -810,7 +806,6 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, true)
             const targetPrice3 = wadMul(price1, priceChangeFactor3, false)
             await oracle.setPrice(targetPrice3)
-            await usm.refreshPrice()
             const price3 = (await usm.latestPrice())[0]
             shouldEqualApprox(price3, targetPrice3)
 
@@ -964,7 +959,6 @@ contract('USM', (accounts) => {
             const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, false)
             const targetPrice1 = wadMul(price0, priceChangeFactor1, true)
             await oracle.setPrice(targetPrice1)
-            await usm.refreshPrice()
             const price1 = (await usm.latestPrice())[0]
             shouldEqualApprox(price1, targetPrice1)
 
@@ -989,7 +983,6 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, true)
             const targetPrice3 = wadMul(price1, priceChangeFactor3, false)
             await oracle.setPrice(targetPrice3)
-            await usm.refreshPrice()
             const price3 = (await usm.latestPrice())[0]
             shouldEqualApprox(price3, targetPrice3)
 

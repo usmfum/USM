@@ -20,11 +20,4 @@ contract GasMeasuredOracleWrapper is Oracle {
         uint gasEnd = gasleft();
         console.log("        ", oracleName, "oracle.latestPrice() cost: ", gasStart - gasEnd);
     }
-
-    function refreshPrice() public virtual override returns (uint price, uint updateTime) {
-        uint gasStart = gasleft();
-        (price, updateTime) = measuredOracle.refreshPrice();
-        uint gasEnd = gasleft();
-        console.log("        ", oracleName, "oracle.refreshPrice() cost: ", gasStart - gasEnd);
-    }
 }

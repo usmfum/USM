@@ -12,10 +12,6 @@ import "../oracles/ChainlinkOracle.sol";
 contract MockChainlinkOracle is ChainlinkOracle, SettableOracle {
     constructor(AggregatorV3Interface aggregator_) ChainlinkOracle(aggregator_) {}
 
-    function refreshPrice() public override returns (uint price, uint updateTime) {
-        (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.refreshPrice();
-    }
-
     function latestPrice() public override(ChainlinkOracle, Oracle) view returns (uint price, uint updateTime) {
         (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.latestPrice();
     }

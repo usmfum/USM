@@ -45,12 +45,6 @@ contract MedianOracle is ChainlinkOracle, UniswapV3TWAPOracle, UniswapV3TWAPOrac
         (price, updateTime) = UniswapV3TWAPOracle2.latestPrice();
     }
 
-    function refreshPrice() public virtual override(Oracle)
-        returns (uint price, uint updateTime)
-    {
-        (price, updateTime) = latestPrice();
-    }
-
     /**
      * @notice Currently only supports three inputs
      * @return price the median price of the three passed in
