@@ -293,9 +293,8 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
      * system price, `ls.ethUsdPrice`, which may have been nudged around by mint/burn operations since the last oracle update.
      *
      * Note that our definition of whether an oracle price is "fresh" (`priceChanged == true`) isn't as simple as "whether it's
-     * changed since our last call."  Eg, we only consider a Uniswap TWAP price "fresh" when the *older* of the two TWAP
-     * records it's based on changes (every few minutes), not when the *newer* TWAP record changes (typically every time we
-     * call `latestPrice()`).  See the comment in `UniswapV2TWAPOracle._latestPrice()`.
+     * changed since our last call."  Eg, we only consider a Uniswap TWAP price "fresh" when a new price observation (trade)
+     * occurs, even though `price` may change without such an observation.  See the comment in `Oracle.latestPrice()`.
      */
     function _refreshPrice(LoadedState memory ls)
         internal returns (uint price, uint updateTime, uint adjustment, bool priceChanged)
@@ -346,7 +345,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
      * @notice Stores the current price, `bidAskAdjustment`, and `timeSystemWentUnderwater`.  Note that whereas most calls to
      * this function store a fresh `bidAskAdjustmentTimestamp`, most calls do *not* store a fresh `ethUsdPriceTimestamp`: the
      * latter isn't updated every time this is called with a new price, but only when the *oracle's* price is refreshed.  The
-     * oracle price being "refreshed" is itself a subtle idea: see the comment in `UniswapV2TWAPOracle._latestPrice()`.
+     * oracle price being "refreshed" is itself a subtle idea: see the comment in `Oracle.latestPrice()`.
      */
     function _storeState(LoadedState memory ls) internal {
         require(ls.ethUsdPriceTimestamp <= type(uint32).max, "ethUsdPriceTimestamp overflow");

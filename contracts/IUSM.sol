@@ -57,7 +57,7 @@ abstract contract IUSM is IERC20 {
      * operations, ie, burn() or fund()) or down (by short-ETH operations, mint() or defund()) since the last oracle update.
      * Note that this may be a different value from `USM.oracle.latestPrice()`, which is not moved by USM user operations.
      * @return updateTime the time as of which the price was updated.  This is not as simple as "the last time the returned
-     * price changed"; see the comment in `UniswapV2TWAPOracle._latestPrice()`.
+     * price changed"; see the comment in `Oracle.latestPrice()`.
      */
     function latestPrice() public virtual view returns (uint price, uint updateTime);
 

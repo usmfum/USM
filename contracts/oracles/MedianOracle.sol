@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "./ChainlinkOracle.sol";
-import "./CompoundOpenOracle.sol";
 import "./UniswapV3TWAPOracle.sol";
 import "./UniswapV3TWAPOracle2.sol";
 
