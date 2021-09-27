@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 import "./Oracle.sol";
-//import "hardhat/console.sol";
 
 /**
  * This is all just a copy of UniswapV3TWAPOracle, so that MedianOracle can inherit both of them without conflicts.  It would
