@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+//import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
+import "./uniswap/v3-periphery/OracleLibrary.sol";
 import "./Oracle.sol";
-//import "hardhat/console.sol";
 
 contract UniswapV3TWAPOracle is Oracle {
     uint32 public constant UNISWAP_TWAP_PERIOD = 10 minutes;
@@ -38,17 +38,10 @@ contract UniswapV3TWAPOracle is Oracle {
 
     function latestPrice() public virtual override view returns (uint price, uint updateTime) {
         int24 twapTick = OracleLibrary.consult(address(uniswapV3Pool), UNISWAP_TWAP_PERIOD);
-        //console.log("twapTick:");
-        //console.log(uint(int(twapTick)));
-        //console.log(uniswapTokenToPrice);
         price = uniswapTokenToPrice == 1 ?
             OracleLibrary.getQuoteAtTick(twapTick, uniswapScaleFactor, uniswapV3Pool.token1(), uniswapV3Pool.token0()) :
             OracleLibrary.getQuoteAtTick(twapTick, uniswapScaleFactor, uniswapV3Pool.token0(), uniswapV3Pool.token1());
-        //console.log("price:");
-        //console.log(price);
         (,, uint16 observationIndex,,,,) = uniswapV3Pool.slot0();
         (updateTime,,,) = uniswapV3Pool.observations(observationIndex);
-        //console.log("updateTime:");
-        //console.log(updateTime);
     }
 }
