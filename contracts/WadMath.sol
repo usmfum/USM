@@ -185,12 +185,12 @@ library WadMath {
         require(x <= type(uint128).max, "x overflow");
         require(y <= uint(type(int).max), "y overflow");
         // The logic here is: Z = pow_2(FLOOR_LOG_2_WAD_SCALED + (log_2(X) - CEIL_LOG_2_WAD_SCALED) * Y / WAD)
-        int exponent = log_2(uint128(x));
+        int exponent = int(uint(log_2(uint128(x))));
         unchecked { exponent -= int(CEIL_LOG_2_WAD_SCALED); }   // No chance of overflow here, both operands too small
         exponent *= int(y);
         unchecked { exponent = exponent / int(WAD) + int(FLOOR_LOG_2_WAD_SCALED); } // Can't overflow (would have in prev line)
         require(exponent >= 0, "exponent underflow");
-        require(exponent <= type(uint128).max, "exponent overflow");
+        require(uint(exponent) <= type(uint128).max, "exponent overflow");
         z = pow_2(uint128(uint(exponent)));     // Apparently Solidity won't let us do this cast in one shot.  Weird eh?
      }
 
