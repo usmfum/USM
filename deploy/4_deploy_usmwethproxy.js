@@ -8,7 +8,7 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
     '1' : '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
     '42' : '0xa1C74a9A3e59ffe9bEe7b85Cd6E91C0751289EbD',
   }
-  
+
   let wethAddress, usmAddress
 
   if (chainId === '31337') { // buidlerevm's chainId

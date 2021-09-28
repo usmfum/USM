@@ -10,7 +10,7 @@ const addresses = {
     'USMv0.3': '0x19b490DAA2B58d9B12BFb15Cd3eFC2358ad2Bd67',
     'FUMv0.3': '0x0f682f36363b4cd5261dd613f4caec6e6c8a5eef',
 }
-  
+
 module.exports = [
     addresses['usm'],
     [

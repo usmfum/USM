@@ -4,7 +4,7 @@ const addresses = {
     'ethUsdt': '0x11b815efb8f581194ae79006d24e0d814b7697f6',
     'daiEth': '0x60594a405d53811d3bc4766596efd80fd545a270',
 }
-  
+
 const usdcEthTokenToPrice = 1
 const usdcEthDecimals = -12
 const ethUsdtTokenToPrice = 0

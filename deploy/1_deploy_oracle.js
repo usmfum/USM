@@ -87,8 +87,8 @@ const func = async function ({ deployments, getNamedAccounts, getChainId }) {
       deterministicDeployment: true,
       args: [chainlinkAddresses[chainId]],
     })
-    console.log(`Deployed MockChainlinkOracle to ${oracle.address}`);    
-    
+    console.log(`Deployed MockChainlinkOracle to ${oracle.address}`);
+
   } else { // mainnet
     const oracle = await deploy('MedianOracle', {
       from: deployer,
