@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "acc-erc20/contracts/IERC20.sol";
+import "./oracles/Oracle.sol";
 
-abstract contract IUSM is IERC20 {
+abstract contract IUSM is IERC20, Oracle {
     event UnderwaterStatusChanged(bool underwater);
     event BidAskAdjustmentChanged(uint adjustment);
     event PriceChanged(uint timestamp, uint price);
@@ -45,17 +46,6 @@ abstract contract IUSM is IERC20 {
      * @param minEthOut Minimum accepted ETH for a successful defund.
      */
     function defund(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint ethOut);
-
-    // ____________________ Public Oracle view functions ____________________
-
-    /**
-     * @return price the USM system's latest internal (mid) ETH/USD price, which may have been pushed up (by long-ETH
-     * operations, ie, burn() or fund()) or down (by short-ETH operations, mint() or defund()) since the last oracle update.
-     * Note that this may be a different value from `USM.oracle.latestPrice()`, which is not moved by USM user operations.
-     * @return updateTime the time as of which the price was updated.  This is not as simple as "the last time the returned
-     * price changed"; see the comment in `Oracle.latestPrice()`.
-     */
-    function latestPrice() public virtual view returns (uint price, uint updateTime);
 
     // ____________________ Public informational view functions ____________________
 

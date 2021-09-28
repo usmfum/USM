@@ -17,7 +17,7 @@ import "./MinOut.sol";
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
+contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
     using Address for address payable;
     using WadMath for uint;
 
@@ -318,7 +318,7 @@ contract USM is IUSM, Oracle, ERC20Permit, OptOutable, Delegable {
 
     // ____________________ Public Oracle view functions ____________________
 
-    function latestPrice() public virtual override(IUSM, Oracle) view returns (uint price, uint updateTime) {
+    function latestPrice() public virtual override view returns (uint price, uint updateTime) {
         (price, updateTime,) = checkForFreshOraclePrice(loadState());
     }
 
