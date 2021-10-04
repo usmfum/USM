@@ -30,8 +30,9 @@ contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
     uint public constant BID_ASK_ADJUSTMENT_DECAY_PER_SECOND = 988514020352896135;  // 1-sec decay equiv to halving in 1 minute
     uint public constant BID_ASK_ADJUSTMENT_ZERO_OUT_PERIOD = 600;                  // After 10 min, adjustment just goes to 0
 
-    uint public constant PREFUND_END_TIMESTAMP = 1635724800;                        // Midnight, morning of Nov 1, 2021
+    uint public constant PREFUND_END_TIMESTAMP = 1633564800;                        // Midnight, morning of Oct 7, 2021
     uint public constant PREFUND_FUM_PRICE_IN_ETH = WAD / 4000;                     // Prefund FUM price: 1/4000 = 0.00025 ETH
+    uint public constant DEPOSIT_END_TIMESTAMP = 1634169600;                        // Midnight, morning of Oct 14, 2021
 
     FUM public immutable fum;
     Oracle public immutable oracle;
@@ -60,7 +61,7 @@ contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
     });
 
     constructor(Oracle oracle_, address[] memory optedOut_)
-        ERC20Permit("Minimalist USD v1.0 - Test 4", "USMTest")
+        ERC20Permit("Minimalist USD v1.0 - Test 5", "USMTest")
         OptOutable(optedOut_)
     {
         oracle = oracle_;
@@ -171,6 +172,8 @@ contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
 
     function _mintUsm(address to, uint minUsmOut) internal returns (uint usmOut)
     {
+        require(block.timestamp < DEPOSIT_END_TIMESTAMP, "Deposit window has ended");
+
         // 1. Load the stored state:
         LoadedState memory ls = loadState();
         ls.ethPool -= msg.value;    // Backing out the ETH just received, which our calculations should ignore
@@ -220,6 +223,8 @@ contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
 
     function _fundFum(address to, uint minFumOut) internal returns (uint fumOut)
     {
+        require(block.timestamp < DEPOSIT_END_TIMESTAMP, "Deposit window has ended");
+
         // 1. Load the stored state:
         LoadedState memory ls = loadState();
         ls.ethPool -= msg.value;    // Backing out the ETH just received, which our calculations should ignore
