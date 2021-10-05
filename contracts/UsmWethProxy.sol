@@ -54,7 +54,7 @@ contract USMWETHProxy {
     function burn(address to, uint usmToBurn, uint minEthOut)
         external returns (uint ethOut)
     {
-        usm.transferFrom(msg.sender, address(this), usmToBurn); // The built-in minEthOut can mess things up here
+        usm.transferFrom(msg.sender, address(this), usmToBurn);
         ethOut = usm.burn(payable(this), usmToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
         require(weth.transfer(to, ethOut), "WETH transfer fail");
@@ -84,7 +84,7 @@ contract USMWETHProxy {
     function defund(address to, uint fumToBurn, uint minEthOut)
         external returns (uint ethOut)
     {
-        fum.transferFrom(msg.sender, address(this), fumToBurn); // The built-in minEthOut can mess things up here
+        fum.transferFrom(msg.sender, address(this), fumToBurn);
         ethOut = usm.defund(payable(this), fumToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
         require(weth.transfer(to, ethOut), "WETH transfer fail");
