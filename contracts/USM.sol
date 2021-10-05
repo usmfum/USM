@@ -6,7 +6,6 @@ import "./IUSM.sol";
 import "./OptOutable.sol";
 import "./oracles/Oracle.sol";
 import "./Address.sol";
-import "./Delegable.sol";
 import "./WadMath.sol";
 import "./FUM.sol";
 import "./MinOut.sol";
@@ -17,7 +16,7 @@ import "./MinOut.sol";
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
  * @notice Concept by Jacob Eliosoff (@jacob-eliosoff).
  */
-contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
+contract USM is IUSM, ERC20Permit, OptOutable {
     using Address for address payable;
     using WadMath for uint;
 
@@ -33,7 +32,7 @@ contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
     uint public constant PREFUND_END_TIMESTAMP = 1635724800;                        // Midnight, morning of Nov 1, 2021
     uint public constant PREFUND_FUM_PRICE_IN_ETH = WAD / 4000;                     // Prefund FUM price: 1/4000 = 0.00025 ETH
 
-    FUM public immutable fum;
+    IFUM public immutable override fum;
     Oracle public immutable oracle;
 
     struct StoredState {
@@ -64,21 +63,10 @@ contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
         OptOutable(optedOut_)
     {
         oracle = oracle_;
-        fum = new FUM(optedOut_);
+        fum = IFUM(address(new FUM(optedOut_)));
     }
 
     // ____________________ Modifiers ____________________
-
-    /**
-     * @dev Sometimes we want to give FUM privileged access.
-     */
-    modifier onlyHolderOrDelegateOrFum(address owner, string memory errorMessage) {
-        require(
-            msg.sender == owner || delegated[owner][msg.sender] || msg.sender == address(fum),
-            errorMessage
-        );
-        _;
-    }
 
     /**
      * @dev Some operations are only allowed after the initial "prefund" (fixed-price funding) period.
@@ -102,17 +90,15 @@ contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
 
     /**
      * @dev Burn USM in exchange for ETH.
-     * @param from address to deduct the USM from.
      * @param to address to send the ETH to.
      * @param usmToBurn Amount of USM to burn.
      * @param minEthOut Minimum accepted ETH for a successful burn.
      */
-    function burn(address from, address payable to, uint usmToBurn, uint minEthOut)
+    function burn(address payable to, uint usmToBurn, uint minEthOut)
         external override
-        onlyHolderOrDelegate(from, "Only holder or delegate")
         returns (uint ethOut)
     {
-        ethOut = _burnUsm(from, to, usmToBurn, minEthOut);
+        ethOut = _burnUsm(msg.sender, to, usmToBurn, minEthOut);
     }
 
     /**
@@ -127,19 +113,34 @@ contract USM is IUSM, ERC20Permit, OptOutable, Delegable {
 
     /**
      * @notice Defunds the pool by redeeming FUM in exchange for equivalent ETH from the pool.
+     * @param to address to send the ETH to.
+     * @param fumToBurn Amount of FUM to burn.
+     * @param minEthOut Minimum accepted ETH for a successful defund.
+     */
+    function defund(address payable to, uint fumToBurn, uint minEthOut)
+        external override
+        onlyAfterPrefund
+        returns (uint ethOut)
+    {
+        ethOut = _defundFum(msg.sender, to, fumToBurn, minEthOut);
+    }
+
+    /**
+     * @notice Defunds the pool by redeeming FUM in exchange for equivalent ETH from the pool.
      * @param from address to deduct the FUM from.
      * @param to address to send the ETH to.
      * @param fumToBurn Amount of FUM to burn.
      * @param minEthOut Minimum accepted ETH for a successful defund.
      */
-    function defund(address from, address payable to, uint fumToBurn, uint minEthOut)
+    function defundFrom(address from, address payable to, uint fumToBurn, uint minEthOut)
         external override
-        onlyHolderOrDelegateOrFum(from, "Only holder or delegate or FUM")
         onlyAfterPrefund
         returns (uint ethOut)
     {
+        require(msg.sender == address(fum), "Only FUM");
         ethOut = _defundFum(from, to, fumToBurn, minEthOut);
     }
+
 
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.  If decimals 8 to 11 (inclusive) of the amount of

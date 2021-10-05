@@ -39,7 +39,8 @@ contract('USM - USMWETHProxy - Eth', (accounts) => {
 
       await weth.deposit({ from: user1, value: oneEth.mul(TWO) }) // One 1-ETH fund() + one 1-ETH mint()
       await weth.approve(proxy.address, MAX, { from: user1 })
-      await usm.addDelegate(proxy.address, { from: user1 })
+      await usm.approve(proxy.address, MAX, { from: user1 })
+      await fum.approve(proxy.address, MAX, { from: user1 })
       await usm.approve(user1, MAX, { from: user1 })
 
       snapshot = await timeMachine.takeSnapshot()

@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import "acc-erc20/contracts/IERC20.sol";
 import "./external/IWETH9.sol";
 import "./IUSM.sol";
+import "./IFUM.sol";
+
 
 /**
  * @title USM Weth Frontend Proxy
@@ -10,11 +13,13 @@ import "./IUSM.sol";
  */
 contract USMWETHProxy {
     IUSM public immutable usm;
+    IERC20 public immutable fum;
     IWETH9 public immutable weth;
 
     constructor(IUSM usm_, IWETH9 weth_)
     {
         usm = usm_;
+        fum = usm_.fum();
         weth = weth_;
     }
 
@@ -49,7 +54,8 @@ contract USMWETHProxy {
     function burn(address to, uint usmToBurn, uint minEthOut)
         external returns (uint ethOut)
     {
-        ethOut = usm.burn(msg.sender, payable(this), usmToBurn, minEthOut);
+        usm.transferFrom(msg.sender, address(this), usmToBurn); // The built-in minEthOut can mess things up here
+        ethOut = usm.burn(payable(this), usmToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
         require(weth.transfer(to, ethOut), "WETH transfer fail");
     }
@@ -78,7 +84,8 @@ contract USMWETHProxy {
     function defund(address to, uint fumToBurn, uint minEthOut)
         external returns (uint ethOut)
     {
-        ethOut = usm.defund(msg.sender, payable(this), fumToBurn, minEthOut);
+        fum.transferFrom(msg.sender, address(this), fumToBurn); // The built-in minEthOut can mess things up here
+        ethOut = usm.defund(payable(this), fumToBurn, minEthOut);
         weth.deposit{ value: ethOut }();
         require(weth.transfer(to, ethOut), "WETH transfer fail");
     }
