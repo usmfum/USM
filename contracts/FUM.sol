@@ -14,7 +14,7 @@ import "./MinOut.sol";
  *
  * @notice This should be created and owned by the USM instance.
  */
-contract FUM is ERC20Permit, OptOutable, IFUM {
+contract FUM is IFUM, ERC20Permit, OptOutable {
     IUSM public immutable usm;
 
     constructor(address[] memory optedOut_)
