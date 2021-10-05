@@ -4,6 +4,14 @@ Originally proposed by [@jacob-eliosoff](https://github.com/jacob-eliosoff) in [
 
 ## Networks & Addresses
 
+### USM v0.5 (mainnet pre-v1 temporary test deployment)
+
+v0.5 is a test release, but on mainnet and full-featured, except that it becomes withdrawal-only after Oct 13.  (See our [Twitter thread](https://twitter.com/usmfum/status/1445245294187274240) about it.)  Feel free to play with it and report any issues, but soon!  Depending how this v0.5 is looking, the long-awaited v1 release candidate could come soon...
+
+ - Oracle: [0xE0924c0ab6BF613d0472093606074bA8243Ba56A](https://etherscan.io/address/0xE0924c0ab6BF613d0472093606074bA8243Ba56A)
+ - USM: [0x7816f1Ac2a8b8A2Ead4Bf5fE0B946a343C3282d6](https://etherscan.io/address/0x7816f1Ac2a8b8A2Ead4Bf5fE0B946a343C3282d6)
+ - FUM: [0x1d87CbD8df28729Ac12f5AfD0464Eb54C2870F95](https://etherscan.io/address/0x1d87CbD8df28729Ac12f5AfD0464Eb54C2870F95)
+
 ### USM v0.4 (Kovan testnet)
 
  - Oracle: [0x8e91D25324833D62Fb3eC67aDEE26048696c8909](https://kovan.etherscan.io/address/0x8e91D25324833D62Fb3eC67aDEE26048696c8909)
