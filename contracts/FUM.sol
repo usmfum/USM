@@ -7,7 +7,6 @@ import "./IFUM.sol";
 import "./OptOutable.sol";
 import "./MinOut.sol";
 
-
 /**
  * @title FUM Token
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan

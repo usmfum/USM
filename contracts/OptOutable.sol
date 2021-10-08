@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 /**
  * A general type of contract with a behavior that using contracts can "opt out of".  The practical motivation is, when we have
  * multiple versions of a token (eg, USMv1 and USMv2), and support "mint/burn via send" - sending ETH/tokens mints/burns tokens

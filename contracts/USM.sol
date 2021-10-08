@@ -10,7 +10,6 @@ import "./WadMath.sol";
 import "./FUM.sol";
 import "./MinOut.sol";
 
-
 /**
  * @title USM
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan

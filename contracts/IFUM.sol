@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "acc-erc20/contracts/IERC20.sol";
 
-
 interface IFUM is IERC20 {
     /**
      * @notice Mint new FUM to the _recipient

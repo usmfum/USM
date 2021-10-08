@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-
 /**
  * @title Fixed point arithmetic library
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan

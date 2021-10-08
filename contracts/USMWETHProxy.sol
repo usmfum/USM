@@ -5,7 +5,6 @@ import "acc-erc20/contracts/IERC20.sol";
 import "./external/IWETH9.sol";
 import "./IUSM.sol";
 
-
 /**
  * @title USM Weth Frontend Proxy
  * @author Alberto Cuesta Cañada, Jacob Eliosoff, Alex Roan
