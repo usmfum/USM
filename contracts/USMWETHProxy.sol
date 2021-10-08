@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "acc-erc20/contracts/IERC20.sol";
 import "./external/IWETH9.sol";
 import "./IUSM.sol";
-import "./IFUM.sol";
 
 
 /**
