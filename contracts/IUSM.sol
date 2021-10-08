@@ -12,8 +12,6 @@ interface IUSM is IERC20, Oracle {
 
     enum Side {Buy, Sell}
 
-    function fum() external returns(IFUM);
-
     // ____________________ External transactional functions ____________________
 
     /**
@@ -58,6 +56,11 @@ interface IUSM is IERC20, Oracle {
     function defundFrom(address from, address payable to, uint fumToBurn, uint minEthOut) external returns (uint ethOut);
 
     // ____________________ External informational view functions ____________________
+
+    /**
+     * @return fum_ The FUM instance
+     */
+    function fum() external view returns (IFUM fum_);
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
