@@ -180,7 +180,7 @@ contract('USM', (accounts) => {
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
 
-      priceWAD = (await usm.latestPrice())[0]
+      priceWAD = await usm.latestPrice()
       oneDollarInEth = wadDiv(WAD, priceWAD, true)
 
       ethPerFund = oneEth.mul(FOUR)     // Can be any (?) number
@@ -218,7 +218,7 @@ contract('USM', (accounts) => {
       })
 
       it("allows minting FUM (at flat price)", async () => {
-        const price0 = (await usm.latestPrice())[0]
+        const price0 = await usm.latestPrice()
 
         await usm.fund(user2, 0, { from: user1, value: ethPerFund })
 
@@ -237,7 +237,7 @@ contract('USM', (accounts) => {
         // And relatedly, bidAskAdjustment should be unchanged (1), and FUM buy price and FUM sell price should still be $1:
         const bidAskAdj = await usm.bidAskAdjustment()
         shouldEqual(bidAskAdj, WAD)
-        const price = (await usm.latestPrice())[0]
+        const price = await usm.latestPrice()
         shouldEqual(price, price0)
 
         const usmBuyPrice = await usmView.usmPrice(sides.BUY)
@@ -277,7 +277,7 @@ contract('USM', (accounts) => {
             shouldEqual(t1, t0 + timeDelay)
 
             ethPool0 = await usm.ethPool()                      // "0" suffix = initial values (after first fund() + mint())
-            price0 = (await usm.latestPrice())[0]
+            price0 = await usm.latestPrice()
             debtRatio0 = await usmView.debtRatio()
             user1UsmBalance0 = await usm.balanceOf(user1)
             totalUsmSupply0 = await usm.totalSupply()
@@ -332,7 +332,7 @@ contract('USM', (accounts) => {
               await usm.fund(user2, 0, { from: user1, value: ethPerFund })
 
               ethPoolF = await usm.ethPool()                    // "F" suffix = values after this fund() call
-              priceF = (await usm.latestPrice())[0]
+              priceF = await usm.latestPrice()
               debtRatioF = await usmView.debtRatio()
               user2FumBalanceF = await fum.balanceOf(user2)
               totalFumSupplyF = await fum.totalSupply()
@@ -454,7 +454,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, true)
             const targetPrice1 = wadMul(price0, priceChangeFactor1, false)
             await oracle.setPrice(targetPrice1)
-            const price1 = (await usm.latestPrice())[0]
+            const price1 = await usm.latestPrice()
             shouldEqualApprox(price1, targetPrice1)
 
             const debtRatio1 = await usmView.debtRatio()
@@ -477,7 +477,7 @@ contract('USM', (accounts) => {
             // Calculate targetFumBuyPrice using the math in USM.checkIfUnderwater():
             //const targetFumBuyPrice2 = wadDiv(wadMul(WAD.sub(MAX_DEBT_RATIO), ethPool0, true), totalFumSupply0, true)
             const ethPool2 = await usm.ethPool()
-            const price2 = (await usm.latestPrice())[0]
+            const price2 = await usm.latestPrice()
             const totalFumSupply2 = await fum.totalSupply()
             const poolValue2 = wadMul(ethPool2, price2, false)
             const usmForFumBuy2 = wadMul(poolValue2, MAX_DEBT_RATIO, false)
@@ -517,7 +517,7 @@ contract('USM', (accounts) => {
 
             const bidAskAdj = await usm.bidAskAdjustment()
             bidAskAdj.should.be.bignumber.gt(bidAskAdj0)
-            const price = (await usm.latestPrice())[0]
+            const price = await usm.latestPrice()
             price.should.be.bignumber.gt(price0)
 
             const user2FumBalance = await fum.balanceOf(user2)
@@ -536,7 +536,7 @@ contract('USM', (accounts) => {
               await usm.mint(user1, 0, { from: user2, value: ethPerMint })
 
               ethPoolM = await usm.ethPool()                    // "M" suffix = values after this mint() call
-              priceM = (await usm.latestPrice())[0]
+              priceM = await usm.latestPrice()
               debtRatioM = await usmView.debtRatio()
               user1UsmBalanceM = await usm.balanceOf(user1)
               totalUsmSupplyM = await usm.totalSupply()
@@ -607,7 +607,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor = wadDiv(debtRatio0, targetDebtRatio, true)
             const targetPrice = wadMul(price0, priceChangeFactor, false)
             await oracle.setPrice(targetPrice)
-            const price = (await usm.latestPrice())[0]
+            const price = await usm.latestPrice()
             shouldEqualApprox(price, targetPrice)
 
             const debtRatio = await usmView.debtRatio()
@@ -632,7 +632,7 @@ contract('USM', (accounts) => {
             const adjShrinkFactor = (fl(ethPool0) / fl(ethPool))**0.5
             const targetBidAskAdj = wad(fl(bidAskAdj0) * adjShrinkFactor)
             shouldEqualApprox(bidAskAdj, targetBidAskAdj)
-            const price = (await usm.latestPrice())[0]
+            const price = await usm.latestPrice()
             const targetPrice = wad(fl(price0) * adjShrinkFactor)
             shouldEqualApprox(price, targetPrice)
 
@@ -661,7 +661,7 @@ contract('USM', (accounts) => {
               await usm.defund(user1, fumToBurn, 0, { from: user2 })
 
               ethPoolD = await usm.ethPool()                    // "D" suffix = values after this defund() call
-              priceD = (await usm.latestPrice())[0]
+              priceD = await usm.latestPrice()
               debtRatioD = await usmView.debtRatio()
               user2FumBalanceD = await fum.balanceOf(user2)
               totalFumSupplyD = await fum.totalSupply()
@@ -744,7 +744,7 @@ contract('USM', (accounts) => {
 
             const bidAskAdj = await usm.bidAskAdjustment()
             bidAskAdj.should.be.bignumber.lt(bidAskAdj0)
-            const price = (await usm.latestPrice())[0]
+            const price = await usm.latestPrice()
             price.should.be.bignumber.lt(price0)
 
             const ethPool = await usm.ethPool()
@@ -764,7 +764,7 @@ contract('USM', (accounts) => {
 
             const bidAskAdj = await usm.bidAskAdjustment()
             bidAskAdj.should.be.bignumber.lt(bidAskAdj0)
-            const price = (await usm.latestPrice())[0]
+            const price = await usm.latestPrice()
             price.should.be.bignumber.lt(price0)
 
             const ethPool = await usm.ethPool()
@@ -791,7 +791,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, false)
             const targetPrice1 = wadMul(price0, priceChangeFactor1, true)
             await oracle.setPrice(targetPrice1)
-            const price1 = (await usm.latestPrice())[0]
+            const price1 = await usm.latestPrice()
             shouldEqualApprox(price1, targetPrice1)
 
             const debtRatio1 = await usmView.debtRatio()
@@ -806,7 +806,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, true)
             const targetPrice3 = wadMul(price1, priceChangeFactor3, false)
             await oracle.setPrice(targetPrice3)
-            const price3 = (await usm.latestPrice())[0]
+            const price3 = await usm.latestPrice()
             shouldEqualApprox(price3, targetPrice3)
 
             const debtRatio3 = await usmView.debtRatio()
@@ -833,7 +833,7 @@ contract('USM', (accounts) => {
               await usm.burn(user2, usmToBurn, 0, { from: user1 })
 
               ethPoolB = await usm.ethPool()                    // "B" suffix = values after this burn() call
-              priceB = (await usm.latestPrice())[0]
+              priceB = await usm.latestPrice()
               debtRatioB = await usmView.debtRatio()
               user1UsmBalanceB = await usm.balanceOf(user1)
               totalUsmSupplyB = await usm.totalSupply()
@@ -911,7 +911,7 @@ contract('USM', (accounts) => {
             const adjGrowthFactor = (fl(ethPool0) / fl(ethPool))**0.5
             const targetBidAskAdj = wad(fl(bidAskAdj0) * adjGrowthFactor)
             shouldEqualApprox(bidAskAdj, targetBidAskAdj)
-            const price = (await usm.latestPrice())[0]
+            const price = await usm.latestPrice()
             const targetPrice = wad(fl(price0) * adjGrowthFactor)
             shouldEqualApprox(price, targetPrice)
           })
@@ -935,7 +935,7 @@ contract('USM', (accounts) => {
             const adjGrowthFactor = (fl(ethPool0) / fl(ethPool))**0.5
             const targetBidAskAdj = wad(fl(bidAskAdj0) * adjGrowthFactor)
             shouldEqualApprox(bidAskAdj, targetBidAskAdj)
-            const price = (await usm.latestPrice())[0]
+            const price = await usm.latestPrice()
             const targetPrice = wad(fl(price0) * adjGrowthFactor)
             shouldEqualApprox(price, targetPrice)
           })
@@ -959,7 +959,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor1 = wadDiv(debtRatio0, targetDebtRatio1, false)
             const targetPrice1 = wadMul(price0, priceChangeFactor1, true)
             await oracle.setPrice(targetPrice1)
-            const price1 = (await usm.latestPrice())[0]
+            const price1 = await usm.latestPrice()
             shouldEqualApprox(price1, targetPrice1)
 
             const debtRatio1 = await usmView.debtRatio()
@@ -983,7 +983,7 @@ contract('USM', (accounts) => {
             const priceChangeFactor3 = wadDiv(debtRatio2, targetDebtRatio3, true)
             const targetPrice3 = wadMul(price1, priceChangeFactor3, false)
             await oracle.setPrice(targetPrice3)
-            const price3 = (await usm.latestPrice())[0]
+            const price3 = await usm.latestPrice()
             shouldEqualApprox(price3, targetPrice3)
 
             const debtRatio3 = await usmView.debtRatio()

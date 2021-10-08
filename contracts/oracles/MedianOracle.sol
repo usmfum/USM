@@ -23,40 +23,32 @@ contract MedianOracle is ChainlinkOracle, UniswapV3TWAPOracle, UniswapV3TWAPOrac
         UniswapV3TWAPOracle2(uniswapPool2, uniswapTokenToPrice2, uniswapDecimals2) {}
 
     function latestPrice() public virtual override(ChainlinkOracle, UniswapV3TWAPOracle, UniswapV3TWAPOracle2)
-        view returns (uint price, uint updateTime)
+        view returns (uint price)
     {
-        (uint chainlinkPrice, uint chainlinkUpdateTime) = ChainlinkOracle.latestPrice();
-        (uint uniswapPrice1, uint uniswapUpdateTime1) = UniswapV3TWAPOracle.latestPrice();
-        (uint uniswapPrice2, uint uniswapUpdateTime2) = UniswapV3TWAPOracle2.latestPrice();
-        (price, updateTime) = medianPriceAndUpdateTime(chainlinkPrice, chainlinkUpdateTime,
-                                                       uniswapPrice1, uniswapUpdateTime1,
-                                                       uniswapPrice2, uniswapUpdateTime2);
+        price = median(ChainlinkOracle.latestPrice(),
+                       UniswapV3TWAPOracle.latestPrice(),
+                       UniswapV3TWAPOracle2.latestPrice());
     }
 
-    function latestChainlinkPrice() public view returns (uint price, uint updateTime) {
-        (price, updateTime) = ChainlinkOracle.latestPrice();
+    function latestChainlinkPrice() public view returns (uint price) {
+        price = ChainlinkOracle.latestPrice();
     }
 
-    function latestUniswapV3TWAPPrice1() public view returns (uint price, uint updateTime) {
-        (price, updateTime) = UniswapV3TWAPOracle.latestPrice();
+    function latestUniswapV3TWAPPrice1() public view returns (uint price) {
+        price = UniswapV3TWAPOracle.latestPrice();
     }
 
-    function latestUniswapV3TWAPPrice2() public view returns (uint price, uint updateTime) {
-        (price, updateTime) = UniswapV3TWAPOracle2.latestPrice();
+    function latestUniswapV3TWAPPrice2() public view returns (uint price) {
+        price = UniswapV3TWAPOracle2.latestPrice();
     }
 
     /**
      * @notice Currently only supports three inputs
-     * @return price the median price of the three passed in
-     * @return updateTime the updateTime corresponding to the median price.  Not the median of the three updateTimes!
+     * @return m the median of the three values passed in
      */
-    function medianPriceAndUpdateTime(uint p1, uint t1, uint p2, uint t2, uint p3, uint t3)
-        public pure returns (uint price, uint updateTime)
+    function median(uint a, uint b, uint c)
+        public pure returns (uint m)
     {
-        bool p1gtp2 = p1 > p2;
-        bool p2gtp3 = p2 > p3;
-        bool p3gtp1 = p3 > p1;
-
-        (price, updateTime) = (p3gtp1 == p1gtp2 ? (p1, t1) : (p1gtp2 == p2gtp3 ? (p2, t2) : (p3, t3)));
+        m = ((c > a) == (a > b) ? a : ((a > b) == (b > c) ? b : c));
     }
 }

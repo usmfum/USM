@@ -8,7 +8,7 @@ contract TestOracle is SettableOracle {
         setPrice(p);
     }
 
-    function latestPrice() public virtual override view returns (uint price, uint updateTime) {
-        return (savedPrice, savedUpdateTime);
+    function latestPrice() public virtual override view returns (uint price) {
+        return savedPrice;
     }
 }

@@ -19,7 +19,7 @@ contract MockMedianOracle is MedianOracle, SettableOracle {
             uniswapPool1, uniswapTokenToPrice1, uniswapDecimals1,
             uniswapPool2, uniswapTokenToPrice2, uniswapDecimals2) {}
 
-    function latestPrice() public override(MedianOracle, Oracle) view returns (uint price, uint updateTime) {
-        (price, updateTime) = (savedPrice != 0) ? (savedPrice, savedUpdateTime) : super.latestPrice();
+    function latestPrice() public override(MedianOracle, Oracle) view returns (uint price) {
+        price = (savedPrice != 0) ? savedPrice : super.latestPrice();
     }
 }

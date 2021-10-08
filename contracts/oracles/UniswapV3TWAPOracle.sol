@@ -36,12 +36,10 @@ contract UniswapV3TWAPOracle is Oracle {
             WAD * 10 ** uint(-decimalPlaces));
     }
 
-    function latestPrice() public virtual override view returns (uint price, uint updateTime) {
+    function latestPrice() public virtual override view returns (uint price) {
         int24 twapTick = OracleLibrary.consult(address(uniswapV3Pool), UNISWAP_TWAP_PERIOD);
         price = uniswapTokenToPrice == 1 ?
             OracleLibrary.getQuoteAtTick(twapTick, uniswapScaleFactor, uniswapV3Pool.token1(), uniswapV3Pool.token0()) :
             OracleLibrary.getQuoteAtTick(twapTick, uniswapScaleFactor, uniswapV3Pool.token0(), uniswapV3Pool.token1());
-        (,, uint16 observationIndex,,,,) = uniswapV3Pool.slot0();
-        (updateTime,,,) = uniswapV3Pool.observations(observationIndex);
     }
 }
