@@ -5,7 +5,7 @@ import "hardhat/console.sol";
 
 contract WETH9Fuzzing {
 
-    MockWETH9 internal weth;
+    MockWETH9 internal immutable weth;
 
     constructor () {
         weth = new MockWETH9();
