@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-abstract contract Oracle {
+interface Oracle {
     /**
      * @return price WAD-scaled - 18 dec places
      * @return updateTime The last time the price was updated.  This is a bit subtle: `price` can change without `updateTime`
@@ -12,5 +12,5 @@ abstract contract Oracle {
      * change is only driven by the passage of time, not by any new price observations, it will *not* change `updateTime`,
      * which will remain at the time of the $2,980 trade until another trade occurs.
      */
-    function latestPrice() public virtual view returns (uint price, uint updateTime);
+    function latestPrice() external view returns (uint price, uint updateTime);
 }

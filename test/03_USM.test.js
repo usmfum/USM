@@ -649,7 +649,7 @@ contract('USM', (accounts) => {
 
           it("allows burning FUM", async () => {
             const fumToBurn = user2FumBalance0.div(TEN) // defund 10% of the user's FUM
-            await usm.defund(user2, user1, fumToBurn, 0, { from: user2 })
+            await usm.defund(user1, fumToBurn, 0, { from: user2 })
           })
 
           describe("with FUM burned at sliding price", () => {
@@ -658,7 +658,7 @@ contract('USM', (accounts) => {
 
             beforeEach(async () => {
               fumToBurn = user2FumBalance0.div(TEN)
-              await usm.defund(user2, user1, fumToBurn, 0, { from: user2 })
+              await usm.defund(user1, fumToBurn, 0, { from: user2 })
 
               ethPoolD = await usm.ethPool()                    // "D" suffix = values after this defund() call
               priceD = (await usm.latestPrice())[0]
@@ -798,7 +798,7 @@ contract('USM', (accounts) => {
             debtRatio1.should.be.bignumber.lt(MAX_DEBT_RATIO)
 
             // Now this tiny defund() should succeed:
-            await usm.defund(user2, user1, oneFum, 0, { from: user2 })
+            await usm.defund(user1, oneFum, 0, { from: user2 })
 
             const debtRatio2 = await usmView.debtRatio()
             // Next, similarly move price to get debt ratio just *above* MAX:
@@ -813,14 +813,14 @@ contract('USM', (accounts) => {
             debtRatio3.should.be.bignumber.gt(MAX_DEBT_RATIO)
 
             // And now defund() should fail:
-            await expectRevert(usm.defund(user2, user1, oneFum, 0, { from: user2 }), "Debt ratio > max")
+            await expectRevert(usm.defund(user1, oneFum, 0, { from: user2 }), "Debt ratio > max")
           })
 
           // ____________________ Burning USM (aka burn()) ____________________
 
           it("allows burning USM", async () => {
             const usmToBurn = user1UsmBalance0.div(TEN) // defund 10% of the user's USM
-            await usm.burn(user1, user2, usmToBurn, 0, { from: user1 })
+            await usm.burn(user2, usmToBurn, 0, { from: user1 })
           })
 
           describe("with USM burned at sliding price", () => {
@@ -830,7 +830,7 @@ contract('USM', (accounts) => {
             beforeEach(async () => {
               usmToBurn = user1UsmBalance0.div(TEN) // Burning 100% of USM is an esoteric case - instead burn 10%
               //usmToBurn = oneUsm // defund 1 USM - tiny, so that the burn itself moves price more than the collected fees do
-              await usm.burn(user1, user2, usmToBurn, 0, { from: user1 })
+              await usm.burn(user2, usmToBurn, 0, { from: user1 })
 
               ethPoolB = await usm.ethPool()                    // "B" suffix = values after this burn() call
               priceB = (await usm.latestPrice())[0]
@@ -966,7 +966,7 @@ contract('USM', (accounts) => {
             debtRatio1.should.be.bignumber.lt(WAD)
 
             // Now this tiny burn() should succeed:
-            await usm.burn(user1, user2, oneUsm, 0, { from: user1 })
+            await usm.burn(user2, oneUsm, 0, { from: user1 })
 
             // Move forward a day, so our bidAskAdj reverts to 1 (ie no adjustment):
             const block0 = await web3.eth.getBlockNumber()
@@ -990,7 +990,7 @@ contract('USM', (accounts) => {
             debtRatio3.should.be.bignumber.gt(WAD)
 
             // And now the same burn() should still succeed:
-            await usm.burn(user1, user2, oneUsm, 0, { from: user1 })
+            await usm.burn(user2, oneUsm, 0, { from: user1 })
           })
         })
       })

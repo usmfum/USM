@@ -2,9 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "acc-erc20/contracts/IERC20.sol";
+import "./IFUM.sol";
 import "./oracles/Oracle.sol";
 
-abstract contract IUSM is IERC20, Oracle {
+interface IUSM is IERC20, Oracle {
     event UnderwaterStatusChanged(bool underwater);
     event BidAskAdjustmentChanged(uint adjustment);
     event PriceChanged(uint timestamp, uint price);
@@ -19,16 +20,15 @@ abstract contract IUSM is IERC20, Oracle {
      * @param to address to send the USM to.
      * @param minUsmOut Minimum accepted USM for a successful mint.
      */
-    function mint(address to, uint minUsmOut) external virtual payable returns (uint usmOut);
+    function mint(address to, uint minUsmOut) external payable returns (uint usmOut);
 
     /**
      * @dev Burn USM in exchange for ETH.
-     * @param from address to deduct the USM from.
      * @param to address to send the ETH to.
      * @param usmToBurn Amount of USM to burn.
      * @param minEthOut Minimum accepted ETH for a successful burn.
      */
-    function burn(address from, address payable to, uint usmToBurn, uint minEthOut) external virtual returns (uint ethOut);
+    function burn(address payable to, uint usmToBurn, uint minEthOut) external returns (uint ethOut);
 
     /**
      * @notice Funds the pool with ETH, minting new FUM and sending it to the given address, but only if the amount minted >=
@@ -36,31 +36,44 @@ abstract contract IUSM is IERC20, Oracle {
      * @param to address to send the FUM to.
      * @param minFumOut Minimum accepted FUM for a successful fund.
      */
-    function fund(address to, uint minFumOut) external virtual payable returns (uint fumOut);
+    function fund(address to, uint minFumOut) external payable returns (uint fumOut);
 
     /**
      * @notice Defunds the pool by redeeming FUM in exchange for equivalent ETH from the pool.
+     * @param to address to send the ETH to.
+     * @param fumToBurn Amount of FUM to burn.
+     * @param minEthOut Minimum accepted ETH for a successful defund.
+     */
+    function defund(address payable to, uint fumToBurn, uint minEthOut) external returns (uint ethOut);
+
+    /**
+     * @notice Defunds the pool by redeeming FUM in exchange for equivalent ETH from the pool. Usable only by FUM.
      * @param from address to deduct the FUM from.
      * @param to address to send the ETH to.
      * @param fumToBurn Amount of FUM to burn.
      * @param minEthOut Minimum accepted ETH for a successful defund.
      */
-    function defund(address from, address payable to, uint fumToBurn, uint minEthOut) external virtual returns (uint ethOut);
+    function defundFrom(address from, address payable to, uint fumToBurn, uint minEthOut) external returns (uint ethOut);
 
-    // ____________________ Public informational view functions ____________________
+    // ____________________ External informational view functions ____________________
+
+    /**
+     * @return fum_ The FUM instance
+     */
+    function fum() external view returns (IFUM fum_);
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
      * @return pool ETH pool
      */
-    function ethPool() public virtual view returns (uint pool);
+    function ethPool() external view returns (uint pool);
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
      * @return supply the total supply of FUM.  Users of this `IUSM` interface, like `USMView`, need to call this rather than
      * `usm.fum().totalSupply()` directly, because `IUSM` doesn't (and shouldn't) know about the `FUM` type.
      */
-    function fumTotalSupply() public virtual view returns (uint supply);
+    function fumTotalSupply() external view returns (uint supply);
 
     /**
      * @notice The current bid/ask adjustment, equal to the stored value decayed over time towards its stable value, 1.  This
@@ -69,51 +82,51 @@ abstract contract IUSM is IERC20, Oracle {
      * if recent activity was short-ETH (`defund()` and `mint()`), reduce FUM sell price/raise USM buy price.
      * @return adjustment The sliding-price bid/ask adjustment
      */
-    function bidAskAdjustment() public virtual view returns (uint adjustment);
+    function bidAskAdjustment() external view returns (uint adjustment);
 
-    function timeSystemWentUnderwater() public virtual view returns (uint timestamp);
+    function timeSystemWentUnderwater() external view returns (uint timestamp);
 
-    function isDuringPrefund() public virtual view returns (bool duringPrefund);
+    function isDuringPrefund() external view returns (bool duringPrefund);
 
-    // ____________________ Public helper pure functions (for functions above) ____________________
+    // ____________________ External helper pure functions (for functions above) ____________________
 
     /**
      * @notice Calculate the amount of ETH in the buffer.
      * @return buffer ETH buffer
      */
-    function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, bool roundUp) public virtual pure returns (int buffer);
+    function ethBuffer(uint ethUsdPrice, uint ethInPool, uint usmSupply, bool roundUp) external pure returns (int buffer);
 
     /**
      * @notice Calculate debt ratio for a given eth to USM price: ratio of the outstanding USM (amount of USM in total supply),
      * to the current ETH pool value in USD (ETH qty * ETH/USD price).
      * @return ratio Debt ratio (or 0 if there's currently 0 ETH in the pool/price = 0: these should never happen after launch)
      */
-    function debtRatio(uint ethUsdPrice, uint ethInPool, uint usmSupply) public virtual pure returns (uint ratio);
+    function debtRatio(uint ethUsdPrice, uint ethInPool, uint usmSupply) external pure returns (uint ratio);
 
     /**
      * @notice Convert ETH amount to USM using a ETH/USD price.
      * @param ethAmount The amount of ETH to convert
      * @return usmOut The amount of USM
      */
-    function ethToUsm(uint ethUsdPrice, uint ethAmount, bool roundUp) public virtual pure returns (uint usmOut);
+    function ethToUsm(uint ethUsdPrice, uint ethAmount, bool roundUp) external pure returns (uint usmOut);
 
     /**
      * @notice Convert USM amount to ETH using a ETH/USD price.
      * @param usmAmount The amount of USM to convert
      * @return ethOut The amount of ETH
      */
-    function usmToEth(uint ethUsdPrice, uint usmAmount, bool roundUp) public virtual pure returns (uint ethOut);
+    function usmToEth(uint ethUsdPrice, uint usmAmount, bool roundUp) external pure returns (uint ethOut);
 
     /**
      * @return price The ETH/USD price, adjusted by the `bidAskAdjustment` (if applicable) for the given buy/sell side.
      */
-    function adjustedEthUsdPrice(Side side, uint ethUsdPrice, uint adjustment) public virtual pure returns (uint price);
+    function adjustedEthUsdPrice(Side side, uint ethUsdPrice, uint adjustment) external pure returns (uint price);
 
     /**
      * @notice Calculate the *marginal* price of USM (in ETH terms): that is, of the next unit, before the price start sliding.
      * @return price USM price in ETH terms
      */
-    function usmPrice(Side side, uint ethUsdPrice) public virtual pure returns (uint price);
+    function usmPrice(Side side, uint ethUsdPrice) external pure returns (uint price);
 
     /**
      * @notice Calculate the *marginal* price of FUM (in ETH terms): that is, of the next unit, before the price starts rising.
@@ -121,7 +134,7 @@ abstract contract IUSM is IERC20, Oracle {
      * return value of `usmSupplyForFumBuys()`.
      * @return price FUM price in ETH terms
      */
-    function fumPrice(Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply, bool prefund) public virtual pure returns (uint price);
+    function fumPrice(Side side, uint ethUsdPrice, uint ethInPool, uint usmEffectiveSupply, uint fumSupply, bool prefund) external pure returns (uint price);
 
     /**
      * @return timeSystemWentUnderwater_ The time at which we first detected the system was underwater (debt ratio >
@@ -144,5 +157,5 @@ abstract contract IUSM is IERC20, Oracle {
      *    (25,000) is at a rate that brings it "halfway closer per `MIN_FUM_BUY_PRICE_HALF_LIFE` (eg, 1 day)": so three days
      *    after going underwater, the supply returned will be 25,000 - 0.5**3 * (25,000 - 20,000) = 24,375.
      */
-    function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime) public virtual pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys, uint debtRatio_);
+    function checkIfUnderwater(uint usmActualSupply, uint ethPool_, uint ethUsdPrice, uint oldTimeUnderwater, uint currentTime) external pure returns (uint timeSystemWentUnderwater_, uint usmSupplyForFumBuys, uint debtRatio_);
 }

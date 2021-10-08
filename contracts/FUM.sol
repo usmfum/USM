@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "erc20permit/contracts/ERC20Permit.sol";
 import "./IUSM.sol";
+import "./IFUM.sol";
 import "./OptOutable.sol";
 import "./MinOut.sol";
 
@@ -13,7 +14,7 @@ import "./MinOut.sol";
  *
  * @notice This should be created and owned by the USM instance.
  */
-contract FUM is ERC20Permit, OptOutable {
+contract FUM is IFUM, ERC20Permit, OptOutable {
     IUSM public immutable usm;
 
     constructor(address[] memory optedOut_)
@@ -40,7 +41,7 @@ contract FUM is ERC20Permit, OptOutable {
      */
     function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) returns (bool) {
         if (recipient == address(this) || recipient == address(usm) || recipient == address(0)) {
-            usm.defund(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
+            usm.defundFrom(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {
             super._transfer(sender, recipient, amount);
         }
@@ -53,7 +54,7 @@ contract FUM is ERC20Permit, OptOutable {
      * @param _recipient address to mint to
      * @param _amount amount to mint
      */
-    function mint(address _recipient, uint _amount) external {
+    function mint(address _recipient, uint _amount) external override {
         require(msg.sender == address(usm), "Only USM");
         _mint(_recipient, _amount);
     }
@@ -64,7 +65,7 @@ contract FUM is ERC20Permit, OptOutable {
      * @param _holder address to burn from
      * @param _amount amount to burn
      */
-    function burn(address _holder, uint _amount) external {
+    function burn(address _holder, uint _amount) external override {
         require(msg.sender == address(usm), "Only USM");
         _burn(_holder, _amount);
     }
