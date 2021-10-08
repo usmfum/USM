@@ -63,7 +63,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         OptOutable(optedOut_)
     {
         oracle = oracle_;
-        fum = IFUM(address(new FUM(optedOut_)));
+        fum = new FUM(optedOut_);
     }
 
     // ____________________ Modifiers ____________________
