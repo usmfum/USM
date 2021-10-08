@@ -57,7 +57,7 @@ interface IUSM is IERC20, Oracle {
      */
     function defundFrom(address from, address payable to, uint fumToBurn, uint minEthOut) external returns (uint ethOut);
 
-    // ____________________ Public informational view functions ____________________
+    // ____________________ External informational view functions ____________________
 
     /**
      * @notice Total amount of ETH in the pool (ie, in the contract).
@@ -85,7 +85,7 @@ interface IUSM is IERC20, Oracle {
 
     function isDuringPrefund() external view returns (bool duringPrefund);
 
-    // ____________________ Public helper pure functions (for functions above) ____________________
+    // ____________________ External helper pure functions (for functions above) ____________________
 
     /**
      * @notice Calculate the amount of ETH in the buffer.
