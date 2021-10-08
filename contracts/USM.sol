@@ -20,9 +20,10 @@ contract USM is IUSM, ERC20Permit, OptOutable {
     using WadMath for uint;
 
     uint public constant WAD = 1e18;
-    uint public constant FOUR_WAD = 4 * WAD;
-    uint public constant BILLION = 1e9;
-    uint public constant HALF_BILLION = BILLION / 2;
+    uint private constant FOUR_WAD = 4 * WAD;                                       // public for these just clutters etherscan
+    uint private constant MILLION = 1e6;
+    uint private constant TRILLION = 1e12;
+    uint private constant HALF_TRILLION = TRILLION / 2;
     uint public constant MAX_DEBT_RATIO = WAD * 8 / 10;                             // 80%
     uint public constant MIN_FUM_BUY_PRICE_DECAY_PER_SECOND = 999991977495368426;   // 1-sec decay equiv to halving in 1 day
     uint public constant BID_ASK_ADJUSTMENT_DECAY_PER_SECOND = 988514020352896135;  // 1-sec decay equiv to halving in 1 minute
@@ -36,25 +37,25 @@ contract USM is IUSM, ERC20Permit, OptOutable {
 
     struct StoredState {
         uint32 timeSystemWentUnderwater;    // Time at which (we noticed) debt ratio went > MAX, or 0 if it's currently < MAX
-        uint32 ethUsdPriceTimestamp;
-        uint80 ethUsdPrice;                 // Stored in billionths, not WADs: so 123.456 is stored as 123,456,000,000
+        uint64 ethUsdPrice;                 // Stored in millionths, not WADs: so 123.456 is stored as 123,456,000
+        uint64 oracleEthUsdPrice;           // Millionths, not WADs
         uint32 bidAskAdjustmentTimestamp;
-        uint80 bidAskAdjustment;            // Stored in billionths, not WADs
+        uint64 bidAskAdjustment;            // Millionths, not WADs
     }
 
     struct LoadedState {
         uint timeSystemWentUnderwater;
-        uint ethUsdPriceTimestamp;
-        uint ethUsdPrice;                   // This one is in WADs, not billionths
+        uint ethUsdPrice;                   // This one is in WADs, not millionths
+        uint oracleEthUsdPrice;             // WADs, not millionths
         uint bidAskAdjustmentTimestamp;
-        uint bidAskAdjustment;              // WADs, not billionths
+        uint bidAskAdjustment;              // WADs, not millionths
         uint ethPool;
         uint usmTotalSupply;
     }
 
     StoredState public storedState = StoredState({
-        timeSystemWentUnderwater: 0, ethUsdPriceTimestamp: 0, ethUsdPrice: 0,
-        bidAskAdjustmentTimestamp: 0, bidAskAdjustment: uint80(BILLION)         // Initialize adjustment to 1.0 (scaled by 1b)
+        timeSystemWentUnderwater: 0, ethUsdPrice: 0, oracleEthUsdPrice: 0,
+        bidAskAdjustmentTimestamp: 0, bidAskAdjustment: uint64(MILLION)         // Initialize adjustment to 1.0 (scaled by 1m)
     });
 
     constructor(Oracle oracle_, address[] memory optedOut_)
@@ -178,7 +179,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         require(ls.ethPool > 0, "Fund before minting");
 
         // 3. Refresh the oracle price (if available - see checkForFreshOraclePrice() below):
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice,, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 4. Calculate usmOut:
         uint adjShrinkFactor;
@@ -200,7 +201,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice,, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Calculate ethOut:
         uint adjGrowthFactor;
@@ -224,7 +225,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         ls.ethPool -= msg.value;    // Backing out the ETH just received, which our calculations should ignore
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice,, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Refresh timeSystemWentUnderwater, and replace ls.usmTotalSupply with the *effective* USM supply for FUM buys:
         uint debtRatio_;
@@ -252,7 +253,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.ethUsdPriceTimestamp, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice,, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Calculate ethOut:
         uint fumSupply = fum.totalSupply();
@@ -281,7 +282,6 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      * oracle price being "refreshed" is itself a subtle idea: see the comment in `Oracle.latestPrice()`.
      */
     function _storeState(LoadedState memory ls) internal {
-        require(ls.ethUsdPriceTimestamp <= type(uint32).max, "ethUsdPriceTimestamp overflow");
         require(ls.bidAskAdjustmentTimestamp <= type(uint32).max, "bidAskAdjustmentTimestamp overflow");
 
         if (ls.timeSystemWentUnderwater != storedState.timeSystemWentUnderwater) {
@@ -293,26 +293,31 @@ contract USM is IUSM, ERC20Permit, OptOutable {
             emit UnderwaterStatusChanged(isUnderwater);
         }
 
-        uint priceToStore = ls.ethUsdPrice + HALF_BILLION;
-        unchecked { priceToStore /= BILLION; }
+        uint priceToStore = ls.ethUsdPrice + HALF_TRILLION;
+        unchecked { priceToStore /= TRILLION; }
+        uint oraclePriceToStore;
+        unchecked { oraclePriceToStore = ls.oracleEthUsdPrice / TRILLION; } // Already rounded: see checkForFreshOraclePrice()
         if (priceToStore != storedState.ethUsdPrice) {
-            require(priceToStore <= type(uint80).max, "ethUsdPrice overflow");
-            unchecked { emit PriceChanged(ls.ethUsdPriceTimestamp, priceToStore * BILLION); }
+            require(priceToStore <= type(uint64).max, "ethUsdPrice overflow");
+            unchecked { emit PriceChanged(priceToStore * TRILLION, oraclePriceToStore * TRILLION); }
+        }
+        if (oraclePriceToStore != storedState.oracleEthUsdPrice) {
+            require(oraclePriceToStore <= type(uint64).max, "oracleEthUsdPrice overflow");
         }
 
-        uint adjustmentToStore = ls.bidAskAdjustment + HALF_BILLION;
-        unchecked { adjustmentToStore /= BILLION; }
+        uint adjustmentToStore = ls.bidAskAdjustment + HALF_TRILLION;
+        unchecked { adjustmentToStore /= TRILLION; }
         if (adjustmentToStore != storedState.bidAskAdjustment) {
-            require(adjustmentToStore <= type(uint80).max, "bidAskAdjustment overflow");
-            unchecked { emit BidAskAdjustmentChanged(adjustmentToStore * BILLION); }
+            require(adjustmentToStore <= type(uint64).max, "bidAskAdjustment overflow");
+            unchecked { emit BidAskAdjustmentChanged(adjustmentToStore * TRILLION); }
         }
 
         (storedState.timeSystemWentUnderwater,
-         storedState.ethUsdPriceTimestamp, storedState.ethUsdPrice,
+         storedState.ethUsdPrice, storedState.oracleEthUsdPrice,
          storedState.bidAskAdjustmentTimestamp, storedState.bidAskAdjustment) =
             (uint32(ls.timeSystemWentUnderwater),
-             uint32(ls.ethUsdPriceTimestamp), uint80(priceToStore),
-             uint32(ls.bidAskAdjustmentTimestamp), uint80(adjustmentToStore));
+             uint64(priceToStore), uint64(oraclePriceToStore),
+             uint32(ls.bidAskAdjustmentTimestamp), uint64(adjustmentToStore));
     }
 
     // ____________________ Public Oracle view functions ____________________
@@ -337,12 +342,15 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         public view returns (uint price, uint updateTime, uint adjustment)
     {
         (price, updateTime) = oracle.latestPrice();
+        uint oraclePriceRounded = price + HALF_TRILLION;    // Round for comparison below (we only store millionths precision)
+        unchecked { oraclePriceRounded = oraclePriceRounded / TRILLION * TRILLION; }    // Zeroing out the last 12 digits
 
         adjustment = ls.bidAskAdjustment;
 
-        if (updateTime <= ls.ethUsdPriceTimestamp) {    // If oracle's price isn't fresher than our stored one, keep stored one
-            (price, updateTime) = (ls.ethUsdPrice, ls.ethUsdPriceTimestamp);
-        } else if (ls.ethUsdPrice != 0) {   // If the old price is 0, don't try to use it to adjust the bidAskAdjustment...
+        if (oraclePriceRounded == ls.oracleEthUsdPrice) {   // Oracle price unchanged from last time, so keep our stored price
+            price = ls.ethUsdPrice;
+        } else if (ls.ethUsdPrice != 0) {                   // If old price is 0, don't try to use it to adjust bidAskAdj...
+            ls.oracleEthUsdPrice = oraclePriceRounded;
             /**
              * This is a bit subtle.  We want to update the mid stored price to the oracle's fresh value, while updating
              * bidAskAdjustment in such a way that the currently adjusted (more expensive than mid) side gets no cheaper/more
@@ -418,13 +426,13 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      */
     function loadState() public view returns (LoadedState memory ls) {
         ls.timeSystemWentUnderwater = storedState.timeSystemWentUnderwater;
-        ls.ethUsdPriceTimestamp = storedState.ethUsdPriceTimestamp;
-        ls.ethUsdPrice = storedState.ethUsdPrice * BILLION;     // Converting stored BILLION (1e9) format to WAD (1e18)
+        ls.ethUsdPrice = storedState.ethUsdPrice * TRILLION;    // Converting stored MILLION (1e6) format to WAD (1e18)
+        ls.oracleEthUsdPrice = storedState.oracleEthUsdPrice * TRILLION;
 
         // Bring bidAskAdjustment up to the present - it gravitates towards 1 over time, so the stored value is obsolete:
         ls.bidAskAdjustmentTimestamp = block.timestamp;
         ls.bidAskAdjustment = bidAskAdjustment(storedState.bidAskAdjustmentTimestamp,
-                                               storedState.bidAskAdjustment * BILLION,
+                                               storedState.bidAskAdjustment * TRILLION,
                                                block.timestamp);
 
         ls.ethPool = ethPool();

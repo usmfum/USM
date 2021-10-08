@@ -8,7 +8,7 @@ import "./oracles/Oracle.sol";
 interface IUSM is IERC20, Oracle {
     event UnderwaterStatusChanged(bool underwater);
     event BidAskAdjustmentChanged(uint adjustment);
-    event PriceChanged(uint timestamp, uint price);
+    event PriceChanged(uint price, uint oraclePrice);
 
     enum Side {Buy, Sell}
 
