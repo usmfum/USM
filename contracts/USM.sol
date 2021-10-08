@@ -141,7 +141,6 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         ethOut = _defundFum(from, to, fumToBurn, minEthOut);
     }
 
-
     /**
      * @notice If anyone sends ETH here, assume they intend it as a `mint`.  If decimals 8 to 11 (inclusive) of the amount of
      * ETH received are `0000`, then the next 7 will be parsed as the minimum number of USM accepted per input ETH, with the
