@@ -9,8 +9,8 @@ import "../oracles/uniswap/v3-core/TickMath.sol";
 import "../oracles/uniswap/v3-periphery/OracleLibrary.sol";
 
 contract MockUniswapV3Pool {
-    address public token0 = address(1);     // Mimic USDC/ETH mainnet pool, where token0 < token1 (alphabetically)
-    address public token1 = address(2);
+    address public immutable token0 = address(1);     // Mimic USDC/ETH mainnet pool, where token0 < token1 (alphabetically)
+    address public immutable token1 = address(2);
 
     uint16 public lastObservationIndex;
 
