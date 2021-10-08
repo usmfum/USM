@@ -316,7 +316,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
          storedState.ethUsdPrice, storedState.oracleEthUsdPrice,
          storedState.bidAskAdjustmentTimestamp, storedState.bidAskAdjustment) =
             (uint32(ls.timeSystemWentUnderwater),
-             uint32(priceToStore), uint64(oraclePriceToStore),
+             uint64(priceToStore), uint64(oraclePriceToStore),
              uint32(ls.bidAskAdjustmentTimestamp), uint64(adjustmentToStore));
     }
 
