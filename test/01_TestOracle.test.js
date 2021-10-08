@@ -70,12 +70,12 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice = (await oracle.latestPrice())[0]
+      const oraclePrice = await oracle.latestPrice()
       oraclePrice.toString().should.equal(testPriceWAD)
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())[0]
+      const oraclePrice = await oracle.latestPrice()
     })
   })
 
@@ -93,12 +93,12 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice = (await oracle.latestPrice())[0]
+      const oraclePrice = await oracle.latestPrice()
       oraclePrice.toString().should.equal(chainlinkPriceWAD.toString())
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())[0]
+      const oraclePrice = await oracle.latestPrice()
     })
   })
 
@@ -117,7 +117,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice1 = (await oracle.latestPrice())[0]
+      const oraclePrice1 = await oracle.latestPrice()
 
       const targetOraclePriceNum = ethUsdtV3TickCum1.sub(ethUsdtV3TickCum0)
       const targetOraclePriceDenom = ethUsdtV3Timestamp1.sub(ethUsdtV3Timestamp0)
@@ -132,7 +132,7 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())[0]
+      const oraclePrice = await oracle.latestPrice()
     })
   })
 
@@ -160,15 +160,15 @@ contract('Oracle pricing', (accounts) => {
     })
 
     it('returns the correct price', async () => {
-      const oraclePrice = (await oracle.latestPrice())[0]
-      const uniswapPrice1 = (await rawOracle.latestUniswapV3TWAPPrice1())[0]
-      const uniswapPrice2 = (await rawOracle.latestUniswapV3TWAPPrice2())[0]
+      const oraclePrice = await oracle.latestPrice()
+      const uniswapPrice1 = await rawOracle.latestUniswapV3TWAPPrice1()
+      const uniswapPrice2 = await rawOracle.latestUniswapV3TWAPPrice2()
       const targetOraclePrice = median(chainlinkPriceWAD, uniswapPrice1, uniswapPrice2)
       oraclePrice.toString().should.equal(targetOraclePrice.toString())
     })
 
     it('returns the price in a transaction', async () => {
-      const oraclePrice = (await oracle.latestPrice())[0]
+      const oraclePrice = await oracle.latestPrice()
     })
   })
 })

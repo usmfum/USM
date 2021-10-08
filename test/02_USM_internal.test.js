@@ -25,7 +25,7 @@ contract('USM - Internal functions', (accounts) => {
 
   describe('functionality', async () => {
     it('returns the oracle price in WAD', async () => {
-      const oraclePrice = (await usm.latestPrice())[0]
+      const oraclePrice = await usm.latestPrice()
       oraclePrice.toString().should.equal(priceWAD.toString())
     })
 
@@ -45,7 +45,7 @@ contract('USM - Internal functions', (accounts) => {
 
     it('returns the debt ratio as zero', async () => {
       const ZERO = new BN('0')
-      const debtRatio = (await usmView.debtRatio())
+      const debtRatio = await usmView.debtRatio()
       debtRatio.toString().should.equal(ZERO.toString())
     })
   })

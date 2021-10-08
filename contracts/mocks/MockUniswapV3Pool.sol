@@ -21,24 +21,6 @@ contract MockUniswapV3Pool {
         lastObservationIndex = observationIndex;
     }
 
-    function slot0() public view
-        returns (
-            uint160 sqrtPriceX96,
-            int24 tick,
-            uint16 observationIndex,
-            uint16 observationCardinality,
-            uint16 observationCardinalityNext,
-            uint8 feeProtocol,
-            bool unlocked
-        )
-    {
-        //Oracle.Observation memory lastObservation = observations[lastObservationIndex];
-        //tick = int24(lastObservation.tickCumulative);
-        tick = OracleLibrary.consult(address(this), 1);     // 1 because any positive period should do here
-        sqrtPriceX96 = TickMath.getSqrtRatioAtTick(tick);
-        return (sqrtPriceX96, tick, lastObservationIndex, 0, 0, 0, true);
-    }
-
     /**
      * @notice See also
      * https://github.com/Uniswap/uniswap-v3-core/blob/main/contracts/interfaces/pool/IUniswapV3PoolDerivedState.sol, where

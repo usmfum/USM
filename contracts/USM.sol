@@ -179,7 +179,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         require(ls.ethPool > 0, "Fund before minting");
 
         // 3. Refresh the oracle price (if available - see checkForFreshOraclePrice() below):
-        (ls.ethUsdPrice,, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 4. Calculate usmOut:
         uint adjShrinkFactor;
@@ -201,7 +201,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice,, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Calculate ethOut:
         uint adjGrowthFactor;
@@ -225,7 +225,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         ls.ethPool -= msg.value;    // Backing out the ETH just received, which our calculations should ignore
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice,, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Refresh timeSystemWentUnderwater, and replace ls.usmTotalSupply with the *effective* USM supply for FUM buys:
         uint debtRatio_;
@@ -253,7 +253,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice,, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Calculate ethOut:
         uint fumSupply = fum.totalSupply();
@@ -276,10 +276,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
     }
 
     /**
-     * @notice Stores the current price, `bidAskAdjustment`, and `timeSystemWentUnderwater`.  Note that whereas most calls to
-     * this function store a fresh `bidAskAdjustmentTimestamp`, most calls do *not* store a fresh `ethUsdPriceTimestamp`: the
-     * latter isn't updated every time this is called with a new price, but only when the *oracle's* price is refreshed.  The
-     * oracle price being "refreshed" is itself a subtle idea: see the comment in `Oracle.latestPrice()`.
+     * @notice Stores the current price (and oracle price), `bidAskAdjustment`, and `timeSystemWentUnderwater`.
      */
     function _storeState(LoadedState memory ls) internal {
         require(ls.bidAskAdjustmentTimestamp <= type(uint32).max, "bidAskAdjustmentTimestamp overflow");
@@ -322,8 +319,8 @@ contract USM is IUSM, ERC20Permit, OptOutable {
 
     // ____________________ Public Oracle view functions ____________________
 
-    function latestPrice() public virtual override view returns (uint price, uint updateTime) {
-        (price, updateTime,) = checkForFreshOraclePrice(loadState());
+    function latestPrice() public virtual override view returns (uint price) {
+        (price,) = checkForFreshOraclePrice(loadState());
     }
 
     // ____________________ Public informational view functions ____________________
@@ -332,16 +329,11 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      * @notice Checks the external oracle for a fresh ETH/USD price.  If it has one, we take it as the new USM system price
      * (and update `bidAskAdjustment` as described below); if no fresh oracle price is available, we stick with our existing
      * system price, `ls.ethUsdPrice`, which may have been nudged around by mint/burn operations since the last oracle update.
-     *
-     * Note that our definition of whether an oracle price is "fresh" (`updateTime > ls.ethUsdPriceTimestamp`) isn't as simple
-     * as "whether it's changed since our last call."  Eg, we only consider a Uniswap TWAP price "fresh" when a new price
-     * observation (trade) occurs, even though `price` may change without such an observation.  See the comment in
-     * `Oracle.latestPrice()`.
      */
     function checkForFreshOraclePrice(LoadedState memory ls)
-        public view returns (uint price, uint updateTime, uint adjustment)
+        public view returns (uint price, uint adjustment)
     {
-        (price, updateTime) = oracle.latestPrice();
+        price = oracle.latestPrice();
         uint oraclePriceRounded = price + HALF_TRILLION;    // Round for comparison below (we only store millionths precision)
         unchecked { oraclePriceRounded = oraclePriceRounded / TRILLION * TRILLION; }    // Zeroing out the last 12 digits
 
@@ -358,7 +350,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
              *
              * 1. storedPrice = $1,000, and bidAskAdjustment = 1.02.  So, our current ETH buy price is $1,020, and our current
              *    ETH sell price is $1,000 (mid).
-             * 2. The oracle comes back with a fresh price (newer updateTime) of $990.
+             * 2. The oracle comes back with a fresh price of $990.
              * 3. The currently adjusted price is buy price (ie, adj > 1).  So, we want to:
              *    a) Update storedPrice (mid) to $990.
              *    b) Update bidAskAdj to ensure that buy price remains >= $1,020.

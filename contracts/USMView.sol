@@ -22,8 +22,7 @@ contract USMView {
      * @return buffer ETH buffer
      */
     function ethBuffer(bool roundUp) external view returns (int buffer) {
-        (uint price, ) = usm.latestPrice();
-        buffer = usm.ethBuffer(price, usm.ethPool(), usm.totalSupply(), roundUp);
+        buffer = usm.ethBuffer(usm.latestPrice(), usm.ethPool(), usm.totalSupply(), roundUp);
     }
 
     /**
@@ -32,8 +31,7 @@ contract USMView {
      * @return usmOut The amount of USM
      */
     function ethToUsm(uint ethAmount, bool roundUp) external view returns (uint usmOut) {
-        (uint price, ) = usm.latestPrice();
-        usmOut = usm.ethToUsm(price, ethAmount, roundUp);
+        usmOut = usm.ethToUsm(usm.latestPrice(), ethAmount, roundUp);
     }
 
     /**
@@ -42,8 +40,7 @@ contract USMView {
      * @return ethOut The amount of ETH
      */
     function usmToEth(uint usmAmount, bool roundUp) external view returns (uint ethOut) {
-        (uint price, ) = usm.latestPrice();
-        ethOut = usm.usmToEth(price, usmAmount, roundUp);
+        ethOut = usm.usmToEth(usm.latestPrice(), usmAmount, roundUp);
     }
 
     /**
@@ -51,8 +48,7 @@ contract USMView {
      * @return ratio Debt ratio
      */
     function debtRatio() external view returns (uint ratio) {
-        (uint price, ) = usm.latestPrice();
-        ratio = usm.debtRatio(price, usm.ethPool(), usm.totalSupply());
+        ratio = usm.debtRatio(usm.latestPrice(), usm.ethPool(), usm.totalSupply());
     }
 
     /**
@@ -60,9 +56,8 @@ contract USMView {
      * @return price USM price in ETH terms
      */
     function usmPrice(IUSM.Side side) external view returns (uint price) {
-        (uint ethUsdPrice, ) = usm.latestPrice();
         IUSM.Side ethSide = (side == IUSM.Side.Buy ? IUSM.Side.Sell : IUSM.Side.Buy);   // Buying USM = selling ETH
-        uint adjustedPrice = usm.adjustedEthUsdPrice(ethSide, ethUsdPrice, usm.bidAskAdjustment());
+        uint adjustedPrice = usm.adjustedEthUsdPrice(ethSide, usm.latestPrice(), usm.bidAskAdjustment());
         price = usm.usmPrice(side, adjustedPrice);
     }
 
@@ -81,7 +76,7 @@ contract USMView {
      * @return price FUM price in ETH terms
      */
     function fumPrice(IUSM.Side side, bool prefund) public view returns (uint price) {
-        (uint ethUsdPrice, ) = usm.latestPrice();
+        uint ethUsdPrice = usm.latestPrice();
         uint adjustedPrice = usm.adjustedEthUsdPrice(side, ethUsdPrice, usm.bidAskAdjustment());
         uint ethPool = usm.ethPool();
         uint usmSupply = usm.totalSupply();
