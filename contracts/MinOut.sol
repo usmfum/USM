@@ -7,14 +7,17 @@ library MinOut {
     uint public constant LIMIT_PRICE_SCALING_FACTOR = 100;      // So, last 7 digits "1234567" / 100 = limit price 12345.67
 
     function parseMinTokenOut(uint ethIn) internal pure returns (uint minTokenOut) {
-        uint minPrice = ethIn % ZEROES_PLUS_LIMIT_PRICE_DIGITS;
+        uint minPrice;
+        unchecked { minPrice = ethIn % ZEROES_PLUS_LIMIT_PRICE_DIGITS; }
         if (minPrice != 0 && minPrice < LIMIT_PRICE_DIGITS) {
-            minTokenOut = ethIn * minPrice / LIMIT_PRICE_SCALING_FACTOR;
+            minTokenOut = ethIn * minPrice;
+            unchecked { minTokenOut /= LIMIT_PRICE_SCALING_FACTOR; }
         }
     }
 
     function parseMinEthOut(uint tokenIn) internal pure returns (uint minEthOut) {
-        uint maxPrice = tokenIn % ZEROES_PLUS_LIMIT_PRICE_DIGITS;
+        uint maxPrice;
+        unchecked { maxPrice = tokenIn % ZEROES_PLUS_LIMIT_PRICE_DIGITS; }
         if (maxPrice != 0 && maxPrice < LIMIT_PRICE_DIGITS) {
             minEthOut = tokenIn * LIMIT_PRICE_SCALING_FACTOR / maxPrice;
         }

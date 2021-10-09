@@ -418,14 +418,14 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      */
     function loadState() public view returns (LoadedState memory ls) {
         ls.timeSystemWentUnderwater = storedState.timeSystemWentUnderwater;
-        ls.ethUsdPrice = storedState.ethUsdPrice * TRILLION;    // Converting stored MILLION (1e6) format to WAD (1e18)
-        ls.oracleEthUsdPrice = storedState.oracleEthUsdPrice * TRILLION;
+        unchecked { ls.ethUsdPrice = storedState.ethUsdPrice * TRILLION; }  // Convert MILLION (1e6) format to WAD (1e18)
+        unchecked { ls.oracleEthUsdPrice = storedState.oracleEthUsdPrice * TRILLION; }
 
         // Bring bidAskAdjustment up to the present - it gravitates towards 1 over time, so the stored value is obsolete:
         ls.bidAskAdjustmentTimestamp = block.timestamp;
-        ls.bidAskAdjustment = bidAskAdjustment(storedState.bidAskAdjustmentTimestamp,
-                                               storedState.bidAskAdjustment * TRILLION,
-                                               block.timestamp);
+        unchecked { ls.bidAskAdjustment = bidAskAdjustment(storedState.bidAskAdjustmentTimestamp,
+                                                           storedState.bidAskAdjustment * TRILLION,
+                                                           block.timestamp); }
 
         ls.ethPool = ethPool();
         ls.usmTotalSupply = totalSupply();
@@ -443,7 +443,8 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         // Reverse the input upOrDown, since we're using it for usmToEth(), which will be *subtracted* from ethInPool below:
         uint usmValueInEth = usmToEth(ethUsdPrice, usmSupply, !roundUp);    // Iff rounding the buffer up, round usmValue down
         require(ethUsdPrice <= uint(type(int).max) && usmValueInEth <= uint(type(int).max), "ethBuffer overflow/underflow");
-        buffer = int(ethInPool) - int(usmValueInEth);   // After the previous line, no over/underflow should be possible here
+        // After the previous line, no over/underflow should be possible here:
+        unchecked { buffer = int(ethInPool) - int(usmValueInEth); }
     }
 
     /**
@@ -673,7 +674,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
                 // 2. Given the delta, we can calculate the adjGrowthFactor (price impact): for mint() (delta 1), the factor
                 // was poolChangeFactor**(1 / 2); now instead we use poolChangeFactor**(netFumDelta / 2).
                 uint ethPool1 = ls.ethPool + ethIn;
-                adjGrowthFactor = ethPool1.wadDivUp(ls.ethPool).wadPowUp(netFumDelta / 2);
+                unchecked { adjGrowthFactor = ethPool1.wadDivUp(ls.ethPool).wadPowUp(netFumDelta / 2); }
             }
 
             // 3. Here we use the same simplifying trick as usmFromMint() above: we pretend our entire FUM purchase is done at
@@ -729,7 +730,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
 
             // 5. Combining lowerBoundEthShrinkFactor1 and netFumDelta2 gives us our final, pessimistic adjShrinkFactor, from
             // our standard formula adjChangeFactor = ethChangeFactor**(netFumDelta / 2):
-            adjShrinkFactor = lowerBoundEthShrinkFactor1.wadPowDown(netFumDelta2 / 2);
+            unchecked { adjShrinkFactor = lowerBoundEthShrinkFactor1.wadPowDown(netFumDelta2 / 2); }
         }
 
         // 6. And adjShrinkFactor tells us the adjustedEthUsdPrice2 we'll end the operation at, from which we can also
@@ -745,7 +746,8 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         // highly perverse result that a *larger* fumIn returns strictly *less* ETH!  What alternative to geometric average
         // gives the best results here is a complicated problem, but one simple option that avoids the avgFumSellPrice = 0 flaw
         // is to just take the arithmetic average instead, (fumSellPrice0 + fumSellPrice2) / 2:
-        uint avgFumSellPrice = (fumSellPrice0 + fumSellPrice2) / 2;
+        uint avgFumSellPrice = fumSellPrice0 + fumSellPrice2;
+        unchecked { avgFumSellPrice /= 2; }
         ethOut = fumIn.wadMulDown(avgFumSellPrice);
     }
 }
