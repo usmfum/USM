@@ -19,7 +19,7 @@ contract('USM - Internal functions', (accounts) => {
 
   beforeEach(async () => {
     oracle = await TestOracle.new(priceWAD, { from: deployer })
-    usm = await USM.new(oracle.address, [], { from: deployer })
+    usm = await USM.new(oracle.address, [], [], { from: deployer })
     usmView = await USMView.new(usm.address, { from: deployer })
   })
 

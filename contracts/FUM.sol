@@ -16,9 +16,10 @@ import "./MinOut.sol";
 contract FUM is IFUM, ERC20Permit, OptOutable {
     IUSM public immutable usm;
 
-    constructor(address[] memory optedOut_)
+    constructor(address[] memory addressesYouCantSendThisContractsTokensTo,
+                address[] memory contractsToAskToRejectSendsToThisContractsAddress)
         ERC20Permit("Minimalist Funding v1.0 - Test 4", "FUMTest")
-        OptOutable(optedOut_)
+        OptOutable(addressesYouCantSendThisContractsTokensTo, contractsToAskToRejectSendsToThisContractsAddress)
     {
         usm = IUSM(msg.sender);     // FUM constructor can only be called by a USM instance
     }

@@ -58,12 +58,14 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         bidAskAdjustmentTimestamp: 0, bidAskAdjustment: uint64(MILLION)         // Initialize adjustment to 1.0 (scaled by 1m)
     });
 
-    constructor(Oracle oracle_, address[] memory optedOut_)
+    constructor(Oracle oracle_,
+                address[] memory addressesYouCantSendThisContractsTokensTo,
+                address[] memory contractsToAskToRejectSendsToThisContractsAddress)
         ERC20Permit("Minimalist USD v1.0 - Test 4", "USMTest")
-        OptOutable(optedOut_)
+        OptOutable(addressesYouCantSendThisContractsTokensTo, contractsToAskToRejectSendsToThisContractsAddress)
     {
         oracle = oracle_;
-        fum = new FUM(optedOut_);
+        fum = new FUM(addressesYouCantSendThisContractsTokensTo, contractsToAskToRejectSendsToThisContractsAddress);
     }
 
     // ____________________ Modifiers ____________________
