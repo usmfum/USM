@@ -19,7 +19,8 @@ library MinOut {
         uint maxPrice;
         unchecked { maxPrice = tokenIn % ZEROES_PLUS_LIMIT_PRICE_DIGITS; }
         if (maxPrice != 0 && maxPrice < LIMIT_PRICE_DIGITS) {
-            minEthOut = tokenIn * LIMIT_PRICE_SCALING_FACTOR / maxPrice;
+            minEthOut = tokenIn * LIMIT_PRICE_SCALING_FACTOR;
+            unchecked { minEthOut /= maxPrice; }
         }
     }
 }
