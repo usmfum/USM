@@ -13,9 +13,9 @@ contract ChainlinkOracle is Oracle {
 
     AggregatorV3Interface public immutable chainlinkAggregator;
 
-    constructor(AggregatorV3Interface aggregator_)
+    constructor(AggregatorV3Interface aggregator)
     {
-        chainlinkAggregator = aggregator_;
+        chainlinkAggregator = aggregator;
     }
 
     /**
