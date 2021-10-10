@@ -288,8 +288,6 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      * @notice Stores the current price (and oracle price), `bidAskAdjustment`, and `timeSystemWentUnderwater`.
      */
     function _storeState(LoadedState memory ls) internal {
-        require(ls.bidAskAdjustmentTimestamp <= type(uint32).max, "bidAskAdjustmentTimestamp overflow");
-
         if (ls.timeSystemWentUnderwater != storedState.timeSystemWentUnderwater) {
             require(ls.timeSystemWentUnderwater <= type(uint32).max, "timeSystemWentUnderwater overflow");
             bool isUnderwater = (ls.timeSystemWentUnderwater != 0);
@@ -307,10 +305,9 @@ contract USM is IUSM, ERC20Permit, OptOutable {
             require(priceToStore <= type(uint64).max, "ethUsdPrice overflow");
             unchecked { emit PriceChanged(priceToStore * TRILLION, oraclePriceToStore * TRILLION); }
         }
-        if (oraclePriceToStore != storedState.oracleEthUsdPrice) {
-            require(oraclePriceToStore <= type(uint64).max, "oracleEthUsdPrice overflow");
-        }
+        require(oraclePriceToStore <= type(uint64).max, "oracleEthUsdPrice overflow");
 
+        require(ls.bidAskAdjustmentTimestamp <= type(uint32).max, "bidAskAdjustmentTimestamp overflow");
         uint adjustmentToStore = ls.bidAskAdjustment + HALF_TRILLION;
         unchecked { adjustmentToStore /= TRILLION; }
         if (adjustmentToStore != storedState.bidAskAdjustment) {
@@ -678,7 +675,8 @@ contract USM is IUSM, ERC20Permit, OptOutable {
                 // leveraged), so holding it fixed at its initial value is "pessimistic", like we want - ensures we charge more
                 // fees than the theoretical amount, not less.
                 uint effectiveDebtRatio0 = debtRatio_.wadMin(MAX_DEBT_RATIO);
-                uint netFumDelta = effectiveDebtRatio0.wadDivUp(WAD - effectiveDebtRatio0);
+                uint netFumDelta;
+                unchecked { netFumDelta = effectiveDebtRatio0.wadDivUp(WAD - effectiveDebtRatio0); }
 
                 // 2. Given the delta, we can calculate the adjGrowthFactor (price impact): for mint() (delta 1), the factor
                 // was poolChangeFactor**(1 / 2); now instead we use poolChangeFactor**(netFumDelta / 2).
@@ -735,7 +733,8 @@ contract USM is IUSM, ERC20Permit, OptOutable {
             // calculation:
             uint debtRatio1 = debtRatio(adjustedEthUsdPrice1, lowerBoundEthQty1, ls.usmTotalSupply);
             uint debtRatio2 = debtRatio1.wadMin(MAX_DEBT_RATIO);    // defund() fails anyway if dr ends > MAX, so cap it at MAX
-            uint netFumDelta2 = WAD.wadDivUp(WAD - debtRatio2) - WAD;
+            uint netFumDelta2;
+            unchecked { netFumDelta2 = WAD.wadDivUp(WAD - debtRatio2) - WAD; }
 
             // 5. Combining lowerBoundEthShrinkFactor1 and netFumDelta2 gives us our final, pessimistic adjShrinkFactor, from
             // our standard formula adjChangeFactor = ethChangeFactor**(netFumDelta / 2):
