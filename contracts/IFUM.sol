@@ -5,17 +5,17 @@ import "acc-erc20/contracts/IERC20.sol";
 
 interface IFUM is IERC20 {
     /**
-     * @notice Mint new FUM to the _recipient
+     * @notice Mint new FUM to the recipient
      *
-     * @param _recipient address to mint to
-     * @param _amount amount to mint
+     * @param recipient address to mint to
+     * @param amount amount to mint
      */
-    function mint(address _recipient, uint _amount) external;
+    function mint(address recipient, uint amount) external;
     /**
-     * @notice Burn FUM from _holder
+     * @notice Burn FUM from holder
      *
-     * @param _holder address to burn from
-     * @param _amount amount to burn
+     * @param holder address to burn from
+     * @param amount amount to burn
      */
-    function burn(address _holder, uint _amount) external;
+    function burn(address holder, uint amount) external;
 }

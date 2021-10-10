@@ -49,24 +49,24 @@ contract FUM is IFUM, ERC20Permit, OptOutable {
     }
 
     /**
-     * @notice Mint new FUM to the _recipient
+     * @notice Mint new FUM to the recipient
      *
-     * @param _recipient address to mint to
-     * @param _amount amount to mint
+     * @param recipient address to mint to
+     * @param amount amount to mint
      */
-    function mint(address _recipient, uint _amount) external override {
+    function mint(address recipient, uint amount) external override {
         require(msg.sender == address(usm), "Only USM");
-        _mint(_recipient, _amount);
+        _mint(recipient, amount);
     }
 
     /**
-     * @notice Burn FUM from _holder
+     * @notice Burn FUM from holder
      *
-     * @param _holder address to burn from
-     * @param _amount amount to burn
+     * @param holder address to burn from
+     * @param amount amount to burn
      */
-    function burn(address _holder, uint _amount) external override {
+    function burn(address holder, uint amount) external override {
         require(msg.sender == address(usm), "Only USM");
-        _burn(_holder, _amount);
+        _burn(holder, amount);
     }
 }
