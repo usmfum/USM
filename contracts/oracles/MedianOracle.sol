@@ -44,7 +44,7 @@ contract MedianOracle is ChainlinkOracle, UniswapV3TWAPOracle, UniswapV3TWAPOrac
 
     /**
      * @notice Currently only supports three inputs
-     * @return m the median of the three values passed in
+     * @return m The median of the three values passed in
      */
     function median(uint a, uint b, uint c)
         public pure returns (uint m)
