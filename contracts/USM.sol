@@ -61,7 +61,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
     constructor(Oracle oracle_,
                 address[] memory addressesYouCantSendThisContractsTokensTo,
                 address[] memory contractsToAskToRejectSendsToThisContractsAddress)
-        ERC20Permit("Minimalist USD v1.0 - Test 4", "USMTest")
+        ERC20Permit("Minimalist USD v1 - Release Candidate 1", "USM")
         OptOutable(addressesYouCantSendThisContractsTokensTo, contractsToAskToRejectSendsToThisContractsAddress)
     {
         oracle = oracle_;
