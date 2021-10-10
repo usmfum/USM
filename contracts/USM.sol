@@ -188,7 +188,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         require(ls.ethPool > 0, "Fund before minting");
 
         // 3. Refresh the oracle price (if available - see checkForFreshOraclePrice() below):
-        (ls.ethUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice, ls.oracleEthUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 4. Calculate usmOut:
         uint adjShrinkFactor;
@@ -210,7 +210,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice, ls.oracleEthUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Calculate ethOut:
         uint adjGrowthFactor;
@@ -234,7 +234,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         ls.ethPool -= msg.value;    // Backing out the ETH just received, which our calculations should ignore
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice, ls.oracleEthUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Refresh timeSystemWentUnderwater, and replace ls.usmTotalSupply with the *effective* USM supply for FUM buys:
         uint debtRatio_;
@@ -262,7 +262,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
         LoadedState memory ls = loadState();
 
         // 2. Refresh the oracle price:
-        (ls.ethUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
+        (ls.ethUsdPrice, ls.oracleEthUsdPrice, ls.bidAskAdjustment) = checkForFreshOraclePrice(ls);
 
         // 3. Calculate ethOut:
         uint fumSupply = fum.totalSupply();
@@ -326,7 +326,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
     // ____________________ Public Oracle view functions ____________________
 
     function latestPrice() public virtual override view returns (uint price) {
-        (price,) = checkForFreshOraclePrice(loadState());
+        (price,,) = checkForFreshOraclePrice(loadState());
     }
 
     // ____________________ Public informational view functions ____________________
@@ -337,47 +337,49 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      * system price, `ls.ethUsdPrice`, which may have been nudged around by mint/burn operations since the last oracle update.
      */
     function checkForFreshOraclePrice(LoadedState memory ls)
-        public view returns (uint price, uint adjustment)
+        public view returns (uint price, uint oraclePrice, uint adjustment)
     {
-        price = oracle.latestPrice();
-        uint oraclePriceRounded = price + HALF_TRILLION;    // Round for comparison below (we only store millionths precision)
-        unchecked { oraclePriceRounded = oraclePriceRounded / TRILLION * TRILLION; }    // Zeroing out the last 12 digits
+        oraclePrice = oracle.latestPrice() + HALF_TRILLION; // Round for comparison below (we only store millionths precision)
+        unchecked { oraclePrice = oraclePrice / TRILLION * TRILLION; }  // Zeroing out the last 12 digits
 
         adjustment = ls.bidAskAdjustment;
 
-        if (oraclePriceRounded == ls.oracleEthUsdPrice) {   // Oracle price unchanged from last time, so keep our stored price
+        if (oraclePrice == ls.oracleEthUsdPrice) {          // Oracle price unchanged from last time, so keep our stored price
             price = ls.ethUsdPrice;
-        } else if (ls.ethUsdPrice != 0) {                   // If old price is 0, don't try to use it to adjust bidAskAdj...
-            ls.oracleEthUsdPrice = oraclePriceRounded;
-            /**
-             * This is a bit subtle.  We want to update the mid stored price to the oracle's fresh value, while updating
-             * bidAskAdjustment in such a way that the currently adjusted (more expensive than mid) side gets no cheaper/more
-             * favorably priced for users.  Example:
-             *
-             * 1. storedPrice = $1,000, and bidAskAdjustment = 1.02.  So, our current ETH buy price is $1,020, and our current
-             *    ETH sell price is $1,000 (mid).
-             * 2. The oracle comes back with a fresh price of $990.
-             * 3. The currently adjusted price is buy price (ie, adj > 1).  So, we want to:
-             *    a) Update storedPrice (mid) to $990.
-             *    b) Update bidAskAdj to ensure that buy price remains >= $1,020.
-             * 4. We do this by upping bidAskAdj 1.02 -> 1.0303.  Then the new buy price will remain $990 * 1.0303 = $1,020.
-             *    The sell price will remain the unadjusted mid: formerly $1,000, now $990.
-             *
-             * Because the bidAskAdjustment reverts to 1 in a few minutes, the new 3.03% buy premium is temporary: buy price
-             * will revert to the $990 mid soon - unless the new mid is egregiously low, in which case buyers should push it
-             * back up.  Eg, suppose the oracle gives us a glitchy price of $99.  Then new mid = $99, bidAskAdj = 10.303, buy
-             * price = $1,020, and the buy price will rapidly drop towards $99; but as it does so, users are incentivized to
-             * step in and buy, eventually pushing mid back up to the real-world ETH market price (eg $990).
-             *
-             * In cases like this, our bidAskAdj update has protected the system, by preventing users from getting any chance
-             * to buy at the bogus $99 price.
-             */
-            if (adjustment > WAD) {
-                // max(1, old buy price / new mid price):
-                adjustment = WAD.wadMax(ls.ethUsdPrice.wadMulDivUp(adjustment, price));
-            } else if (adjustment < WAD) {
-                // min(1, old sell price / new mid price):
-                adjustment = WAD.wadMin(ls.ethUsdPrice.wadMulDivDown(adjustment, price));
+        } else {
+            price = oraclePrice;
+            if (ls.ethUsdPrice != 0) {                      // If old price is 0, don't try to use it to adjust bidAskAdj...
+                /**
+                 * This is a bit subtle.  We want to update the mid stored price to the oracle's fresh value, while updating
+                 * bidAskAdjustment in such a way that the currently adjusted (more expensive than mid) side gets no
+                 * cheaper/more favorably priced for users.  Example:
+                 *
+                 * 1. storedPrice = $1,000, and bidAskAdjustment = 1.02.  So, our current ETH buy price is $1,020, and our
+                 *    current ETH sell price is $1,000 (mid).
+                 * 2. The oracle comes back with a fresh price of $990.
+                 * 3. The currently adjusted price is buy price (ie, adj > 1).  So, we want to:
+                 *    a) Update storedPrice (mid) to $990.
+                 *    b) Update bidAskAdj to ensure that buy price remains >= $1,020.
+                 * 4. We do this by upping bidAskAdj 1.02 -> 1.0303.  Then the new buy price will remain $990 * 1.0303 =
+                 *    $1,020.  The sell price will remain the unadjusted mid: formerly $1,000, now $990.
+                 *
+                 * Because the bidAskAdjustment reverts to 1 in a few minutes, the new 3.03% buy premium is temporary: buy
+                 * price will revert to the $990 mid soon - unless the new mid is egregiously low, in which case buyers should
+                 * push it back up.  Eg, suppose the oracle gives us a glitchy price of $99.  Then new mid = $99, bidAskAdj =
+                 * 10.303, buy price = $1,020, and the buy price will rapidly drop towards $99; but as it does so, users are
+                 * incentivized to step in and buy, eventually pushing mid back up to the real-world ETH market price (eg
+                 * $990).
+                 *
+                 * In cases like this, our bidAskAdj update has protected the system, by preventing users from getting any
+                 * chance to buy at the bogus $99 price.
+                 */
+                if (adjustment > WAD) {
+                    // max(1, old buy price / new mid price):
+                    adjustment = WAD.wadMax(ls.ethUsdPrice.wadMulDivUp(adjustment, price));
+                } else if (adjustment < WAD) {
+                    // min(1, old sell price / new mid price):
+                    adjustment = WAD.wadMin(ls.ethUsdPrice.wadMulDivDown(adjustment, price));
+                }
             }
         }
     }
