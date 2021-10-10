@@ -176,7 +176,7 @@ contract('USM', (accounts) => {
       oracle = await MedianOracle.new(aggregator.address,
         usdcEthPool.address, usdcEthTokenToPrice, usdcEthDecimals,
         ethUsdtPool.address, ethUsdtTokenToPrice, ethUsdtDecimals, { from: deployer })
-      usm = await USM.new(oracle.address, [optOut1, optOut2], { from: deployer })
+      usm = await USM.new(oracle.address, [optOut1, optOut2], [], { from: deployer })
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
 

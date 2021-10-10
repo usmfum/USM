@@ -9,7 +9,8 @@ pragma solidity ^0.8.0;
  *
  * To avoid this, we want the USMv1 contract to be able to "opt out" of receiving USMv2 tokens, and vice versa:
  *
- *     1. During creation of USMv2, the address of USMv1 is included in the `optedOut_` argument to the USMv2 constructor.
+ *     1. During creation of USMv2, the address of USMv1 is included in the `addressesNoOptOutFnsShouldFailOn` argument to the
+ *        USMv2 constructor.
  *     2. This puts USMv1 in USMv2's `optedOut` state variable.
  *     3. Then, if someone accidentally tries to send USMv1 tokens to the USMv2 address, the `_transfer()` call fails, rather
  *        than the USMv1 tokens being permanently lost.
@@ -25,11 +26,15 @@ pragma solidity ^0.8.0;
 abstract contract OptOutable {
     event OptOutStatusChanged(address indexed user, bool newStatus);
 
-    mapping(address => bool) public optedOut;  // true = address opted out of something
+    mapping(address => bool) public optedOut;   // true = address opted out of certain ops on this contract, marked noOptOut
 
-    constructor(address[] memory optedOut_) {
-        for (uint i = 0; i < optedOut_.length; i++) {
-            optedOut[optedOut_[i]] = true;
+    constructor(address[] memory addressesNoOptOutFnsShouldFailOn, address[] memory contractsToAskToRejectThisContractsAddress)
+    {
+        for (uint i = 0; i < addressesNoOptOutFnsShouldFailOn.length; i++) {
+            optedOut[addressesNoOptOutFnsShouldFailOn[i]] = true;
+        }
+        for (uint i = 0; i < contractsToAskToRejectThisContractsAddress.length; i++) {
+            OptOutable(contractsToAskToRejectThisContractsAddress[i]).optOut();
         }
     }
 

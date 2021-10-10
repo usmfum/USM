@@ -1,4 +1,3 @@
-
 const func = async function ({ deployments, getNamedAccounts, getChainId }) {
   const { deploy, get, read, execute } = deployments;
   const { deployer } = await getNamedAccounts();

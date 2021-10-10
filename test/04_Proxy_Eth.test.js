@@ -32,7 +32,7 @@ contract('USM - USMWETHProxy - Eth', (accounts) => {
       // Deploy contracts
       weth = await WETH9.new({ from: deployer })
       oracle = await TestOracle.new(priceWAD, { from: deployer })
-      usm = await USM.new(oracle.address, [], { from: deployer })
+      usm = await USM.new(oracle.address, [], [], { from: deployer })
       fum = await FUM.at(await usm.fum())
       usmView = await USMView.new(usm.address, { from: deployer })
       proxy = await USMWETHProxy.new(usm.address, weth.address, { from: deployer })

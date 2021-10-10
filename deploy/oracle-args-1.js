@@ -1,8 +1,8 @@
 const addresses = {
     'chainlink': '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
-    'usdcEth': '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
-    'ethUsdt': '0x11b815efb8f581194ae79006d24e0d814b7697f6',
-    'daiEth': '0x60594a405d53811d3bc4766596efd80fd545a270',
+    'usdcEth': '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
+    'ethUsdt': '0x11b815efB8f581194ae79006d24E0d814B7697F6',
+    'daiEth': '0x60594a405d53811d3BC4766596EFD80fd545A270',
 }
 
 const usdcEthTokenToPrice = 1
