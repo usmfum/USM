@@ -86,7 +86,10 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      * @param to address to send the USM to.
      * @param minUsmOut Minimum accepted USM for a successful mint.
      */
-    function mint(address to, uint minUsmOut) external payable override returns (uint usmOut) {
+    function mint(address to, uint minUsmOut)
+        external payable override
+        returns (uint usmOut)
+    {
         usmOut = _mintUsm(to, minUsmOut);
     }
 
@@ -109,7 +112,10 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      * @param to address to send the FUM to.
      * @param minFumOut Minimum accepted FUM for a successful fund.
      */
-    function fund(address to, uint minFumOut) external payable override returns (uint fumOut) {
+    function fund(address to, uint minFumOut)
+        external payable override
+        returns (uint fumOut)
+    {
         fumOut = _fundFum(to, minFumOut);
     }
 
@@ -160,7 +166,8 @@ contract USM is IUSM, ERC20Permit, OptOutable {
      * are `0000`, then the next 7 will be parsed as the maximum number of USM tokens sent per ETH received, with the 7-digit
      * number interpreted as "hundredths of a USM".  See comments in `MinOut`.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) returns (bool) {
+    function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) returns (bool)
+    {
         if (recipient == address(this) || recipient == address(fum) || recipient == address(0)) {
             _burnUsm(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {

@@ -39,7 +39,8 @@ contract FUM is IFUM, ERC20Permit, OptOutable {
      * are `0000`, then the next 7 will be parsed as the maximum number of FUM tokens sent per ETH received, with the 7-digit
      * number interpreted as "hundredths of a FUM".  See comments in `MinOut`.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) returns (bool) {
+    function _transfer(address sender, address recipient, uint256 amount) internal override noOptOut(recipient) returns (bool)
+    {
         if (recipient == address(this) || recipient == address(usm) || recipient == address(0)) {
             usm.defundFrom(sender, payable(sender), amount, MinOut.parseMinEthOut(amount));
         } else {
