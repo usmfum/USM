@@ -29,7 +29,7 @@ contract USM is IUSM, ERC20Permit, OptOutable {
     uint public constant BID_ASK_ADJUSTMENT_DECAY_PER_SECOND = 988514020352896135;  // 1-sec decay equiv to halving in 1 minute
     uint public constant BID_ASK_ADJUSTMENT_ZERO_OUT_PERIOD = 600;                  // After 10 min, adjustment just goes to 0
 
-    uint public constant PREFUND_END_TIMESTAMP = 1635724800;                        // Midnight, morning of Nov 1, 2021
+    uint public constant PREFUND_END_TIMESTAMP = 1635724800;                        // Midnight (UTC), morning of Nov 1, 2021
     uint public constant PREFUND_FUM_PRICE_IN_ETH = WAD / 4000;                     // Prefund FUM price: 1/4000 = 0.00025 ETH
 
     IFUM public immutable override fum;
