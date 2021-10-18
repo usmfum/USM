@@ -67,7 +67,7 @@ module.exports = {
     mainnet: {
       accounts,
       url: nodeUrl('mainnet'),
-      gasPrice: 150000000000
+      gasPrice: 51000000000
     },
     coverage: {
       url: 'http://127.0.0.1:8555',
@@ -81,7 +81,7 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 5000000,
+        runs: 1000000,
       }
     }
   },

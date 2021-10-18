@@ -1,5 +1,4 @@
 const addresses = {
-    'oracle': '0x7F360C88CABdcC2F2874Ec4Eb05c3D47bD0726C5',         // mainnet (2021/10/10)
     'USMv0.1': '0x21453979384f21D09534f8801467BDd5d90eCD6C',        // kovan (2020/12/11)
     'FUMv0.1': '0x96F8F5323Aa6CB0e6F311bdE6DEEFb1c81Cb1898',        // kovan (2020/12/11)
     'USMv0.2': '0x03eb7Ce2907e202bB70BAE3D7B0C588573d3cECC',        // mainnet (2020/12/16)
@@ -17,7 +16,6 @@ const addresses = {
 }
 
 module.exports = [
-    addresses['oracle'],
     [
         addresses['USMv0.1'],
         addresses['FUMv0.1'],
