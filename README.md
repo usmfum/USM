@@ -13,6 +13,8 @@ Read more in the [original series of 2020 Medium posts that sketched the design]
 
 ### USM v1-rc1 (mainnet v1 release candidate)
 
+[Live v1 stats dashboard](https://usmfum.github.io/USM-Stats/)
+
 On Oct 10, 2021, **v1 LAUNCHED!**  🎆🎉😬  v1-rc1 is the first uncapped mainnet USM release, which is exciting; but as a release _candidate_ v1-rc1 **may still be replaced by a v1-rc2 if significant problems are found** - keep an eye on [Twitter](https://twitter.com/usmfum) for news of any such developments.  See the [initial launch thread](https://twitter.com/usmfum/status/1447437647727763456) and give it a poke.
 
 * Oracle: [0x7F360C88CABdcC2F2874Ec4Eb05c3D47bD0726C5](https://etherscan.io/address/0x7F360C88CABdcC2F2874Ec4Eb05c3D47bD0726C5)
@@ -38,8 +40,6 @@ v0.5 is a test release, but on mainnet and full-featured, except that it becomes
 * Proxy: [0x4096DACc67Bae0F5b762D5DF98B343B0AaBAc1C0](https://kovan.etherscan.io/address/0x4096DACc67Bae0F5b762D5DF98B343B0AaBAc1C0)
 
 ### USM v0.1 ("Baby USM") - Mainnet
-
-[Live Stats](https://usmfum.github.io/USM-Stats/)
 
 Baby USM is a "beta" version of USM. Baby USM expires on the 15th of January 2021 when it becomes withdraw-and-read-only. At this point, FUM and USM will be redeemable for ETH, but no more minting of either can occur.
 
