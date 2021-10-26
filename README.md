@@ -7,7 +7,7 @@ USM is an attempt to answer the question "What's the simplest possible decentral
 * `fund` (ETH->FUM)
 * `defund` (FUM->ETH)
 
-Read more in the [original series of 2020 Medium posts that sketched the design](https://jacob-eliosoff.medium.com/whats-the-simplest-possible-decentralized-stablecoin-4a25262cf5e8), and [@usmfum](https://twitter.com/usmfum) on Twitter.
+Read more in [our new FAQ](./faq.md) (and suggest additions!); in the [original series of 2020 Medium posts that sketched the design](https://jacob-eliosoff.medium.com/whats-the-simplest-possible-decentralized-stablecoin-4a25262cf5e8); and at [@usmfum](https://twitter.com/usmfum) on Twitter.
 
 ## Networks & Addresses
 
