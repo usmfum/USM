@@ -259,7 +259,8 @@ Once you have some ETH, some ways to buy USM/FUM:
 USM) or to the FUM contract (to get FUM).  You should see some USM (or FUM) returned to your wallet in the same transaction:
 see this [sample `fund`
 transaction](https://etherscan.io/tx/0x09fea254b966beab9439d67b941b46d02c53594c21d1fded9e92158e18b213e9), sending 0.2 ETH to
-the FUM contract and receiving 800 (0.2 / 0.00025) FUM tokens in return.
+the FUM contract and receiving 800 (0.2 / 0.00025) FUM tokens in return.  Just remember to specify a gas limit of 250,000 or
+so, rather than the default 21,000.
 * **Etherscan's user interface.**  Go to the USM contract (see contract addresses/links at top), click Contract->Write
 Contract, select the appropriate op (`mint`/`fund`), enter the amount of ETH to submit and your own recipient address, and
 click Write.  This should achieve the same thing as the op-via-send option above.
