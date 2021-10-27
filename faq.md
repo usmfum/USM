@@ -234,7 +234,7 @@ no longer reflect the true ETH/USD price.  Or Chainlink goes down + a hacker fin
 * Our code has no *engineering* bugs, but it turns out our fundamental algorithms aren't robust: eg, our oracle is
 slow/inaccurate enough that arbitrageurs are able to repeatedly "pick off" our stale prices.  Or, attackers are able to find a
 way to move Uniswap's ETH/USDC and ETH/USDT prices, then do USM `mint`/`burn` ops, that yields them a net profit.
-* The ETH/USD price drops sharply, the USM system "goes underwater" (value of outstanding USM > value of ETH in pool), and the
+* The ETH/USD price drops sharply, the USM system "goes underwater" (value of ETH in pool < value of outstanding USM), and the
 mechanisms we designed to keep the system working and recover from that scenario, don't work.
 * The ETH/USD price drops, so your FUM's value drops too.  Because FUM acts like "leveraged ETH", an ETH price drop will
 normally lead to an even larger drop in the price of FUM.  The fees FUM holders earn from USM users might offset the ETH price
