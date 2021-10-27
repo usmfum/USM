@@ -143,9 +143,9 @@ tighter-peg" end of the field.
 The core purpose of the USM system is simple: to make USM work as a stablecoin.  But in order for the system to work, another
 token is needed: FUM ("Minimalist Funding"), the "vol-coin" to USM's stablecoin.  (See the [original USM blog
 post](https://jacob-eliosoff.medium.com/whats-the-simplest-possible-decentralized-stablecoin-4a25262cf5e8).)  One way to think
-of it is, the system sits on a pool of ETH (with significant market price exposure), and we "tranche" it into two subpools:
-one backed by USM (with no market price exposure), and one backed by FUM (with *extra* market price exposure).  The risk "has
-to go somewhere": the FUM holders take it so the USM holders don't have to.
+of it is, the system sits on a pool of ETH (with significant market price exposure), and we "tranche" it into two subpools: one
+made of USM (with no market price exposure), and one made of FUM (with *extra* market price exposure).  The risk "has to go
+somewhere": the FUM holders take it so the USM holders don't have to.
 
 In practice, the FUM price will swing even more wildly than the ETH price.  FUM holders also earn the fees charged by the
 system on all `mint`/`burn` operations.  So buying-and-holding FUM may make sense if you expect USM to attract a lot of
