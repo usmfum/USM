@@ -236,6 +236,10 @@ slow/inaccurate enough that arbitrageurs are able to repeatedly "pick off" our s
 way to move Uniswap's ETH/USDC and ETH/USDT prices, then do USM `mint`/`burn` ops, that yields them a net profit.
 * The ETH/USD price drops sharply, the USM system "goes underwater" (value of outstanding USM > value of ETH in pool), and the
 mechanisms we designed to keep the system working and recover from that scenario, don't work.
+* The ETH/USD price drops, so your FUM's value drops too.  Because FUM acts like "leveraged ETH", an ETH price drop will
+normally lead to an even larger drop in the price of FUM.  The fees FUM holders earn from USM users might offset the ETH price
+drop; but they might not.  Holding FUM means accepting both significant technical risk to the USM system itself, and leveraged
+market risk to ETH's price.
 * There's nothing wrong with the system per se, but some combination of UI clunkiness and user error leads to an "oopsie"
 moment: eg the user sending money to the wrong address/wrong version/on the wrong chain (eg BSC rather than ETH)/on mainnet
 rather than testnet.  Please be careful when using the system!  Tech this new comes with some user-unfriendly moments and
