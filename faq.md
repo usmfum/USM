@@ -123,7 +123,7 @@ Many of the most popular stablecoins, like USDT and USDC, are significantly cent
 executives, sitting on bank accounts.  And the company could go bankrupt, or the bank account could be frozen by regulators, or
 the executive could abscond with the funds.  There are pros and cons to this: eg, if you accidentally send your USDT or USDC to
 a mistyped address, you can contact the administrators and they may be able to refund you.  But the cryptocurrency dream is
-tools for sending money that don't have these vulnerabilites.  It's technically impossible for us the creators of USM to
+tools for sending money that don't have these vulnerabilities.  It's technically impossible for us the creators of USM to
 abscond with your money; the flip side is, if you send your USM to the wrong address, there's nothing we can do.  Welcome to
 crypto!
 
